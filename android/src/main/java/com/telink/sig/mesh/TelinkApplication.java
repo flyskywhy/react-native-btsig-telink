@@ -9,14 +9,14 @@
  * @par Copyright (c) 2010, Telink Semiconductor (Shanghai) Co., Ltd.
  *           All rights reserved.
  *
- *			 The information contained herein is confidential and proprietary property of Telink 
- * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms 
- *			 of Commercial License Agreement between Telink Semiconductor (Shanghai) 
- *			 Co., Ltd. and the licensee in separate contract or the terms described here-in. 
+ *			 The information contained herein is confidential and proprietary property of Telink
+ * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms
+ *			 of Commercial License Agreement between Telink Semiconductor (Shanghai)
+ *			 Co., Ltd. and the licensee in separate contract or the terms described here-in.
  *           This heading MUST NOT be removed from this file.
  *
- * 			 Licensees are granted free, non-transferable use of the information in this 
- *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided. 
+ * 			 Licensees are granted free, non-transferable use of the information in this
+ *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided.
  *
  *******************************************************************************************************/
 package com.telink.sig.mesh;
@@ -52,20 +52,35 @@ import com.telink.sig.mesh.model.DeviceInfo;
 import com.telink.sig.mesh.model.MeshCommand;
 import com.telink.sig.mesh.model.NotificationInfo;
 import com.telink.sig.mesh.model.OtaDeviceInfo;
+import com.telink.sig.mesh.model.storage.CommonModelStorage;
+import com.telink.sig.mesh.model.storage.ConfigModelStorage;
+import com.telink.sig.mesh.model.storage.MeshKeyStorage;
+import com.telink.sig.mesh.model.storage.MeshOTAModelStorage;
+import com.telink.sig.mesh.model.storage.MiscStorage;
+import com.telink.sig.mesh.util.Arrays;
 import com.telink.sig.mesh.util.TelinkLog;
 
 import java.security.Security;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Telin application base
  * Created by kee on 2017/8/17.
  */
 
-public abstract class TelinkApplication extends Application implements MeshLib.StorageHelper {
+public /*abstract*/ class TelinkApplication /*extends Application*/ implements MeshLib.StorageHelper {
 
     private static final String TAG = "TelinkApplication";
 
     private static TelinkApplication mApp;
+    protected Application mContext;
+    protected TelinkBtSigNativeModule mRnModule;
+
+    // private List<LogInfo> logs;
+    private List<String> logs;
+
+    private boolean logEnable = false;
 
     private MeshLib meshLib;
 
@@ -81,19 +96,35 @@ public abstract class TelinkApplication extends Application implements MeshLib.S
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
     }
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
+    // @Override
+    // public void onCreate() {
+    /**
+     * Constructor for react-native.
+     * @param context Application which handles service events
+     */
+    TelinkApplication(Application context, TelinkBtSigNativeModule rnModule) {
         mApp = this;
+        this.mContext = context;
+        this.mRnModule = rnModule;
+    }
+
+    public void doInit() {
         HandlerThread offlineCheckThread = new HandlerThread("offline check thread");
         offlineCheckThread.start();
         mOfflineCheckHandler = new Handler(offlineCheckThread.getLooper());
-        LocalBroadcastManager.getInstance(this).registerReceiver(makeLightReceiver(), makeLightFilter());
+        LocalBroadcastManager.getInstance(mContext).registerReceiver(makeLightReceiver(), makeLightFilter());
         mEventBus = new EventBus<>();
+
+        // initMesh();
+        initMeshLib();
+        logs = new ArrayList<>();
+    }
+
+    public void doDestroy() {
     }
 
     protected void initMeshLib() {
-        meshLib = new MeshLib(this);
+        meshLib = new MeshLib(mContext);
         meshLib.setStorageHelper(this);
         // getLibVersion
         int libVersion = meshLib.getLibVersion();
@@ -115,15 +146,158 @@ public abstract class TelinkApplication extends Application implements MeshLib.S
         return meshLib;
     }
 
-    public abstract void saveLog(String log);
-
+    // public abstract void saveLog(String log);
+    public void saveLog(String action) {
+        if (logEnable) {
+            // logs.add(new LogInfo(action));
+            logs.add(action);
+        }
+    }
 
     @Override
-    public abstract byte[] onMeshStorageRetrieve(int len, int storageType);
+    public byte[] onMeshStorageRetrieve(int len, int storageType) {
+        StorageType type = StorageType.valueOf(storageType);
+        if (type == null) return null;
+        return this.onMeshInfoRequired(len, type);
+    }
 
     @Override
-    public abstract void onMeshStorageUpdate(byte[] buffer, int storageType);
+    public void onMeshStorageUpdate(byte[] buffer, int storageType) {
+        StorageType type = StorageType.valueOf(storageType);
+        if (type == null) return;
+        this.onMeshInfoUpdate(buffer, type);
+    }
 
+    public byte[] onMeshInfoRequired(int len, StorageType type) {
+        TelinkLog.d("onMeshInfoRequired: " + type + " len: " + len);
+        switch (type) {
+            case MESH_KEY:
+                byte[] meshKeyData = getMeshKey().toBytes();
+                TelinkLog.d("mesh key: " + Arrays.bytesToHexString(meshKeyData, ":"));
+                return meshKeyData;
+
+            case MISC:
+                byte[] miscData = getMisc().toBytes();
+                TelinkLog.d("misc: " + Arrays.bytesToHexString(miscData, ":"));
+                return miscData;
+
+            case NODE_INFO:
+                byte[] nodeInfoData = getVCNodeInfo();
+                TelinkLog.d("node info: " + Arrays.bytesToHexString(nodeInfoData, ":"));
+                return nodeInfoData;
+
+            case CONFIG_MODEL:
+                byte[] configData = getConfigModel().toBytes();
+                TelinkLog.d("config: " + Arrays.bytesToHexString(configData, ":"));
+                return configData;
+
+            case MESH_OTA:
+                byte[] meshOtaModelData = getMeshOTAModelInfo().toBytes();
+                TelinkLog.d("mesh ota model data: " + Arrays.bytesToHexString(meshOtaModelData, ":"));
+                return meshOtaModelData;
+        }
+        return null;
+    }
+
+    public void onMeshInfoUpdate(byte[] data, StorageType type) {
+        TelinkLog.d("onMeshInfoUpdate: " + type + " data: " + Arrays.bytesToHexString(data, ":"));
+        switch (type) {
+            case MESH_KEY:
+                saveMeshKey(data);
+                break;
+
+            case MISC:
+                saveMisc(data);
+                break;
+        }
+    }
+
+
+    public MeshKeyStorage getMeshKey() {
+        MeshKeyStorage.MeshAppKeyStorage meshAppKeyStorage
+                = MeshKeyStorage.MeshAppKeyStorage.getDefault(mRnModule.mAppKey);
+
+        MeshKeyStorage.MeshNetKeyStorage meshNetKeyStorage
+                = MeshKeyStorage.MeshNetKeyStorage.getDefault(mRnModule.mNetKey, meshAppKeyStorage);
+
+        return MeshKeyStorage.getDefault(meshNetKeyStorage);
+    }
+
+    public void saveMeshKey(byte[] data) {
+        MeshKeyStorage meshKeyStorage = MeshKeyStorage.fromBytes(data);
+        TelinkLog.d("save mesh key: " + meshKeyStorage.toString());
+
+// telink sdk demo 中都是如下注释掉的代码，而且本函数也从没被调用过，所以可以忽略这些 key 的保存了？
+//        mMesh.appKey = appKey;
+//        mMesh.networkKey = netKey;
+
+//        mMesh.saveOrUpdate(this);
+    }
+
+    public MiscStorage getMisc() {
+        return MiscStorage.getDefault(mRnModule.sno, mRnModule.ivIndex);
+    }
+
+
+    public void saveMisc(byte[] data) {
+
+        MiscStorage miscStorage = MiscStorage.fromBytes(data);
+
+        TelinkLog.d("save misc: " + miscStorage);
+        if (miscStorage == null) return;
+        // iv index saved as big endian in misc
+        mRnModule.sno = miscStorage.sno;
+        mRnModule.ivIndex = ((miscStorage.ivIndex[0] & 0xFF) << 24)
+                | ((miscStorage.ivIndex[1] & 0xFF) << 16)
+                | ((miscStorage.ivIndex[2] & 0xFF) << 8)
+                | (miscStorage.ivIndex[3] & 0xFF);
+        mRnModule.saveOrUpdateJS();
+    }
+
+    public ConfigModelStorage getConfigModel() {
+//        int modelId = SigMeshModel.SIG_MD_CFG_SERVER.modelId;
+        CommonModelStorage commonModelStorage =
+                CommonModelStorage.getDefault(mRnModule.mMeshAddressOfApp, 0);
+        return ConfigModelStorage.getDefault(commonModelStorage);
+    }
+
+
+    public MeshOTAModelStorage getMeshOTAModelInfo() {
+        return MeshOTAModelStorage.getDefault(mRnModule.mMeshAddressOfApp, 0);
+    }
+
+    public byte[] getVCNodeInfo() {
+        if (mRnModule.devices == null || mRnModule.devices.size() == 0) {
+            return null;
+        }
+        final int sLen = 404;
+        byte[] re = new byte[sLen * mRnModule.devices.size()];
+        int index = 0;
+        for (DeviceInfo node : mRnModule.devices) {
+            if (node.nodeInfo != null) {
+                System.arraycopy(node.nodeInfo.toVCNodeInfo(), 0, re, index, sLen);
+            }
+            index += sLen;
+        }
+        return re;
+    }
+
+    // public void saveLogInFile(String fileName, String logInfo) {
+    //     File root = Environment.getExternalStorageDirectory();
+    //     File dir = new File(root.getAbsolutePath() + File.separator + "TelinkSigMeshSetting");
+    //     if (FileSystem.writeString(dir, fileName + ".txt", logInfo) != null) {
+    //         TelinkLog.d("log saved in: " + fileName);
+    //     }
+    // }
+
+    // public List<LogInfo> getLogInfo() {
+    public List<String> getLogInfo() {
+        return logs;
+    }
+
+    public void clearLogInfo() {
+        logs.clear();
+    }
 
     protected BroadcastReceiver makeLightReceiver() {
         if (this.mLightReceiver == null)
