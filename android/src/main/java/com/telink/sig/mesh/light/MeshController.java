@@ -173,7 +173,7 @@ public class MeshController {
     /**
      * MODE_AUTO_CONNECT: auto scan, connect, get device state
      */
-    private static final int MODE_AUTO_CONNECT = 0x03;
+    public static final int MODE_AUTO_CONNECT = 0x03;
 
     /**
      * MODE_OTA: auto scan, connect, start ota
@@ -364,12 +364,16 @@ public class MeshController {
     private int fastProvisionIndex = 1;
     private int fastPvElementCount = 0;
 
+    public void setMeshLib(MeshLib telinkMeshLib) {
+        meshLib = telinkMeshLib;
+    }
+
     protected void start(Context context) {
 
         saveLog("#start");
         this.mContext = context;
 
-        meshLib = ((TelinkApplication) this.mContext.getApplicationContext()).getMeshLib();
+        // meshLib = ((TelinkApplication) this.mContext.getApplicationContext()).getMeshLib();
 
 //        mesh = TelinkApplication.getInstance().getMesh();
 //        TelinkLog.w("NetWorkKey -- " + Arrays.bytesToHexString(mesh.networkKey, ":"));
@@ -465,6 +469,13 @@ public class MeshController {
         }
     }
 
+    public int getMode() {
+        return this.actionMode;
+    }
+
+    public Set getAdvDevices() {
+        return this.advDevices;
+    }
 
     public void autoConnect(AutoConnectParameters parameters) {
         if (this.actionMode == MODE_AUTO_CONNECT) {

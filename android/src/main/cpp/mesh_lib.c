@@ -35,7 +35,7 @@
 #include <jni.h>
 #include <time.h>
 #include <stdio.h>
-#include<Android/log.h>
+#include<android/log.h>
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>

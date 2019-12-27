@@ -20,7 +20,7 @@
  *           
  *******************************************************************************************************/
 // gerneral defination 
-#include "../../../reference/tl_bulk/lib_file/Gatt_provision.h"
+#include "../../../reference/tl_bulk/lib_file/gatt_provision.h"
 #include "../../proj_lib/ble/ll/ll.h"
 #include "../../proj_lib/ble/blt_config.h"
 #include "../../vendor/common/user_config.h"

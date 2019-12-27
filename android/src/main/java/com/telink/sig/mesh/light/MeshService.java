@@ -23,9 +23,11 @@ package com.telink.sig.mesh.light;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Binder;
 import android.os.IBinder;
 import android.support.v4.content.LocalBroadcastManager;
 
+import com.telink.sig.mesh.lib.MeshLib;
 import com.telink.sig.mesh.light.parameter.AutoConnectParameters;
 import com.telink.sig.mesh.light.parameter.FastProvisionParameters;
 import com.telink.sig.mesh.light.parameter.GattOtaParameters;
@@ -59,6 +61,8 @@ import com.telink.sig.mesh.model.message.config.SubVendorGetMessage;
 import com.telink.sig.mesh.util.TelinkLog;
 import com.telink.sig.mesh.util.UnitConvert;
 
+import java.util.Set;
+
 /**
  * MeshService
  */
@@ -70,6 +74,8 @@ public class MeshService extends Service {
 
     private static MeshService mThis;
 
+    protected IBinder mBinder;
+
     public static final String ACTION_SERVICE_CREATE = "ACTION_SERVICE_CREATE";
 
     public static final String ACTION_SERVICE_DESTROY = "ACTION_SERVICE_DESTROY";
@@ -80,9 +86,18 @@ public class MeshService extends Service {
 
     private int localAddress = 1;
 
+    public class LocalBinder extends Binder {
+        public MeshService getService() {
+            return MeshService.this;
+        }
+    }
+
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        if (this.mBinder == null)
+            this.mBinder = new LocalBinder();
+
+        return this.mBinder;
     }
 
     public static MeshService getInstance() {
@@ -95,8 +110,13 @@ public class MeshService extends Service {
         TelinkLog.d(TAG + "-onCreate");
         mThis = this;
         this.mMeshController = new MeshController();
+        // mMeshController.start(getApplicationContext());
+        // onServiceCreated();
+    }
+
+    public void startMeshController(MeshLib telinkMeshLib) {
+        mMeshController.setMeshLib(telinkMeshLib);
         mMeshController.start(getApplicationContext());
-        onServiceCreated();
     }
 
     private void onServiceCreated() {
@@ -295,6 +315,24 @@ public class MeshService extends Service {
      */
     public boolean isOffline() {
         return mMeshController.getCurDeviceMac() == null;
+    }
+
+    /**
+     * 获取当前工作模式
+     *
+     * @return
+     * @see MeshController#MODE_SCAN
+     * @see MeshController#MODE_AUTO_CONNECT
+     * @see MeshController#MODE_PROVISION
+     * @see MeshController#MODE_IDLE
+     * @see MeshController#MODE_OTA
+     */
+    public int getMode() {
+        return mMeshController.getMode();
+    }
+
+    public Set getAdvDevices() {
+        return mMeshController.getAdvDevices();
     }
 
 
@@ -549,6 +587,19 @@ public class MeshService extends Service {
         return this.setLightness(adr, lightness, ack, rspMax, transTimeMillisecond, delay, tag);
     }
 
+    /**
+     * get lightness and temperature, will response only once not the size of elements,
+     * the only response combines lightness and temperature,
+     * the only response's srcAdr is device meshAddress (@param adr here)
+     *
+     * @param adr    dest address
+     * @param rspMax response max cnt
+     */
+    public boolean getCtl(int adr, int rspMax, Object tag) {
+        MeshCommand command = MeshCommand.newInstance(this.netKeyIndex, this.appKeyIndex, rspMax, adr, Opcode.LIGHT_CTL_GET.getValue());
+        command.tag = tag;
+        return this.sendMeshCommand(command);
+    }
 
     /**
      * get temperature
