@@ -124,8 +124,6 @@ class TelinkBtSig {
         type,
     }) {}
 
-    static getTypeFromUuid = uuid => uuid;
-
     static configNode({
         node,
         // cfg,

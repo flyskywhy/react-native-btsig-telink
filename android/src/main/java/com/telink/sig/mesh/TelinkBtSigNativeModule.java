@@ -950,6 +950,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             }
             params.putArray("nodeInfo", nodeInfo);
             params.putInt("elementCnt", deviceInfo.elementCnt);
+            params.putInt("type", deviceInfo.nodeInfo.cpsData.pid);
             WritableArray array = Arguments.createArray();
             byte[] dhmKey = deviceInfo.deviceKey;
             // TelinkLog.d("dhmKey: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(dhmKey, ":"));
