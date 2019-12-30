@@ -945,7 +945,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             WritableArray nodeInfo = Arguments.createArray();
             byte[] nodeInfoArray = deviceInfo.nodeInfo.toVCNodeInfo();
             // TelinkLog.d("nodeInfoArray: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(nodeInfoArray, ":"));
-            for (int i = 0; i < nodeInfoArray.length; i++) {
+            int nodeInfoWithoutCpsDataLength = 22;
+            int nodeInfoValidLength = nodeInfoWithoutCpsDataLength + deviceInfo.nodeInfo.cpsDataLen;
+            for (int i = 0; i < nodeInfoValidLength; i++) {
                 nodeInfo.pushInt(nodeInfoArray[i]);
             }
             params.putArray("nodeInfo", nodeInfo);
