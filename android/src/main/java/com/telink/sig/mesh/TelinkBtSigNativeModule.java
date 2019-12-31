@@ -1562,8 +1562,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 hasOnlineStatusNotifyRaw = MeshService.getInstance().getOnlineStatus();
                 saveOrUpdateJS();
                 if (!hasOnlineStatusNotifyRaw) {
-                    // 如果后续（从 telink 蓝牙设备固件代码中？）得知 getOnOff 也是通过判断亮度是否 <= 0 的方法，
-                    // 则此处可以不再使用 getOnOff 而只用 getCtl 等代替
+                    // 如果后续从蓝牙设备固件代码中得知 telink 也实现了（应该实现了） sig mesh 协议中
+                    // model 之间关联功能，放到这里就是实现了亮度 modle 如果亮度为 <= 0 的话就会关联
+                    // 开关灯 model 为关灯状态，则此处可以不再使用 getOnOff 而只用 getCtl 等代替
                     mService.getOnOff(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_ON_OFF_STATUS
 
                     // 测试得：如果紧接着上面 getOnOff 后立即进行其它 get ，则只会触发 getOnOff 对应的 EVENT，因此需要延迟进行
