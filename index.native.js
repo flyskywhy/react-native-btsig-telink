@@ -17,6 +17,9 @@ class TelinkBtSig {
     // 或小米等相关产品的设备数都在 100 以内，由于设备数越多，需要设
     // 备上的 ram 越大，越贵，所以一般蓝牙模块提供商只会批量提供 ram
     // 刚够用 200 设备数左右的模块。
+    // 另外，在 `SIG Mesh iOS APP(OC版本)使用以及开发手册.docx`
+    // 中提到地址范围是 1~0x7eff
+    // static MESH_ADDRESS_MAX = 0x7EFF;
     // static MESH_ADDRESS_MAX = 0x7FFF;
 
     static GROUP_ADDRESS_MIN = 0xC001;
