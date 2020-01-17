@@ -123,6 +123,34 @@ class TelinkBtSig {
         return NativeModule.autoConnect(userMeshPwd);
     }
 
+    static postConnected({
+        meshAddress,
+        immediate = false,
+    }) {
+        let changed = false;
+
+        if (!changed) {
+            if (!this.hasOnlineStatusNotifyRaw) {
+                // 如果后续从蓝牙设备固件代码中得知 telink 也实现了（应该实现了） sig mesh 协议中
+                // model 之间关联功能，放到这里就是实现了亮度 modle 如果亮度为 <= 0 的话就会关联
+                // 开关灯 model 为关灯状态，则此处可以不再使用 getOnOff 而只用 getCtl 等代替
+                NativeModule.sendCommand(0x0182, 0xFFFF, [], immediate); // mService.getOnOff(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_ON_OFF_STATUS
+
+                // 测试得：如果紧接着上面 getOnOff 后立即进行其它 get ，则只会触发 getOnOff 对应的 EVENT，因此需要延迟进行
+                setTimeout(() => {
+                    // 因为此处只会返回第一个 get 函数的结果，所以那些注释掉的 get 函数仅用于测试
+                    // NativeModule.sendCommand(0x0582, 0xFFFF, [], immediate); // mService.getLevel(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_LEVEL_STATUS
+                    // NativeModule.sendCommand(0x4B82, 0xFFFF, [], immediate); // mService.getLightness(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY
+
+                    // 如 TelinkBtSigNativeModule.java 的 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
+                    NativeModule.sendCommand(0x5D82, 0xFFFF, [], immediate); // mService.getCtl(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_CTL_STATUS_NOTIFY
+
+                    // NativeModule.sendCommand(0x6182, 0xFFFF, [], immediate); // mService.getTemperature(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_TEMP_STATUS_NOTIFY
+                }, 1 * 1000); // 测试得：当延时为 100 时无法触发对应的 EVENT ，而 500 是可以的，保险起见，这里可以使用 1000
+            }
+        }
+    }
+
     static autoRefreshNotify({
         repeatCount,
         Interval
