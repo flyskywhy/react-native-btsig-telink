@@ -163,6 +163,12 @@ class TelinkBtSig {
                 }, 1 * 1000); // 测试得：当延时为 100 时无法触发对应的 EVENT ，而 500 是可以的，保险起见，这里可以使用 1000
             }
         }
+
+        setTimeout(() => {
+            this.remind({
+                meshAddress,
+            })
+        }, 2 * 1000);
     }
 
     static autoRefreshNotify({
