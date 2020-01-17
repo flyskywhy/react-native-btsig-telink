@@ -215,7 +215,7 @@ class TelinkBtSig {
         meshAddress,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0xF2, meshAddress, [], immediate);
+        NativeModule.sendCommand(0x0211F0, meshAddress, [0x00, 0x00], immediate);
     }
 
     static isOnline(status) {
