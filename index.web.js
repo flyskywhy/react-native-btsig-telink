@@ -29,6 +29,7 @@ class TelinkBtSig {
     static ALARM_TYPE_DAY = 0;
     static ALARM_TYPE_WEEK = 1;
 
+    static longCommandParams = true;
     static needRefreshMeshNodesClaimed = true;
     static needRefreshMeshNodesBeforeConfig = true;
     static canConfigEvenDisconnected = true;
