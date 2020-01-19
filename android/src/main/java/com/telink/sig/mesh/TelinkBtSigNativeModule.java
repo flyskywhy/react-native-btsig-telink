@@ -108,6 +108,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public static final String SERVICE_DISCONNECTED = "serviceDisconnected";
     public static final String NOTIFICATION_ONLINE_STATUS = "notificationOnlineStatus";
     public static final String NOTIFICATION_GET_DEVICE_STATE = "notificationGetDeviceState";
+    public static final String NOTIFICATION_VENDOR_RESPONSE = "notificationVendorResponse";
     public static final String NOTIFICATION_DATA_GET_ON_OFF = "notificationDataGetOnOff";
     public static final String NOTIFICATION_DATA_GET_LEVEL = "notificationDataGetLevel";
     public static final String NOTIFICATION_DATA_GET_LIGHTNESS = "notificationDataGetLightness";
@@ -342,6 +343,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
         // 监听各种事件
         mTelinkApplication.addEventListener(OnlineStatusEvent.ONLINE_STATUS_NOTIFY, this);
+        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_VENDOR_RESPONSE, this);
         mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_DEVICE_ON_OFF_STATUS, this);
         mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_DEVICE_LEVEL_STATUS, this);
         mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY, this);
@@ -524,6 +526,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     //     return StringArr;
     // }
+
+    public static WritableArray byteArray2WritableArray(byte[] byteArr) {
+        int size = byteArr.length;
+        WritableArray writableArr = Arguments.createArray();
+        for (int i = 0; i < size; i++) {
+            writableArr.pushInt(byteArr[i]);
+        }
+
+        return writableArr;
+    }
 
     public static int[] readableArray2IntArray(ReadableArray arr) {
         int size = arr.size();
@@ -1067,6 +1079,22 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         sendEvent(MESH_OFFLINE);
     }
 
+    private synchronized void onVendorResponse(NotificationEvent event) {
+// Log.d(TAG, "onVendorResponse: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
+// Log.d(TAG, "onVendorResponse: " + event.getNotificationInfo().toString());
+// 上面两个测试语句会得到如下信息
+// onVendorResponse: F0:08:01:00:FF:00:E3:11:02:00
+// onVendorResponse: NotificationInfo{srcAdr=0001, destAdr=00FF, opcode=0211E3, isVendor=true, params=00}
+
+        NotificationInfo notificationInfo = event.getNotificationInfo();
+
+        WritableMap params = Arguments.createMap();
+        params.putInt("meshAddress", notificationInfo.srcAdr);
+        params.putInt("opcode", notificationInfo.opcode);
+        params.putArray("params", byteArray2WritableArray(notificationInfo.params));
+        sendEvent(NOTIFICATION_VENDOR_RESPONSE, params);
+    }
+
     private synchronized void onGetOnOffNotify(NotificationEvent event) {
 // Log.d(TAG, "onGetOnOffNotify: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
 // Log.d(TAG, "onGetOnOffNotify: " + event.getNotificationInfo().toString());
@@ -1513,6 +1541,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         switch (event.getType()) {
             case OnlineStatusEvent.ONLINE_STATUS_NOTIFY:
                 this.onOnlineStatusNotify((OnlineStatusEvent) event);
+                break;
+            case NotificationEvent.EVENT_TYPE_VENDOR_RESPONSE:
+                this.onVendorResponse((NotificationEvent) event);
                 break;
             case NotificationEvent.EVENT_TYPE_DEVICE_ON_OFF_STATUS:
                 this.onGetOnOffNotify((NotificationEvent) event);
