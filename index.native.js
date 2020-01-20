@@ -270,7 +270,23 @@ class TelinkBtSig {
         type,
         immediate = false,
     }) {
-        NativeModule.changeBrightness(meshAddress, value);
+        let changed = false;
+
+        if (this.passthroughMode) {
+            for (let mode in this.passthroughMode) {
+                if (this.passthroughMode[mode].includes(type)) {
+                    if (mode === 'silan') {
+                        NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, value], immediate);
+                        changed = true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (!changed) {
+            NativeModule.changeBrightness(meshAddress, value);
+        }
     }
 
     static changeColorTemp({
