@@ -122,8 +122,36 @@ class TelinkBtSig {
         saturation = 0,
         value,
         colorIds = [1, 2, 3, 4, 5],
+        data = [],
+        speed = 3,
         type,
-    }) {}
+    }) {
+        if (scene === 0x80) {
+                                let rawData = [];
+                                data.map(subdata => {
+                                    let bulbsMode = subdata[0];
+                                    if (bulbsMode === 0 || bulbsMode === 1 || bulbsMode === 2) {
+                                        let subdataLength = 7;
+                                        let bulbsStart = subdata[1];
+                                        let bulbsLength = subdata[2];
+                                        let bulbsColorR = subdata[3] >> 16 & 0xFF;
+                                        let bulbsColorG = subdata[3] >> 8 & 0xFF;
+                                        let bulbsColorB = subdata[3] & 0xFF;
+                                        rawData = rawData.concat([
+                                            subdataLength,
+                                            bulbsMode,
+                                            bulbsStart,
+                                            bulbsLength,
+                                            bulbsColorR,
+                                            bulbsColorG,
+                                            bulbsColorB,
+                                        ])
+                                    }
+                                });
+                                let dataType = 0;
+                                console.warn([0, 0, scene, speed, dataType, rawData.length, ...rawData])
+        }
+    }
 
     static configNode({
         node,

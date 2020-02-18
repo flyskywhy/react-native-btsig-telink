@@ -349,6 +349,7 @@ class TelinkBtSig {
         colorIds = [1, 2, 3, 4, 5],
         colorBgId = 2,
         colorId = 1,
+        data = [],
         speed = 3,
         type,
         immediate = false,
@@ -473,6 +474,55 @@ class TelinkBtSig {
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 2, 0, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
+
+                            // [
+                            //     // 以下是自定义效果命令参数中每个字节的含义
+                            //     0,              // telink sig mesh 的命令中必须的字节，表示固件返回的 opcode ，暂时发现可以为 0
+                            //     0,              // telink sig mesh 的命令中必须的字节，表示消息返回的跳跃次数，暂时发现可以为 0
+                            //     scene,          // 效果的 id
+                            //     speed,          // 效果的整体速度，在目前自定义效果只有一帧的情况下，可以为 2
+                            //     dataType,       // 后续数据的压缩类型， 0 代表无压缩
+                            //     dataLength,     // 后续数据压缩后的字节长度，本字节并不计算在该长度之内
+                            //     [   // 实际的 sig mesh 命令参数中是没有本中括号以及下面中括号的，放在这里是为了表明这里就像是二维数组一样，
+                            //         // 然后数组中所有元素的 subdataLength 相加其实就等于上面提到的 dataLength
+                            //         [
+                            //             subdataLength,  // 本子数据的长度，本字节也计算在该长度之内，在本例子中，该长度为 7
+                            //             bulbsMode,      // 本小段灯珠的变化模式， 0 为简单常亮， 1 为简单闪烁， 2 为简单呼吸
+                            //             bulbsStart,     // 本小段灯珠的起始地址
+                            //             bulbsLength,    // 本小段灯珠的个数
+                            //             bulbsColorR,    // 本小段灯珠颜色的 R 的值
+                            //             bulbsColorG,    // 本小段灯珠颜色的 G 的值
+                            //             bulbsColorB,    // 本小段灯珠颜色的 B 的值
+                            //         ]
+                            //     ]
+                            // ]
+                            case 0x80: {
+                                let rawData = [];
+                                data.map(subdata => {
+                                    let bulbsMode = subdata[0];
+                                    if (bulbsMode === 0 || bulbsMode === 1 || bulbsMode === 2) {
+                                        let subdataLength = 7;
+                                        let bulbsStart = subdata[1];
+                                        let bulbsLength = subdata[2];
+                                        let bulbsColorR = subdata[3] >> 16 & 0xFF;
+                                        let bulbsColorG = subdata[3] >> 8 & 0xFF;
+                                        let bulbsColorB = subdata[3] & 0xFF;
+                                        rawData = rawData.concat([
+                                            subdataLength,
+                                            bulbsMode,
+                                            bulbsStart,
+                                            bulbsLength,
+                                            bulbsColorR,
+                                            bulbsColorG,
+                                            bulbsColorB,
+                                        ])
+                                    }
+                                });
+                                let dataType = 0;
+                                NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, rawData.length, ...rawData], immediate);
+                                changed = true;
+                                break;
+                            }
                             default:
                                 break;
                         }
