@@ -545,6 +545,9 @@ class TelinkBtSig {
                                 });
                                 let dataType = 0;
                                 NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, rawData.length, ...rawData], immediate);
+
+                                // TODO: 后续将 0x0211F4 整合进 0x0211E4 中
+                                setTimeout(() => NativeModule.sendCommand(0x0211E4, meshAddress, [0, 0, scene, speed], immediate), 1000);
                                 changed = true;
                                 break;
                             }
@@ -565,7 +568,7 @@ class TelinkBtSig {
 
         setTimeout(() => this.selectNodeToResponseSceneId({
             sceneSyncMeshAddress,
-        }), 1000);
+        }), 2000);
     }
 
     static selectNodeToResponseSceneId({
