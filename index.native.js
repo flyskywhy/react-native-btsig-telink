@@ -496,6 +496,31 @@ class TelinkBtSig {
                             //         ]
                             //     ]
                             // ]
+
+                            // 下面是一段 NativeModule.sendCommand 命令参数数组的示例
+                            // [
+                            //     0,
+                            //     0,
+                            //     128,// 效果的 id 也就是 0x80
+                            //     2,  // 速度 暂时无用
+                            //     0,  // 0 代表无压缩
+                            //     14, // 数据字节长度，无压缩情况下一般只有一个灯珠的话是 7 ，这里是 14 ，代表有两段数据
+                            //     7,  // subdataLength
+                            //     0,  // bulbsMode
+                            //     0,  // bulbsStart
+                            //     4,  // bulbsLength
+                            //     255,// bulbsColorR
+                            //     0,  // bulbsColorG
+                            //     0,  // bulbsColorB
+                            //     7,  //下同
+                            //     0,
+                            //     12,
+                            //     1,
+                            //     255,
+                            //     0,
+                            //     0
+                            // ]
+
                             case 0x80: {
                                 let rawData = [];
                                 data.map(subdata => {
