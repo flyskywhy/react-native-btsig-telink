@@ -350,6 +350,7 @@ class TelinkBtSig {
         colorBgId = 2,
         colorId = 1,
         data = [],
+        isEditingCustom = false;
         speed = 3,
         type,
         immediate = false,
@@ -547,7 +548,7 @@ class TelinkBtSig {
                                 NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, rawData.length, ...rawData], immediate);
 
                                 // TODO: 后续将 0x0211F4 整合进 0x0211E4 中
-                                setTimeout(() => NativeModule.sendCommand(0x0211E4, meshAddress, [0, 0, scene, speed], immediate), 1000);
+                                isEditingCustom || setTimeout(() => NativeModule.sendCommand(0x0211E4, meshAddress, [0, 0, scene, speed], immediate), 1000);
                                 changed = true;
                                 break;
                             }
