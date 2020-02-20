@@ -350,7 +350,7 @@ class TelinkBtSig {
         colorBgId = 2,
         colorId = 1,
         data = [],
-        isEditingCustom = false;
+        isEditingCustom = false,
         speed = 3,
         type,
         immediate = false,
