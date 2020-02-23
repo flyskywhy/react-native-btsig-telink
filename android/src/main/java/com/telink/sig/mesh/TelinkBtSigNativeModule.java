@@ -1010,31 +1010,6 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     //     sendEvent(DEVICE_STATUS_ERROR_N);
     // }
 
-    @ReactMethod
-    public void startOta(String mac, ReadableArray firmware) {
-        mService.startOta(mac, readableArray2ByteArray(firmware));
-    }
-
-    @ReactMethod
-    public void startMeshOTA(ReadableArray meshAddresses, ReadableArray firmware) {
-        mService.startMeshOTA(readableArray2IntArray(meshAddresses), readableArray2ByteArray(firmware));
-    }
-
-    @ReactMethod
-    public void pauseMeshOta() {
-        mTelinkApplication.getMeshLib().pauseMeshOta();
-    }
-
-    @ReactMethod
-    public void continueMeshOta() {
-        mTelinkApplication.getMeshLib().continueMeshOta();
-    }
-
-    @ReactMethod
-    public void stopMeshOTA(String tag) {
-        mService.stopMeshOTA(tag);
-    }
-
     // private void onDeviceStatusChanged(DeviceEvent event) {
     //     DeviceInfo deviceInfo = event.getArgs();
     //     switch (deviceInfo.status) {
@@ -1512,6 +1487,26 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         sendEvent(NOTIFICATION_DATA_GET_VERSION, params);
     }
 
+    @ReactMethod
+    public void startMeshOTA(ReadableArray meshAddresses, ReadableArray firmware) {
+        mService.startMeshOTA(readableArray2IntArray(meshAddresses), readableArray2ByteArray(firmware));
+    }
+
+    @ReactMethod
+    public void pauseMeshOta() {
+        mTelinkApplication.getMeshLib().pauseMeshOta();
+    }
+
+    @ReactMethod
+    public void continueMeshOta() {
+        mTelinkApplication.getMeshLib().continueMeshOta();
+    }
+
+    @ReactMethod
+    public void stopMeshOTA(String tag) {
+        mService.stopMeshOTA(tag);
+    }
+
     private synchronized void onGetMeshOtaProgress(MeshOtaProgressEvent event) {
         WritableMap params = Arguments.createMap();
         params.putInt("OtaSlaveProgress", event.getProgress());
@@ -1542,6 +1537,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             }
             sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS, params);
         }
+    }
+
+    @ReactMethod
+    public void startOta(String mac, ReadableArray firmware) {
+        mService.startOta(mac, readableArray2ByteArray(firmware));
     }
 
     private void onLeScan(ScanEvent event) {
