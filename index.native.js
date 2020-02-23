@@ -784,7 +784,7 @@ class TelinkBtSig {
         if (meshAddresses) {
             NativeModule.startMeshOTA(meshAddresses, firmware);
         } else {
-            NativeModule.startOta(mac, firmware);
+            return NativeModule.startOta(mac, firmware);
         }
     }
 

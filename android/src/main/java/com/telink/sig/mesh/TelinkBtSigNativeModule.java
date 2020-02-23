@@ -65,6 +65,7 @@ import com.telink.sig.mesh.event.MeshOtaEvent;
 import com.telink.sig.mesh.event.MeshOtaProgressEvent;
 import com.telink.sig.mesh.event.NotificationEvent;
 import com.telink.sig.mesh.event.OnlineStatusEvent;
+import com.telink.sig.mesh.event.OtaEvent;
 import com.telink.sig.mesh.event.ScanEvent;
 import com.telink.sig.mesh.light.CtlStatusNotificationParser;
 import com.telink.sig.mesh.light.LeBluetooth;
@@ -84,7 +85,7 @@ import com.telink.sig.mesh.model.NodeInfo;
 import com.telink.sig.mesh.model.NotificationInfo;
 import com.telink.sig.mesh.model.Scheduler;
 import com.telink.sig.mesh.model.SigMeshModel;
-// import com.telink.bluetooth.light.OtaDeviceInfo;
+import com.telink.sig.mesh.model.OtaDeviceInfo;
 import com.telink.sig.mesh.util.ContextUtil;
 import com.telink.sig.mesh.util.MeshUtils;
 import com.telink.sig.mesh.util.Strings;
@@ -192,6 +193,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private Promise mSetNodeGroupAddrPromise;
     private Promise mGetTimePromise;
     private Promise mGetAlarmPromise;
+    private Promise mStartOtaPromise;
 
     final BroadcastReceiver mBluetoothStateReceiver = new BroadcastReceiver() {
         @Override
@@ -359,6 +361,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mTelinkApplication.addEventListener(MeshOtaEvent.EVENT_TYPE_PROGRESS_UPDATE, this);
         mTelinkApplication.addEventListener(MeshOtaEvent.EVENT_TYPE_APPLY_STATUS, this);
         mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS, this);
+        mTelinkApplication.addEventListener(OtaEvent.EVENT_TYPE_OTA_SUCCESS, this);
+        mTelinkApplication.addEventListener(OtaEvent.EVENT_TYPE_OTA_FAIL, this);
+        mTelinkApplication.addEventListener(OtaEvent.EVENT_TYPE_OTA_PROGRESS, this);
         // mTelinkApplication.addEventListener(DeviceEvent.STATUS_CHANGED, this);
         // mTelinkApplication.addEventListener(NotificationEvent.GET_DEVICE_STATE, this);
         mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_AUTO_CONNECT_LOGIN, this);
@@ -1540,8 +1545,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
-    public void startOta(String mac, ReadableArray firmware) {
+    public void startOta(String mac, ReadableArray firmware, Promise promise) {
+        mStartOtaPromise = promise;
         mService.startOta(mac, readableArray2ByteArray(firmware));
+    }
+
+    private synchronized void onGetOtaProgress(OtaEvent event) {
+        OtaDeviceInfo otaDeviceInfo = event.getDeviceInfo();
+        WritableMap params = Arguments.createMap();
+        params.putInt("otaMasterProgress", otaDeviceInfo.progress);
+        sendEvent(DEVICE_STATUS_OTA_MASTER_PROGRESS, params);
     }
 
     private void onLeScan(ScanEvent event) {
@@ -1656,6 +1669,23 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 break;
             case NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS:
                 this.onGetMeshOtaFirmwareDistributionStatus((NotificationEvent) event);
+                break;
+            case OtaEvent.EVENT_TYPE_OTA_SUCCESS:
+                // mService.idle(false);
+                if (mStartOtaPromise != null) {
+                    mStartOtaPromise.resolve(true);
+                }
+                mStartOtaPromise = null;
+                break;
+            case OtaEvent.EVENT_TYPE_OTA_FAIL:
+                // mService.idle(true);
+                if (mStartOtaPromise != null) {
+                    mStartOtaPromise.reject(new Exception("OTA_FAIL"));
+                }
+                mStartOtaPromise = null;
+                break;
+            case OtaEvent.EVENT_TYPE_OTA_PROGRESS:
+                this.onGetOtaProgress((OtaEvent) event);
                 break;
             // case DeviceEvent.STATUS_CHANGED:
             //     this.onDeviceStatusChanged((DeviceEvent) event);
