@@ -42,6 +42,9 @@ class TelinkBtSig {
     static appKey = 'appKey';
     static meshAddressOfApp = this.MESH_ADDRESS_MAX;
 
+    static otaFileVersionOffset = 4;    // 把二进制固件作为一个字节数组看待的话，描述着版本号的第一个字节的数组地址
+    static otaFileVersionLength = 2;    // 二进制固件中描述版本号用了几个字节
+
     static doInit() {}
 
     static doDestroy() {}
@@ -224,7 +227,7 @@ class TelinkBtSig {
     static setOtaMode({
         meshAddress = 0x0000,
         relayTimes = 7,     // 转发次数
-        otaMode = 'gatt',   // OTA 模式， gatt 为单灯升级， mesh 为单灯升级后有单灯自动通过 mesh 网络发送新固件给其它灯
+        otaMode = 'gatt',   // OTA 模式， gatt 为单灯升级， mesh 为单灯升级后由单灯自动通过 mesh 网络发送新固件给其它灯
         type = 0xFB00,      // 设备类型（gatt OTA 模式请忽略此字段）
         immediate = false,
     }) {}

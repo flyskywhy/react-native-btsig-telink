@@ -74,6 +74,9 @@ class TelinkBtSig {
     static devices = [];
     static provisionerSno = 0;
 
+    static otaFileVersionOffset = 4;    // 把二进制固件作为一个字节数组看待的话，描述着版本号的第一个字节的数组地址
+    static otaFileVersionLength = 2;    // 二进制固件中描述版本号用了几个字节
+
     static doInit() {
         NativeModule.doInit(this.netKey, this.appKey, this.meshAddressOfApp, this.devices.map(device => {
             return { ...device,
@@ -478,8 +481,8 @@ class TelinkBtSig {
 
                             // [
                             //     // 以下是自定义效果命令参数中每个字节的含义
-                            //     0,              // telink sig mesh 的命令中必须的字节，表示固件返回的 opcode ，暂时发现可以为 0
-                            //     0,              // telink sig mesh 的命令中必须的字节，表示消息返回的跳跃次数，暂时发现可以为 0
+                            //     0,              // telink sig mesh 的命令中必需的字节，表示固件返回的 opcode ，暂时发现可以为 0
+                            //     0,              // telink sig mesh 的命令中必需的字节，表示消息返回的跳跃次数，暂时发现可以为 0
                             //     scene,          // 效果的 id
                             //     speed,          // 效果的整体速度，在目前自定义效果只有一帧的情况下，可以为 2
                             //     dataType,       // 后续数据的压缩类型， 0 代表无压缩
@@ -737,10 +740,7 @@ class TelinkBtSig {
         relayTimes = 7,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0xC7, meshAddress, [
-            relayTimes,
-            0,  // 0xC7 的子命令，0 为获取版本信息
-        ], immediate);
+        NativeModule.sendCommand(0x01B6, meshAddress, [0, 0], immediate);
     }
 
     static getOtaState({
@@ -757,7 +757,7 @@ class TelinkBtSig {
     static setOtaMode({
         meshAddress = 0x0000,
         relayTimes = 7,     // 转发次数
-        otaMode = 'gatt',   // OTA 模式， gatt 为单灯升级， mesh 为单灯升级后有单灯自动通过 mesh 网络发送新固件给其它灯
+        otaMode = 'gatt',   // OTA 模式， gatt 为单灯升级， mesh 为单灯升级后由单灯自动通过 mesh 网络发送新固件给其它灯
         type = 0xFB00,      // 设备类型（gatt OTA 模式请忽略此字段）
         immediate = false,
     }) {
@@ -771,25 +771,36 @@ class TelinkBtSig {
     }
 
     static stopMeshOta({
-        meshAddress = 0xFFFF,
-        immediate = false,
+        tag = 'dist_stop',
     }) {
-        NativeModule.sendCommand(0xC6, meshAddress, [
-            0xFE,
-            0xFF,
-        ], immediate);
+        NativeModule.stopMeshOta(tag);
     }
 
     static startOta({
+        mac,
+        meshAddresses,
         firmware,
     }) {
-        NativeModule.startOta(firmware);
+        if (meshAddresses) {
+            NativeModule.startMeshOTA(meshAddresses, firmware);
+        } else {
+            NativeModule.startOta(mac, firmware);
+        }
+    }
+
+    static pauseMeshOta() {
+        NativeModule.pauseMeshOta();
+    }
+
+    static continueMeshOta() {
+        NativeModule.continueMeshOta();
     }
 
     static isValidFirmware(firmware) {
-        return firmware[0] === 0x0E &&
-            (firmware[1] & 0xFF) === 0x80 &&
-            firmware.length > 6;
+        return true;
+        // return firmware[0] === 0x0E &&
+        //     (firmware[1] & 0xFF) === 0x80 &&
+        //     firmware.length > 6;
     }
 }
 

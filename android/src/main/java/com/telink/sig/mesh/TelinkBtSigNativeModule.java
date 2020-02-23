@@ -60,6 +60,9 @@ import com.telink.sig.mesh.event.CommandEvent;
 import com.telink.sig.mesh.event.Event;
 import com.telink.sig.mesh.event.EventListener;
 import com.telink.sig.mesh.event.MeshEvent;
+import com.telink.sig.mesh.event.MeshOtaApplyStatusEvent;
+import com.telink.sig.mesh.event.MeshOtaEvent;
+import com.telink.sig.mesh.event.MeshOtaProgressEvent;
 import com.telink.sig.mesh.event.NotificationEvent;
 import com.telink.sig.mesh.event.OnlineStatusEvent;
 import com.telink.sig.mesh.event.ScanEvent;
@@ -116,6 +119,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public static final String NOTIFICATION_DATA_GET_TEMP = "notificationDataGetTemp";
     public static final String NOTIFICATION_DATA_GET_VERSION = "notificationDataGetVersion";
     public static final String NOTIFICATION_DATA_GET_MESH_OTA_PROGRESS = "notificationDataGetMeshOtaProgress";
+    public static final String NOTIFICATION_DATA_GET_MESH_OTA_APPLY_STATUS = "notificationDataGetMeshOtaApplyStatus";
+    public static final String NOTIFICATION_DATA_GET_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS = "notificationDataGetMeshOtaFirmwareDistributionStatus";
     public static final String NOTIFICATION_DATA_GET_OTA_STATE = "notificationDataGetOtaState";
     public static final String NOTIFICATION_DATA_SET_OTA_MODE_RES = "notificationDataSetOtaModeRes";
     public static final String DEVICE_STATUS_CONNECTING = "deviceStatusConnecting";
@@ -350,6 +355,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_CTL_STATUS_NOTIFY, this);
         mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_TEMP_STATUS_NOTIFY, this);
         mTelinkApplication.addEventListener(CommandEvent.EVENT_TYPE_CMD_COMPLETE, this);
+        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_INFO_STATUS, this);
+        mTelinkApplication.addEventListener(MeshOtaEvent.EVENT_TYPE_PROGRESS_UPDATE, this);
+        mTelinkApplication.addEventListener(MeshOtaEvent.EVENT_TYPE_APPLY_STATUS, this);
+        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS, this);
         // mTelinkApplication.addEventListener(DeviceEvent.STATUS_CHANGED, this);
         // mTelinkApplication.addEventListener(NotificationEvent.GET_DEVICE_STATE, this);
         mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_AUTO_CONNECT_LOGIN, this);
@@ -1001,11 +1010,30 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     //     sendEvent(DEVICE_STATUS_ERROR_N);
     // }
 
-    // @ReactMethod
-    // public void startOta(ReadableArray firmware) {
-    //     byte[] data = readableArray2ByteArray(firmware);
-    //     TelinkLightService.Instance().startOta(data);
-    // }
+    @ReactMethod
+    public void startOta(String mac, ReadableArray firmware) {
+        mService.startOta(mac, readableArray2ByteArray(firmware));
+    }
+
+    @ReactMethod
+    public void startMeshOTA(ReadableArray meshAddresses, ReadableArray firmware) {
+        mService.startMeshOTA(readableArray2IntArray(meshAddresses), readableArray2ByteArray(firmware));
+    }
+
+    @ReactMethod
+    public void pauseMeshOta() {
+        mTelinkApplication.getMeshLib().pauseMeshOta();
+    }
+
+    @ReactMethod
+    public void continueMeshOta() {
+        mTelinkApplication.getMeshLib().continueMeshOta();
+    }
+
+    @ReactMethod
+    public void stopMeshOTA(String tag) {
+        mService.stopMeshOTA(tag);
+    }
 
     // private void onDeviceStatusChanged(DeviceEvent event) {
     //     DeviceInfo deviceInfo = event.getArgs();
@@ -1468,6 +1496,54 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mGetAlarmPromise = null;
     }
 
+    private synchronized void onGetFirmwareInfo(NotificationEvent event) {
+        /*
+        u16 cid，  (vendor id)
+        u16 pid,   (设备类型)
+        u16 vid    (版本id)
+         */
+        final NotificationInfo notificationInfo = event.getNotificationInfo();
+        if (notificationInfo.params.length < 6) {
+            return;
+        }
+        WritableMap params = Arguments.createMap();
+        params.putInt("meshAddress", notificationInfo.srcAdr);
+        params.putString("version", Strings.bytesToString(Arrays.copyOfRange(notificationInfo.params, 4, 6)));
+        sendEvent(NOTIFICATION_DATA_GET_VERSION, params);
+    }
+
+    private synchronized void onGetMeshOtaProgress(MeshOtaProgressEvent event) {
+        WritableMap params = Arguments.createMap();
+        params.putInt("OtaSlaveProgress", event.getProgress());
+        sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_PROGRESS, params);
+    }
+
+    private synchronized void onGetMeshOtaApplyStatus(MeshOtaApplyStatusEvent event) {
+        byte[] status = event.getStatus();
+        if (status != null && status.length > 0) {
+            WritableMap params = Arguments.createMap();
+            params.putInt("meshAddress", event.getSrc());
+            params.putString("status", status[0] == 0 ? "success" : "failure");
+            sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_APPLY_STATUS, params);
+        }
+    }
+
+    private synchronized void onGetMeshOtaFirmwareDistributionStatus(NotificationEvent event) {
+        final NotificationInfo notificationInfo = event.getNotificationInfo();
+        if (notificationInfo.params != null && notificationInfo.params.length > 0) {
+            WritableMap params = Arguments.createMap();
+            params.putInt("meshAddress", notificationInfo.srcAdr);
+            if (notificationInfo.params[0] == 1) {
+                params.putString("status", "start");
+            } else if (notificationInfo.params[0] == 0) {
+                params.putString("status", "stop");
+            } else {
+                params.putString("status", "error");
+            }
+            sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS, params);
+        }
+    }
+
     private void onLeScan(ScanEvent event) {
         AdvertisingDevice advDevice = event.advertisingDevice;
         BluetoothDevice btDevice = advDevice.device;
@@ -1568,6 +1644,18 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 break;
             case NotificationEvent.EVENT_TYPE_SCHEDULER_STATUS:
                 this.onGetAlarmNotify((NotificationEvent) event);
+                break;
+            case NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_INFO_STATUS:
+                this.onGetFirmwareInfo((NotificationEvent) event);
+                break;
+            case MeshOtaEvent.EVENT_TYPE_PROGRESS_UPDATE:
+                this.onGetMeshOtaProgress((MeshOtaProgressEvent) event);
+                break;
+            case MeshOtaEvent.EVENT_TYPE_APPLY_STATUS:
+                this.onGetMeshOtaApplyStatus((MeshOtaApplyStatusEvent) event);
+                break;
+            case NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS:
+                this.onGetMeshOtaFirmwareDistributionStatus((NotificationEvent) event);
                 break;
             // case DeviceEvent.STATUS_CHANGED:
             //     this.onDeviceStatusChanged((DeviceEvent) event);
