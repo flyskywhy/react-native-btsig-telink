@@ -481,12 +481,13 @@ class TelinkBtSig {
 
                             // [
                             //     // 以下是自定义效果命令参数中每个字节的含义
-                            //     0,              // telink sig mesh 的命令中必需的字节，表示固件返回的 opcode ，暂时发现可以为 0
-                            //     0,              // telink sig mesh 的命令中必需的字节，表示消息返回的跳跃次数，暂时发现可以为 0
-                            //     scene,          // 效果的 id
-                            //     speed,          // 效果的整体速度，在目前自定义效果只有一帧的情况下，可以为 2
-                            //     dataType,       // 后续数据的压缩类型， 0 代表无压缩
-                            //     dataLength,     // 后续数据压缩后的字节长度，本字节并不计算在该长度之内
+                            //     0,                  // telink sig mesh 的命令中必需的字节，表示固件返回的 opcode ，暂时发现可以为 0
+                            //     0,                  // telink sig mesh 的命令中必需的字节，表示消息返回的跳跃次数，暂时发现可以为 0
+                            //     scene,              // 效果的 id
+                            //     speed,              // 效果的整体速度，在目前自定义效果只有一帧的情况下，可以为 2
+                            //     dataType,           // 后续数据的压缩类型， 0 代表无压缩
+                            //     dataLengthLowByte,  // 后续数据压缩后的字节长度，由两个字节表示，本字节为低位字节，本字节并不计算在该长度之内
+                            //     dataLengthHightByte,// 后续数据压缩后的字节长度，由两个字节表示，本字节为高位字节，本字节并不计算在该长度之内
                             //     [   // 实际的 sig mesh 命令参数中是没有本中括号以及下面中括号的，放在这里是为了表明这里就像是二维数组一样，
                             //         // 然后数组中所有元素的 subdataLength 相加其实就等于上面提到的 dataLength
                             //         [
@@ -508,7 +509,8 @@ class TelinkBtSig {
                             //     128,// 效果的 id 也就是 0x80
                             //     2,  // 速度 暂时无用
                             //     0,  // 0 代表无压缩
-                            //     14, // 数据字节长度，无压缩情况下一般只有一个灯珠的话是 7 ，这里是 14 ，代表有两段数据
+                            //     14, // 数据字节长度的低位字节
+                            //     0,  // 数据字节长度的高位字节，无压缩情况下一般只有一个灯珠的话，数据字节是 7 ，这里是 14 （结合上面的低位字节来看），代表有两段数据
                             //     7,  // subdataLength
                             //     0,  // bulbsMode
                             //     0,  // bulbsStart
@@ -548,14 +550,16 @@ class TelinkBtSig {
                                     }
                                 });
                                 let dataType = 0;
+                                let dataLengthLowByte = rawData.length & 0xFF;
+                                let dataLengthHightByte = rawData.length >> 8 & 0xFF;
 
                                 // TODO: 后续将 0x0211F4 整合进 0x0211E4 中
                                 if (isEditingCustom) {
-                                    NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, rawData.length, ...rawData], immediate);
+                                    NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 } else {
                                     NativeModule.sendCommand(0x0211E4, meshAddress, [0, 0, scene, speed], immediate);
                                     // 这里一定要先发上面的效果切换命令 0xE4 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
-                                    setTimeout(() => NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, rawData.length, ...rawData], immediate));
+                                    setTimeout(() => NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate));
                                 }
                                 changed = true;
                                 break;
