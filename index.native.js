@@ -547,7 +547,7 @@ class TelinkBtSig {
                                 let rawData = [];
                                 data.map(subdata => {
                                     let bulbsMode = subdata[0];
-                                    if (bulbsMode === 0 || bulbsMode === 1 || bulbsMode === 2) {
+                                    if (bulbsMode > 0) {
                                         let subdataLength = 7;
                                         let bulbsStart = subdata[1];
                                         let bulbsLength = subdata[2];
