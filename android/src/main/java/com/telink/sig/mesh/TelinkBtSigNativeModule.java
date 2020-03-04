@@ -789,12 +789,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // final boolean privateMode = SharedPreferenceHelper.isPrivateMode(this);
         final boolean privateMode = true;
 
-        AdvertisingDevice advDevices = this.getAdvDeviceByMacAddress(device.macAddress);
+        AdvertisingDevice advDevice = this.getAdvDeviceByMacAddress(device.macAddress);
 
         // check if device support fast bind
         boolean fastBind = false;
-        if (privateMode && advDevices != null && advDevices.scanRecord != null) {
-            PrivateDevice prvDevice = getPrivateDevice(advDevices.scanRecord);
+        if (privateMode && advDevice != null && advDevice.scanRecord != null) {
+            PrivateDevice prvDevice = getPrivateDevice(advDevice.scanRecord);
 
             if (prvDevice != null) {
                 TelinkLog.d("private device");
