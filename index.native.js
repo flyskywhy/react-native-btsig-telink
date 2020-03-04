@@ -593,6 +593,8 @@ class TelinkBtSig {
         }
     }
 
+    static getTypeFromUuid = uuid => uuid;
+
     static configNode({
         node,
         isToClaim,

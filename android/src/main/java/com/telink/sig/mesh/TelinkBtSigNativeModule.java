@@ -764,16 +764,23 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         MeshScanRecord sr = MeshScanRecord.parseFromBytes(scanRecord);
         byte[] serviceData = sr.getServiceData(ParcelUuid.fromString(UuidInfo.PROVISION_SERVICE_UUID.toString()));
         if (serviceData == null) return null;
-
-// TODO: 认领成功时 MeshController.java 的 onMeshEvent() 中 nodeInfoData 的数据是
+// 认领成功时 MeshController.java 的 onMeshEvent() 中 nodeInfoData 的数据是
 // 02:00:02:FF:8E:E7:40:5C:38:96:8C:1B:D1:EF:DB:5E:09:8C:05:A0:3C:00:11:02:01:00:33:30:69:00:07:00:00:00:11:01:00:00:02:00:03:00:04:00:00:FE:01:FE:00:FF:01:FF:00:10:02:10:04:10:06:10:07:10:00:13:01:13:03:13:04:13:11:02:00:00:00:00:02:00:02:10:06:13
 // 可以看到里面是有 11:02:01:00 的，也就是说应该是符合 PrivateDevice.java 中的 CT(0x0211, 0x01
 // 但为什么在认领刚开始调用的 getPrivateDevice() 中打印如下信息中没有 11:02:01:00 ，反而代之以 FE:E2:D6:E1 ？（这也是为何 PrivateDevice.filter() 返回的是 null 所以无法进行 fastBind 的原因）
 // scanRecord: 02:01:06:03:03:27:18:15:16:27:18:FE:E2:D6:E1:A4:A2:02:3A:A3:B0:3F:2A:4C:C4:CD:AB:00:00:1E:FF:3F:2A:4C:C4:CD:AB:3F:2A:00:00:00:00:00:00:00:00:00:00:01:02:03:04:05:06:07:08:09:0A:0B:00:00
 // serviceData: FE:E2:D6:E1:A4:A2:02:3A:A3:B0:3F:2A:4C:C4:CD:AB:00:00
 // telink 的工程师回答说需要在设备固件代码中打开 fastbind 宏 PROVISION_FLOW_SIMPLE_EN
-// 在 fastbind 模式下 service data 前两个字节是 vid(0x0211) （应该就是 NodeInfo.CompositionData
-// 中的 cid），第三个字节是 pid
+// 在 fastbind 模式下 service data 前两个字节是 vid(0x0211) （即 vendor identifier ，在 NodeInfo.CompositionData
+// 中也称为 cid 即 company identifier），第三、四个字节是 pid ，果然打开 PROVISION_FLOW_SIMPLE_EN 后
+// TelinkLog.d("serviceData: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(serviceData, ":"));
+// before set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
+// 03-02 13:35:18.095: D/TelinkBluetoothSDK(20615): serviceData: D3:7C:64:89:C3:03:A0:3B:92:CB:6C:C5:D6:38:C1:A4:00:00
+// 03-02 13:35:31.962: D/TelinkBluetoothSDK(20615): nodeInfoData: 01:00:01:FF:E0:16:18:B5:4C:C0:C2:6D:A2:29:C2:8D:30:51:85:BF:38:00:11:02:78:FB:31:31:69:00:07:00:00:00:13:01:00:00:02:00:03:00:04:00:00:FE:01:FE:00:FF:01:FF:00:12:01:12:00:10:02:10:04:10:06:10:07:10:06:12:07:12:00:13:01:13:11:02:00:00
+// after set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
+// 03-02 13:50:03.273: D/TelinkBluetoothSDK(23149): serviceData: 11:02:00:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00
+// 03-02 13:50:17.004: D/TelinkBluetoothSDK(23149): nodeInfoData: 01:00:01:FF:A4:85:7F:7E:AE:9A:64:63:E7:DC:EF:B1:A1:60:BE:EB:38:00:11:02:78:FB:31:32:69:00:07:00:00:00:13:01:00:00:02:00:03:00:04:00:00:FE:01:FE:00:FF:01:FF:00:12:01:12:00:10:02:10:04:10:06:10:07:10:06:12:07:12:00:13:01:13:11:02:00:00
+// 这里 serviceData 中的 00:FB 要如何变成 78:FB 详见 onLeScan() 中的注释
 
         return PrivateDevice.filter(serviceData);
     }
@@ -813,10 +820,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             }
         }
 
-        // KeyBindParameters parameters = KeyBindParameters.getDefault(device,
-                // mAppKey, 0, 0, fastBind);
         KeyBindParameters parameters = KeyBindParameters.getDefault(device,
-                mAppKey, 0, 0, false);
+                mAppKey, 0, 0, fastBind);
 
         if (mService == null) {
             Log.e(TAG, "xxxxxxx onProvisionSuccess mService == null");
@@ -1568,6 +1573,15 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // TelinkLog.w("bond" + btDevice.getBondState());                  // 10
         // TelinkLog.w("clas" + btDevice.getBluetoothClass().toString());  // 0
         // TelinkLog.w("hash" + btDevice.hashCode());                      // 1098112549
+// TelinkLog.d("scanRecord: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(advDevice.scanRecord, ":"));
+// before set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
+// scanRecord: 02:01:06:03:03:27:18:15:16:27:18:D3:7C:64:89:C3:03:A0:3B:92:CB:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:01:02:03:04:05:06:07:08:09:0A:0B:00:00
+// after set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
+// scanRecord: 02:01:06:03:03:27:18:15:16:27:18:11:02:00:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:01:02:03:04:05:06:07:08:09:0A:0B:00:00
+// after set rsv_user in mesh_scan_rsp_init() of telink_sig_mesh/vendor/common/mesh_common.c
+// scanRecord: 02:01:06:03:03:27:18:15:16:27:18:11:02:00:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:78:FB:03:04:05:06:07:08:09:0A:0B:00:00
+// after set cps_head in set_dev_uuid_for_simple_flow() of telink_sig_mesh/vendor/common/mesh_common.c
+// scanRecord: 02:01:06:03:03:27:18:15:16:27:18:11:02:78:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:78:FB:03:04:05:06:07:08:09:0A:0B:00:00
 
         WritableMap params = Arguments.createMap();
         params.putString("macAddress", btDevice.getAddress());
@@ -1575,7 +1589,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // params.putString("meshName", btDevice.describeContents());
         // params.putInt("meshAddress", deviceInfo.meshAddress);
         // params.putInt("meshUUID", btDevice.getUuids());
-        // params.putInt("productUUID", btDevice.getType());
+        params.putInt("productUUID", (advDevice.scanRecord[49] & 0xFF) + (((advDevice.scanRecord[50] & 0xFF) << 8)));
         // params.putInt("status", btDevice.getBondState());
         sendEvent(LE_SCAN, params);
     }
