@@ -569,11 +569,11 @@ class TelinkBtSig {
                                 let dataLengthLowByte = rawData.length & 0xFF;
                                 let dataLengthHightByte = rawData.length >> 8 & 0xFF;
 
-                                // TODO: 后续将 0x0211F4 整合进 0x0211E4 中
+                                // TODO: 后续将 0x0211F4 整合进 0x0211E6 中
                                 if (isEditingCustom) {
                                     NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 } else {
-                                    NativeModule.sendCommand(0x0211E4, meshAddress, [0, 0, scene, speed], immediate);
+                                    NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
                                     // 这里一定要先发上面的效果切换命令 0xE4 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
                                     setTimeout(() => NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate));
                                 }
