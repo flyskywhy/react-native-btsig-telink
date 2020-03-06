@@ -1,3 +1,5 @@
+var pako = require('pako');
+
 class TelinkBtSig {
     static MESH_ADDRESS_MIN = 0x0001;
     static MESH_ADDRESS_MAX = 0x00FF;
@@ -154,6 +156,14 @@ class TelinkBtSig {
                                 let dataType = 0;
                                 let dataLengthLowByte = rawData.length & 0xFF;
                                 let dataLengthHightByte = rawData.length >> 8 & 0xFF;
+
+                                // TODO: dataType = 1;
+                                let compressedData = pako.deflateRaw(new Uint8Array(rawData), {
+                                    strategy: pako.Z_HUFFMAN_ONLY,
+                                });  // 可被 https://github.com/jibsen/tinf/tree/master/test/test_tinf.c 里的 inflate_huffman_only 解压缩
+                                // console.warn(rawData.length, compressedData.length)
+                                console.warn(rawData, compressedData)
+
                                 console.warn([0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData])
         }
     }
