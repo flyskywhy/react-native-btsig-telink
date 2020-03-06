@@ -152,7 +152,9 @@ class TelinkBtSig {
                                     }
                                 });
                                 let dataType = 0;
-                                console.warn([0, 0, scene, speed, dataType, rawData.length, ...rawData])
+                                let dataLengthLowByte = rawData.length & 0xFF;
+                                let dataLengthHightByte = rawData.length >> 8 & 0xFF;
+                                console.warn([0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData])
         }
     }
 

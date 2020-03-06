@@ -1672,6 +1672,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             case OnlineStatusEvent.ONLINE_STATUS_NOTIFY:
                 this.onOnlineStatusNotify((OnlineStatusEvent) event);
                 break;
+            // case NotificationEvent.EVENT_TYPE_PUBLICATION_STATUS:
+            //     Log.d(TAG, "xxxxxxx EVENT_TYPE_PUBLICATION_STATUS");
+            //     break;
             case NotificationEvent.EVENT_TYPE_VENDOR_RESPONSE:
                 this.onVendorResponse((NotificationEvent) event);
                 break;
