@@ -620,6 +620,7 @@ class TelinkBtSig {
         immediate = false,
     }) {
         if (sceneSyncMeshAddress !== undefined && sceneSyncMeshAddress !== null) {
+            // 设置同步的消息里的参数里的 mesh 地址（不是消息本身的目的地址）需要传输两个字节，因为固件那里是按 u16 读取参数中的两个字节的
             let addrLowByte = sceneSyncMeshAddress & 0xFF;
             let addrHightByte = sceneSyncMeshAddress >> 8 & 0xFF;
             NativeModule.sendCommand(0x0211F2, this.defaultAllGroupAddress, [0, 0, addrLowByte, addrHightByte], immediate);
