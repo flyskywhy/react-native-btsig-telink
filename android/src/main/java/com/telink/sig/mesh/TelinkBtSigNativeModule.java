@@ -1358,7 +1358,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_TIME_S.modelId);
+            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_TIME_SETUP_S.modelId);
             if (elementAddr == -1) {
                 elementAddr = meshAddress;
             }
@@ -1398,7 +1398,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 // }time_status_t;
         TelinkLog.d("time: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(data, ":"));
 
-        int taiSec = MeshUtils.bytes2Integer(Arrays.copyOfRange(data, 7, 11), ByteOrder.BIG_ENDIAN);
+        int taiSec = MeshUtils.bytes2Integer(Arrays.copyOfRange(data, 7, 11), ByteOrder.LITTLE_ENDIAN);
         TelinkLog.d("taiSec: " + taiSec);
         long sec = (long)taiSec + MeshUtils.TAI_OFFSET_SECOND;
         Calendar notificationInfo = Calendar.getInstance();
@@ -1415,6 +1415,36 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             mGetTimePromise.resolve(params);
         }
         mGetTimePromise = null;
+    }
+
+    @ReactMethod
+    private void setAlarm(int meshAddress, int index, int year, int month, int day, int hour, int minute, int second, int week, int action, int sceneId) {
+        int transitionTime = 0;
+
+        Scheduler scheduler = new Scheduler.Builder()
+                .setIndex((byte) index)
+                .setYear((byte) year)
+                .setMonth((short) month)
+                .setDay((byte) day)
+                .setHour((byte) hour)
+                .setMinute((byte) minute)
+                .setSecond((byte) second)
+                .setWeek((byte) week)
+                .setAction((byte) action)
+                .setTransTime((byte) transitionTime)
+                .setSceneId((short) sceneId).build();
+        long register = scheduler.getRegisterParam0();
+        // TelinkLog.d("scheduler register: " + Long.toBinaryString(register));
+
+        int elementAddr = meshAddress;
+        DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
+        if (device != null) {
+            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_SCHED_SETUP_S.modelId);
+            if (elementAddr == -1) {
+                elementAddr = meshAddress;
+            }
+        }
+        mService.setSchedulerAction(elementAddr, true, 0, scheduler, null);
     }
 
     @ReactMethod
@@ -1439,7 +1469,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private synchronized void onGetAlarmNotify(NotificationEvent event) {
         byte[] data = event.getRawData();
         //        F0:13:02:00:01:00:5F: 20:F9:FF:8C:FB:FE:1F:00:00:00: 00:00:00:00
-        TelinkLog.d("alarm: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(data, ":"));
+        // TelinkLog.d("scheduler get: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(data, ":"));
 
         Scheduler scheduler = Scheduler.fromBytes(Arrays.copyOfRange(data, 7, 17));
         // Scheduler scheduler = Scheduler.fromBytes([
@@ -1463,11 +1493,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         if (mGetAlarmPromise != null) {
             WritableMap params = Arguments.createMap();
             params.putInt("alarmId", scheduler.getIndex());
-            // params.putInt("type", notificationInfo.type.getValue());
-            // params.putInt("status", notificationInfo.status.getValue());
             params.putInt("year", (int)register.getYear());
             params.putInt("month", (int)register.getMonth());
-            // params.putInt("dayOrWeek", notificationInfo.getDayOrWeek());
             params.putInt("day", (int)register.getDay());
             params.putInt("hour", (int)register.getHour());
             params.putInt("minute", (int)register.getMinute());

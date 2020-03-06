@@ -38,16 +38,31 @@ class TelinkBtSig {
     static NODE_STATUS_ON = 1;
     static NODE_STATUS_OFFLINE = -1;
     static RELAY_TIMES_MAX = 16;
-    static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 1;
+    static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 300;
     static DELAY_MS_COMMAND = 320;
     static ALARM_CREATE = 0;
     static ALARM_REMOVE = 1;
     static ALARM_UPDATE = 2;
     static ALARM_ENABLE = 3;
     static ALARM_DISABLE = 4;
+    static ALARM_YEAR_ANY = 0x64;
+    static ALARM_MONTH_ALL = 0b111111111111;
+    static ALARM_DAY_ANY = 0;
+    static ALARM_HOUR_ANY = 0x18;
+    static ALARM_HOUR_RANDOM = 0x19;
+    static ALARM_MINUTE_ANY = 0x3C;
+    static ALARM_MINUTE_CYCLE_15 = 0x3D;
+    static ALARM_MINUTE_CYCLE_20 = 0x3E;
+    static ALARM_MINUTE_RANDOM = 0x3F;
+    static ALARM_SECOND_ANY = 0x3C;
+    static ALARM_SECOND_CYCLE_15 = 0x3D;
+    static ALARM_SECOND_CYCLE_20 = 0x3E;
+    static ALARM_SECOND_RANDOM = 0x3F;
+    static ALARM_WEEK_ALL = 0b1111111;
     static ALARM_ACTION_TURN_OFF = 0;
     static ALARM_ACTION_TURN_ON = 1;
     static ALARM_ACTION_SCENE = 2;
+    static ALARM_ACTION_NO = 0xF;
     static ALARM_TYPE_DAY = 0;
     static ALARM_TYPE_WEEK = 1;
 
@@ -700,20 +715,20 @@ class TelinkBtSig {
 
     static setAlarm({
         meshAddress,
-        crud,
         alarmId,
-        status,
-        action,
-        type,
-        month = 1, // telink 固件中时间月份是 1~12 而非 Java 或 JS 中标准的 0~11 （TODO: 此注释在 sig 中可能已过时，待调试完 setAlarm 后修改）
-        dayOrweek,
+        year = this.ALARM_YEAR_ANY,
+        month,
+        day = this.ALARM_DAY_ANY,
         hour,
         minute,
         second = 0,
+        week = this.ALARM_WEEK_ALL,
+        action,
         sceneId = 0,
         immediate = false,
     }) {
         // NativeModule.sendCommand(0xE5, meshAddress, [crud, alarmId, status << 7 | type << 4 | action, month, dayOrweek, hour, minute, second, sceneId], immediate);
+        NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, day, hour, minute, second, week, action, sceneId);
     }
 
     static getAlarm({
