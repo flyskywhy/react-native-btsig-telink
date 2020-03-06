@@ -1070,6 +1070,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 map.putInt("meshAddress", onlineStatusInfo.address);
                 map.putInt("brightness", onlineStatusInfo.status[0]);
                 map.putInt("colorTemp", onlineStatusInfo.status[1]);
+                map.putInt("reserve", onlineStatusInfo.status[2]);
                 int connectionStatus;
                 if (onlineStatusInfo.sn == 0) {
                     connectionStatus = -1;

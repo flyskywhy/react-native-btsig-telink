@@ -269,7 +269,10 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         // 测试得：不论这里是 [0, 0, value] 还是 [0xE3, 0x02, value] ，返回
                         // 的 onVendorResponse 的 opcode 都是 0x0211E3
-                        NativeModule.sendCommand(this.hasOnlineStatusNotifyRaw ? 0x0211E2 : 0x0211E0, meshAddress, [0xE3, 0x02, value], immediate);
+                        // NativeModule.sendCommand(this.hasOnlineStatusNotifyRaw ? 0x0211E2 : 0x0211E0, meshAddress, [0xE3, 0x02, value], immediate);
+                        // 按说在 this.hasOnlineStatusNotifyRaw 的情况下，只要使用上面的无需返回开关灯的开关命令 E2 即可，但是发现当在界面上快速点击开关的情况下，
+                        // 只有下面的开关命令 E0 额外返回的开关状态才能保证开关按钮的状态能够快速切换且能快速地开关灯。
+                        NativeModule.sendCommand(0x0211E0, meshAddress, [0xE3, 0x02, value], immediate);
                         changed = true;
                     }
                     break;
@@ -354,7 +357,11 @@ class TelinkBtSig {
         return bytes.map(byte => this.padHexString((byte & 0xFF).toString(16))).toString().replace(/,/g, '').toUpperCase();
     }
 
-    static changeScene({
+    static sleepMs(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    static async changeScene({
         meshAddress,
         sceneSyncMeshAddress,
         scene,
@@ -398,6 +405,10 @@ class TelinkBtSig {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(type)) {
                     if (mode === 'silan') {
+                        this.selectNodeToResponseSceneId({
+                            sceneSyncMeshAddress,
+                        });
+                        await this.sleepMs(this.DELAY_MS_AFTER_UPDATE_MESH_COMPLETED);
                         switch (scene) {
                             case 0:                                                             //这里的 1 是颜色个数， 0 是某个颜色的保留字节（每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, 3, 1, 0, color3.r, color3.g, color3.b], immediate);
@@ -591,8 +602,9 @@ class TelinkBtSig {
                                     NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 } else {
                                     NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
+                                    await this.sleepMs(this.DELAY_MS_AFTER_UPDATE_MESH_COMPLETED);
                                     // 这里一定要先发上面的效果切换命令 0xE4 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
-                                    setTimeout(() => NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate));
+                                    NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 }
                                 changed = true;
                                 break;
@@ -611,10 +623,6 @@ class TelinkBtSig {
         if (!changed) {
             // NativeModule.sendCommand(0xEF, meshAddress, [scene], immediate);
         }
-
-        setTimeout(() => this.selectNodeToResponseSceneId({
-            sceneSyncMeshAddress,
-        }), 2000);
     }
 
     static selectNodeToResponseSceneId({
