@@ -38,7 +38,7 @@ class TelinkBtSig {
     static NODE_STATUS_ON = 1;
     static NODE_STATUS_OFFLINE = -1;
     static RELAY_TIMES_MAX = 16;
-    static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 300;
+    static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 320;
     static DELAY_MS_COMMAND = 320;
     static ALARM_CREATE = 0;
     static ALARM_REMOVE = 1;
