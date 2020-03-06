@@ -605,7 +605,9 @@ class TelinkBtSig {
         immediate = false,
     }) {
         if (sceneSyncMeshAddress !== undefined && sceneSyncMeshAddress !== null) {
-            NativeModule.sendCommand(0x0211F2, this.defaultAllGroupAddress, [0, 0, sceneSyncMeshAddress], immediate);
+            let addrLowByte = sceneSyncMeshAddress & 0xFF;
+            let addrHightByte = sceneSyncMeshAddress >> 8 & 0xFF;
+            NativeModule.sendCommand(0x0211F2, this.defaultAllGroupAddress, [0, 0, addrLowByte, addrHightByte], immediate);
         }
     }
 
