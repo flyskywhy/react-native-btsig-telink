@@ -73,7 +73,7 @@ class TelinkBtSig {
     // 逻辑上能否通过蓝牙模块返回的在线状态或者开关灯等状态推理出在线状态
     static hasOnlineStatusNotify = true;
     // 物理上蓝牙模块是否支持返回在线状态
-    static hasOnlineStatusNotifyRaw = false;
+    static hasOnlineStatusNotifyRaw = true;
 
     static needRefreshMeshNodesBeforeConfig = true;
     static canConfigEvenDisconnected = true;
@@ -154,9 +154,11 @@ class TelinkBtSig {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(type)) {
                     if (mode === 'silan') {
-                        // 它返回 的 onVendorResponse 的 opcode 是 0x0211E3
-                        NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
-                        changed = true;
+                        if (!this.hasOnlineStatusNotifyRaw) {
+                            // 它返回 的 onVendorResponse 的 opcode 是 0x0211E3
+                            NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
+                            changed = true;
+                        }
                     }
                     break;
                 }
@@ -267,7 +269,7 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         // 测试得：不论这里是 [0, 0, value] 还是 [0xE3, 0x02, value] ，返回
                         // 的 onVendorResponse 的 opcode 都是 0x0211E3
-                        NativeModule.sendCommand(0x0211E0, meshAddress, [0xE3, 0x02, value], immediate);
+                        NativeModule.sendCommand(this.hasOnlineStatusNotifyRaw ? 0x0211E2 : 0x0211E0, meshAddress, [0xE3, 0x02, value], immediate);
                         changed = true;
                     }
                     break;
