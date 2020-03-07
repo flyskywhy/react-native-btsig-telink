@@ -810,7 +810,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 nodeInfo.nodeAdr = device.meshAddress;
                 nodeInfo.elementCnt = device.elementCnt;
                 nodeInfo.deviceKey = device.deviceKey;
-                final byte[] cpsData = prvDevice.getCpsData();
+                byte[] cpsData = prvDevice.getCpsData();
+                MeshScanRecord sr = MeshScanRecord.parseFromBytes(advDevice.scanRecord);
+                byte[] serviceData = sr.getServiceData(ParcelUuid.fromString(UuidInfo.PROVISION_SERVICE_UUID.toString()));
+                if ((serviceData[3] & 0xFF) == 0xFB) {  // 如果 pid 的高位字节表明这是灯串
+                    cpsData[2] = serviceData[2]; // 就将实际的灯珠数填进预定义好的灯串 cpsData 中 pid 的低位字节
+                }
                 nodeInfo.cpsData = NodeInfo.CompositionData.from(cpsData);
                 nodeInfo.cpsDataLen = cpsData.length;
                 device.nodeInfo = nodeInfo;
