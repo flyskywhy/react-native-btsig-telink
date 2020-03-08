@@ -38,8 +38,10 @@ class TelinkBtSig {
     static NODE_STATUS_ON = 1;
     static NODE_STATUS_OFFLINE = -1;
     static RELAY_TIMES_MAX = 16;
-    static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 320;
-    static DELAY_MS_COMMAND = 320;
+    static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 500;
+    // telink sig mesh 的 SDK 中没有自带命令队列然后自动在命令间加入延时，所以需要
+    // 手动加入足够延时，否则比如连续两次设置开关，则第 2 个设备极有可能收不到开关命令
+    static DELAY_MS_COMMAND = 500;
     static ALARM_CREATE = 0;
     static ALARM_REMOVE = 1;
     static ALARM_UPDATE = 2;
@@ -408,7 +410,7 @@ class TelinkBtSig {
                         this.selectNodeToResponseSceneId({
                             sceneSyncMeshAddress,
                         });
-                        await this.sleepMs(this.DELAY_MS_AFTER_UPDATE_MESH_COMPLETED);
+                        await this.sleepMs(this.DELAY_MS_COMMAND);
                         switch (scene) {
                             case 0:                                                             //这里的 1 是颜色个数， 0 是某个颜色的保留字节（每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, 3, 1, 0, color3.r, color3.g, color3.b], immediate);
@@ -602,7 +604,7 @@ class TelinkBtSig {
                                     NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 } else {
                                     NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
-                                    await this.sleepMs(this.DELAY_MS_AFTER_UPDATE_MESH_COMPLETED);
+                                    await this.sleepMs(this.DELAY_MS_COMMAND);
                                     // 这里一定要先发上面的效果切换命令 0xE4 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
                                     NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 }
