@@ -639,6 +639,13 @@ class TelinkBtSig {
         }
     }
 
+    static saveCustomScene({
+        meshAddress,
+        immediate = false,
+    }) {
+        NativeModule.sendCommand(0x0211F5, meshAddress, [0, 0], immediate);
+    }
+
     static getTypeFromUuid = uuid => uuid;
 
     static configNode({
