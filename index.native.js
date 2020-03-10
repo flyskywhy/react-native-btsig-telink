@@ -224,6 +224,13 @@ class TelinkBtSig {
                     isOn: resRaw.params[0] !== 0,
                 };
                 break;
+            case 0x0211FF:
+                res = {
+                    opcode: 'DEBUG_FW_PRINT',
+                    meshAddress: resRaw.meshAddress,
+                    params: resRaw.params,
+                };
+                break;
             default:
                 res = {};
                 break;
