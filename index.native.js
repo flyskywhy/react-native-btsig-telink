@@ -172,6 +172,7 @@ class TelinkBtSig {
                             // 可能因为上面的 this.remind 导致固件开灯了一会而需要再次查看开关状态
                             await this.sleepMs(this.DELAY_MS_COMMAND);
                             NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
+                            // 测试发现还需要再次查看开关状态才能保证关灯情况下 APP 打开时能获得 2 个设备的关灯状态
                             await this.sleepMs(this.DELAY_MS_COMMAND);
                             NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
                             changed = true;
