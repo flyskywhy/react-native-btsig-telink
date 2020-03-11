@@ -75,7 +75,7 @@ class TelinkBtSig {
     // 逻辑上能否通过蓝牙模块返回的在线状态或者开关灯等状态推理出在线状态
     static hasOnlineStatusNotify = true;
     // 物理上蓝牙模块是否支持返回在线状态
-    static hasOnlineStatusNotifyRaw = true;
+    static hasOnlineStatusNotifyRaw = false;
 
     static needRefreshMeshNodesBeforeConfig = true;
     static canConfigEvenDisconnected = true;
@@ -145,19 +145,34 @@ class TelinkBtSig {
         return NativeModule.autoConnect(userMeshPwd);
     }
 
-    static postConnected({
+    static async postConnected({
         meshAddress,
         type,
         immediate = false,
     }) {
+        this.remind({
+            meshAddress,
+        })
+
+        await this.sleepMs(this.DELAY_MS_COMMAND);
+
         let changed = false;
 
         if (this.passthroughMode) {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(type)) {
                     if (mode === 'silan') {
-                        if (!this.hasOnlineStatusNotifyRaw) {
+                        // 估计是 telink sig Android SDK 或固件的 bug ，在多个灯串时莫名
+                        // 返回离线，所以只能无视 public void saveOrUpdateJS() 中对
+                        // hasOnlineStatusNotifyRaw 的赋值，而强制给这里的 if 喂 true
+                        if (true /* !this.hasOnlineStatusNotifyRaw */) {
                             // 它返回 的 onVendorResponse 的 opcode 是 0x0211E3
+                            NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
+
+                            // 可能因为上面的 this.remind 导致固件开灯了一会而需要再次查看开关状态
+                            await this.sleepMs(this.DELAY_MS_COMMAND);
+                            NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
+                            await this.sleepMs(this.DELAY_MS_COMMAND);
                             NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
                             changed = true;
                         }
@@ -175,24 +190,17 @@ class TelinkBtSig {
                 NativeModule.sendCommand(0x0182, 0xFFFF, [], immediate); // mService.getOnOff(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_ON_OFF_STATUS
 
                 // 测试得：如果紧接着上面 getOnOff 后立即进行其它 get ，则只会触发 getOnOff 对应的 EVENT，因此需要延迟进行
-                setTimeout(() => {
-                    // 因为此处只会返回第一个 get 函数的结果，所以那些注释掉的 get 函数仅用于测试
-                    // NativeModule.sendCommand(0x0582, 0xFFFF, [], immediate); // mService.getLevel(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_LEVEL_STATUS
-                    // NativeModule.sendCommand(0x4B82, 0xFFFF, [], immediate); // mService.getLightness(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY
+                await this.sleepMs(this.DELAY_MS_COMMAND);
+                // 因为此处只会返回第一个 get 函数的结果，所以那些注释掉的 get 函数仅用于测试
+                // NativeModule.sendCommand(0x0582, 0xFFFF, [], immediate); // mService.getLevel(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_LEVEL_STATUS
+                // NativeModule.sendCommand(0x4B82, 0xFFFF, [], immediate); // mService.getLightness(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY
 
-                    // 如 TelinkBtSigNativeModule.java 的 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
-                    NativeModule.sendCommand(0x5D82, 0xFFFF, [], immediate); // mService.getCtl(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_CTL_STATUS_NOTIFY
+                // 如 TelinkBtSigNativeModule.java 的 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
+                NativeModule.sendCommand(0x5D82, 0xFFFF, [], immediate); // mService.getCtl(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_CTL_STATUS_NOTIFY
 
-                    // NativeModule.sendCommand(0x6182, 0xFFFF, [], immediate); // mService.getTemperature(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_TEMP_STATUS_NOTIFY
-                }, 1 * 1000); // 测试得：当延时为 100 时无法触发对应的 EVENT ，而 500 是可以的，保险起见，这里可以使用 1000
+                // NativeModule.sendCommand(0x6182, 0xFFFF, [], immediate); // mService.getTemperature(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_TEMP_STATUS_NOTIFY
             }
         }
-
-        setTimeout(() => {
-            this.remind({
-                meshAddress,
-            })
-        }, 2 * 1000);
     }
 
     static autoRefreshNotify({
@@ -222,6 +230,16 @@ class TelinkBtSig {
                     meshAddress: resRaw.meshAddress,
                     isOnline: true,
                     isOn: resRaw.params[0] !== 0,
+                };
+                break;
+            case 0x0211F6:
+                res = {
+                    opcode: 'SCENE_SYNC',
+                    meshAddress: resRaw.meshAddress,
+                    isOnline: true,
+                    isOn: resRaw.params[0] !== 0,
+                    sceneID: resRaw.params[1] & 0xFF,
+                    sceneSyncTime: resRaw.params[1] && new Date().getTime(),
                 };
                 break;
             case 0x0211FF:
