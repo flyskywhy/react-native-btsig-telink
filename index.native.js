@@ -913,10 +913,9 @@ class TelinkBtSig {
     }
 
     static isValidFirmware(firmware) {
-        return true;
-        // return firmware[0] === 0x0E &&
-        //     (firmware[1] & 0xFF) === 0x80 &&
-        //     firmware.length > 6;
+        return firmware[0] === 0x26 &&
+            (firmware[1] & 0xFF) === 0x80 &&
+            firmware.length > 6;
     }
 }
 
