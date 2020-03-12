@@ -85,6 +85,11 @@ class TelinkBtSig {
     static defaultAllGroupAddress = 0xFFFF;
     static isSetNodeGroupAddrReturnAddresses = false;
 
+    // 需要如下两个变量来保证韵律期间频发音量转亮度 changeBrightness() 的情况下也能正常 changeScene() ，
+    // 否则在两串灯时， All 组，开启韵律后，切换效果很多时候只有一盏灯能切换效果，另外一盏没变
+    static isSceneCadenceBusy = false;
+    static allowSceneCadence = true;
+
     static netKey = 'netKey';
     static appKey = 'appKey';
     static meshAddressOfApp = this.MESH_ADDRESS_MAX; // 测试得：手机 mesh 地址不能设为 0
@@ -327,7 +332,10 @@ class TelinkBtSig {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(type)) {
                     if (mode === 'silan') {
-                        NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, value], immediate);
+                        if (this.allowSceneCadence) {
+                            this.isSceneCadenceBusy = true;
+                            NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, value], immediate);
+                        }
                         changed = true;
                     }
                     break;
@@ -411,6 +419,11 @@ class TelinkBtSig {
         immediate = false,
     }) {
         this.syncSceneIdTimer && clearTimeout(this.syncSceneIdTimer);
+        if (this.isSceneCadenceBusy) {
+            this.allowSceneCadence = false;
+            await this.sleepMs(this.DELAY_MS_COMMAND);
+            this.isSceneCadenceBusy = false;
+        }
 
         let changed = false;
 
@@ -641,9 +654,15 @@ class TelinkBtSig {
                     }
                     if (changed) {
                         if (!isEditingCustom) {
-                            this.syncSceneIdTimer = setTimeout(() => this.selectNodeToResponseSceneId({
-                                sceneSyncMeshAddress,
-                            }), this.DELAY_MS_COMMAND);
+                            this.syncSceneIdTimer = setTimeout(async () => {
+                                this.selectNodeToResponseSceneId({
+                                    sceneSyncMeshAddress,
+                                });
+                                await this.sleepMs(this.DELAY_MS_COMMAND);
+                                this.allowSceneCadence = true;
+                            }, this.DELAY_MS_COMMAND);
+                        } else {
+                            this.allowSceneCadence = true;
                         }
                         break;
                     }
