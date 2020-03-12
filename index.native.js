@@ -151,7 +151,7 @@ class TelinkBtSig {
         immediate = false,
     }) {
         this.remind({
-            meshAddress,
+            meshAddress: 0xFFFF,
         })
 
         await this.sleepMs(this.DELAY_MS_COMMAND);
