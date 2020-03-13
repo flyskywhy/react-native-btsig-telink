@@ -816,11 +816,13 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 if ((serviceData[3] & 0xFF) == 0xFB) {  // 如果 pid 的高位字节表明这是灯串
                     cpsData[2] = serviceData[2]; // 就将实际的灯珠数填进预定义好的灯串 cpsData 中 pid 的低位字节
                 }
+                cpsData[4] = serviceData[4];    // PrivateDevice 中预定义的版本号不一
+                cpsData[5] = serviceData[5];    // 定与固件中的相同，所以需要在此处替换
                 nodeInfo.cpsData = NodeInfo.CompositionData.from(cpsData);
                 nodeInfo.cpsDataLen = cpsData.length;
                 device.nodeInfo = nodeInfo;
                 fastBind = true;
-            }else {
+            } else {
                 TelinkLog.d("private device null");
             }
         }
