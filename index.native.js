@@ -851,6 +851,28 @@ class TelinkBtSig {
         ], immediate);
     }
 
+    static getFwVerInNodeInfo({
+        nodeInfo = '',
+    }) {
+        let bytes = this.hexString2ByteArray(nodeInfo);
+        let version = String.fromCharCode(bytes[26], bytes[27]);
+        return version;
+    }
+
+    static getNodeInfoWithNewFwVer({
+        nodeInfo = '',
+        newFwVer = '',
+    }) {
+        if (nodeInfo.length > 28 * 2 && newFwVer.length === 2) { // nodeInfo 里存的是 hexString ，每 2 个字符代表一个字节，所以需要 * 2
+            let bytes = this.hexString2ByteArray(nodeInfo);
+            bytes[26] = newFwVer.charCodeAt(0);
+            bytes[27] = newFwVer.charCodeAt(1);
+            return this.byteArray2HexString(bytes);
+        } else {
+            return nodeInfo;
+        }
+    }
+
     static getFirmwareVersion({
         meshAddress = 0xFFFF,
         relayTimes = 7,
