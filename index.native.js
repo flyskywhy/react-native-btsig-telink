@@ -851,6 +851,20 @@ class TelinkBtSig {
         ], immediate);
     }
 
+    static getNodeInfoWithNewType({
+        nodeInfo = '',
+        newType = 0xA5A5,
+    }) {
+        if (nodeInfo.length > 26 * 2) { // nodeInfo 里存的是 hexString ，每 2 个字符代表一个字节，所以需要 * 2
+            let bytes = this.hexString2ByteArray(nodeInfo);
+            bytes[24] = newType & 0xFF;
+            bytes[25] = (newType >>> 8) & 0xFF;
+            return this.byteArray2HexString(bytes);
+        } else {
+            return nodeInfo;
+        }
+    }
+
     static getFwVerInNodeInfo({
         nodeInfo = '',
     }) {
