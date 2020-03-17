@@ -22,6 +22,9 @@
 
 #pragma once
 
+#if !WIN32
+#include "proj/mcu/config.h"
+#endif
 #include "../config/user_config.h"
 #include "../common/bit.h"
 #include "register.h"
@@ -30,9 +33,10 @@
 // NOTE("If irq switches changed, pls change IRQ_INIT_VALUE accordingly.");
 // enalbe interrupt
 #ifndef WIN32
-#include "proj/mcu/config.h"
 #if(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
 #include "drivers/8258/irq.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "drivers/8278/irq.h"
 #else
 
 static inline u8 irq_enable(){

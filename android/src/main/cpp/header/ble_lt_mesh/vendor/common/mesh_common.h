@@ -38,6 +38,7 @@
 #endif
 
 #define MESH_RSP_BASE_DELAY_STEP			18  //unit:ADV_INTERVAL_MIN(10ms)
+#define MESH_POWERUP_BASE_TIME				200
 
 typedef struct{
 	u8 len;
@@ -53,7 +54,17 @@ typedef struct ais_pri_data{
 	u8 type;
 	u16 cid;
 	u8 vid;
-	u8 fmsk;
+	union{
+		u8 fmsk;
+		struct{
+			u8 ble_version:2;//00£ºBLE4.0 01£ºBLE4.2 10£ºBLE5.0 11£ºBLE5.0 above
+			u8 ota_support:1;
+			u8 authen_en:1;
+			u8 secret_type:1;// 0:one device type on key, 1:one device one key
+			u8 adv_mode:1;
+			u8 rfu:2;
+		};
+	};
 	u32 pid;
 	u8 mac[6];
 } ais_pri_t;
@@ -76,7 +87,7 @@ void mesh_ble_connect_cb(u8 e, u8 *p, int n);
 void mesh_ble_disconnect_cb();
 void mesh_conn_param_update_req();
 int mesh_get_proxy_hci_type();
-void vendor_id_init(u16 vendor_id);
+void vendor_id_check_and_update();
 void mesh_global_var_init();
 void mesh_tid_save(int ele_idx);
 void mesh_vd_init();
@@ -110,7 +121,7 @@ void mesh_scan_rsp_init();
 void mesh_scan_rsp_update_adr_primary(u16 adr);
 int SendOpParaDebug(u16 adr_dst, u8 rsp_max, u16 op, u8 *par, int len);
 int SendOpParaDebug_vendor(u16 adr_dst, u8 rsp_max, u16 op, u8 *par, int len, u8 rsp_op, u8 tid);
-void share_model_sub_by_rx_cmd(u16 op, u16 ele_adr, u16 sub_adr, u8 *uuid, u32 model_id, int sig_model);
+void share_model_sub_by_rx_cmd(u16 op, u16 ele_adr, u16 sub_adr, u16 dst_adr,u8 *uuid, u32 model_id, int sig_model);
 void share_model_sub(u16 op, u16 sub_adr, u8 *uuid);
 u32 get_all_online_node(u16 *list, u32 max_cnt);
 void APP_reset_vendor_id(u16 vd_id);
@@ -122,14 +133,14 @@ int is_need_response_to_self(u16 adr_dst, u16 op);
 
 extern u8 gatt_adv_send_flag;
 extern u16 g_vendor_id;
-extern u32 g_vendor_md_light_s;
-extern u32 g_vendor_md_light_s2;
-extern u32 g_vendor_md_light_c;
+extern u32 g_vendor_md_light_vc_s;
+extern u32 g_vendor_md_light_vc_s2;
+extern u32 g_vendor_md_light_vc_c;
 extern u16 publish_powerup_random_ms;
 
 extern u32 fw_id_local;
 extern u8 prov_oob_info_use[16];
-
+extern u16 sub_adr_onoff ;
 void set_unprov_beacon_para(u8 *p_uuid ,u8 *p_info,u8 *p_hash,u8 *uri_para,u8 uri_len);
 void set_provision_adv_data(u8 *p_uuid,u8 *oob_info);
 void set_proxy_adv_data(u8 *p_hash,u8 *p_random);
@@ -141,6 +152,7 @@ void set_sec_req_send_flag(u8 flag);// set the sec req send or not
 ble_sts_t  blc_att_setServerDataPendingTime_upon_ClientCmd(u8 num_10ms);
 void reliable_retry_cnt_def_set(u8 retry_cnt);
 int mesh_rsp_handle_cb(mesh_rc_rsp_t *p_rsp);
+int app_hci_cmd_from_usb (void);
 int app_hci_cmd_from_usb_handle (u8 *buff, int n);
 
 int mesh_send_cl_proxy_bv03(u16 node_adr);
@@ -148,6 +160,8 @@ int mesh_send_cl_proxy_bv04(u16 node_adr);
 int mesh_send_cl_proxy_bv05(u16 node_adr);
 int mesh_send_cl_proxy_bv06(u16 node_adr);
 int mesh_send_cl_proxy_bv07(u16 node_adr);
+u8 get_flash_data_is_valid(u8 *p_data,u16 len);
+void erase_ecdh_sector_restore_info(u32 adr,u8 *p_data,u16 len);
 
 #if WIN32
 int SendOpParaDebug_VC(u16 adr_dst, u8 rsp_max, u16 op, u8 *par, int len);  // only for SIG command now
@@ -159,7 +173,7 @@ extern u8 PROVISION_ATT_HANDLE; // may use in library
 extern u8 GATT_PROXY_HANDLE;    // may use in library
 extern const u8 SERVICE_CHANGE_ATT_HANDLE_SLAVE;
 extern const u8 ONLINE_ST_ATT_HANDLE_SLAVE;
-
+extern u8 proc_homekit_pair;
 
 enum{
 	BLE_4_0 =0,
@@ -198,10 +212,30 @@ typedef struct{
     u8 ac_par[32];
 }gateway_upload_mesh_src_t;
 
+// gateway cmd event log part 
+typedef struct{
+			u16 src;
+			u16 dst;
+			u16 opcode;
+			u8 para[20];
+}gateway_upload_mesh_cmd_str;
+
+typedef struct{
+	u8 dsk[32];
+	u8 dpk[64];
+	u32 valid;
+	u32 crc;
+}mesh_ecdh_key_str;
+#define ECDH_KEY_VALID_FLAG		0xa5
+
+#define ECDH_KEY_STS_TWO_VALID	1
+#define ECDH_KEY_STS_NONE_VALID	2
+#define ECDH_KEY_STS_ONE_VALID	3
+
 void provision_ecc_calc();
 void set_dev_uuid_for_simple_flow( u8 *p_uuid);
 u8 prov_uuid_fastbind_mode(u8 *p_uuid);
-
+u8 is_homekit_pair_handle(u8 handle); 
 
 u8 ota_condition_enable();
 void create_sha256_input_string(char *p_input,u8 *pid,u8 *p_mac,u8 *p_secret);
@@ -210,4 +244,12 @@ extern int LogMsgModuleDlg_and_buf(u8 *pbuf,int len,char *log_str,char *format, 
 void mesh_node_prov_event_callback(u8 evt_code);
 void wd_clear_lib();
 void bls_ota_set_fwSize_and_fwBootAddr(int firmware_size_k, int boot_addr);
-
+void mesh_mi_cfg_segmust_set(material_tx_cmd_t *p);
+void mesh_secure_beacon_loop_proc();
+u16 mi_share_model_sub(u16 op,u16 ele_adr,u16 sub_adr,u8 *uuid,u32 model_id);
+int mesh_cmd_sig_cfg_model_sub_cb(u8 st,mesh_cfg_model_sub_set_t * p_sub_set,int sig_model,u16 adr_src);
+void start_reboot(void);
+void blc_l2cap_register_pre_handler(void *p);
+#if!WIN32
+uint32_t soft_crc32_telink(const void *buf, size_t size, uint32_t crc);
+#endif

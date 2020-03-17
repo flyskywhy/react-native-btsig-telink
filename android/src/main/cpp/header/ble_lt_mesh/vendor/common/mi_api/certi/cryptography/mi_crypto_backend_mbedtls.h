@@ -2,7 +2,7 @@
 #define __MIBLE_CRYPTO_BACKEND_MBEDTLS_H__
 #include <stdint.h>
 #include <stddef.h>
-#include "../../mible_type.h"
+#include "mible_type.h"
 
 #define PEM_HEADER                   "-----BEGIN CERTIFICATE-----"
 #define PEM_FOOTER                   "-----END CERTIFICATE-----"

@@ -22,6 +22,8 @@
 #include "../../../proj/tl_common.h"
 #include "../../../proj/drivers/rf_pa.h"
 
+
+
 extern u8 adv_filter ;
 extern u8 adv_mesh_en_flag ;
 extern u8 mesh_kr_filter_flag ;
@@ -34,12 +36,31 @@ extern u8					blt_state;
 #define         VENDOR_ID                       0x0000
 #else
 	#if MI_API_ENABLE
-#define         VENDOR_ID                       0x038f
+#define         VENDOR_ID                       VENDOR_ID_MI
 	#else
 #define         VENDOR_ID                       0x0211
 	#endif
 #endif
 #endif
+
+
+void blt_set_bluetooth_version (u8 v);
+
+void enable_mesh_provision_buf();
+void disable_mesh_provision_buf();
+void enable_mesh_kr_cfg_filter();
+void disable_mesh_kr_cfg_filter();
+void ota_fw_check_over_write (void);
+
+#if(__TL_LIB_8258__ || (MCU_CORE_TYPE == MCU_CORE_8258))
+#include <stack/ble/ll/ll.h>
+#include <stack/ble/ll/ll_conn/ll_conn.h>
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include <stack/ble_8278/ll/ll.h>
+#include <stack/ble_8278/ll/ll_conn/ll_conn.h>
+#else
+#ifndef LL__H_
+#define LL__H_
 
 #define			BLUETOOTH_VER_4_0				6
 #define			BLUETOOTH_VER_4_1				7
@@ -52,22 +73,6 @@ extern u8					blt_state;
 #else
 	#define			BLUETOOTH_VER_SUBVER			0x4103
 #endif
-
-void blt_set_bluetooth_version (u8 v);
-
-void enable_mesh_provision_buf();
-void disable_mesh_provision_buf();
-void enable_mesh_kr_cfg_filter();
-void disable_mesh_kr_cfg_filter();
-#if (!WIN32)
-#include "proj/mcu/config.h"
-#endif
-#if(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
-#include <stack/ble/ll/ll.h>
-#else
-#ifndef LL__H_
-#define LL__H_
-
 
 #include "../ble_common.h"
 #include "../att.h"

@@ -113,7 +113,7 @@ extern u32          mesh_time_tick;
 #define SECOND_ONE_DAY  (60*60*24)
 
 #define OFFSET_1970_2000        (946684800)
-#define OFFSET_1970_2000_EAST8  (946684800 - 8*3600)
+//#define OFFSET_1970_2000_EAST8  (946684800 - 8*3600)
 #define TIME_ZONE_0     (0x40)
 
 typedef struct{

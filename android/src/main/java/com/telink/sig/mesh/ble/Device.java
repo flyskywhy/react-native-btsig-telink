@@ -169,6 +169,16 @@ public class Device extends BluetoothGattCallback {
         return this.mConnState.get() == CONN_STATE_CONNECTED;
     }
 
+    /**
+     * @return proxy node connected
+     */
+    public boolean isProxyNodeConnected() {
+        if (isConnected()) {
+            return getProxyService() != null;
+        }
+        return false;
+    }
+
 
     private void connect(Context context) {
         this.lastTime = 0;
@@ -450,17 +460,11 @@ public class Device extends BluetoothGattCallback {
 
 
     private void postCommand(CommandContext commandContext) {
-
-//        TelinkLog.w("postCommand");
-
         this.mInputCommandQueue.add(commandContext);
         synchronized (this.mProcessLock) {
             if (!this.processing.get()) {
                 this.processCommand();
             }
-        }
-        if (!this.processing.get()) {
-            this.processCommand();
         }
     }
 
@@ -1095,8 +1099,6 @@ public class Device extends BluetoothGattCallback {
 
         boolean success = true;
         String errorMsg = "";
-//        BluetoothGattService service = getProxyService();
-//        BluetoothGattService service = getProvisionService();
         BluetoothGattService service = this.gatt.getService(serviceUUID);
 
         if (service != null) {

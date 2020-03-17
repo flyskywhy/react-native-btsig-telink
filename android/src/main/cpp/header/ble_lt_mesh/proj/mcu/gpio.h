@@ -59,6 +59,8 @@ enum{
 #include "../mcu_spec/gpio_8267.h"
 #elif(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
 #include "drivers/8258/gpio.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "drivers/8278/gpio.h"
 #elif(__TL_LIB_8366__ || MCU_CORE_TYPE == MCU_CORE_8366)
 #include "../mcu_spec/gpio_default_8366.h"
 #include "../mcu_spec/gpio_8366.h"

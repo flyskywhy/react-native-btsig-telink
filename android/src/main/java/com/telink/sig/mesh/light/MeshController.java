@@ -364,6 +364,8 @@ public class MeshController {
     private int fastProvisionIndex = 1;
     private int fastPvElementCount = 0;
 
+    private boolean isLogin = false;
+
     public void setMeshLib(MeshLib telinkMeshLib) {
         meshLib = telinkMeshLib;
     }
@@ -488,25 +490,15 @@ public class MeshController {
         this.mParams = parameters;
         if (checkConnectTargets()) {
 
-            if (mDevice != null && mDevice.isConnected()) {
-                onAutoConnectSuccess();
+            if (mDevice != null && mDevice.isProxyNodeConnected()) {
+
+                if (isLogin) {
+                    onAutoConnectSuccess();
+                } else {
+                    filterInit(localAddress);
+                }
                 return;
             }
-
-            /*if (mDevice != null && mDevice.isConnected()) {
-                boolean contains = false;
-                final String curMac = mDevice.getMacAddress();
-                for (String target : autoConnectTargets) {
-                    if (curMac.equals(target)) {
-                        contains = true;
-                        break;
-                    }
-                }
-                if (contains) {
-                    onAutoConnectSuccess();
-                    return;
-                }
-            }*/
         } else {
             return;
         }
@@ -595,8 +587,8 @@ public class MeshController {
         actionMode = MODE_BIND;
         connectRetry = 0;
         DeviceInfo deviceInfo = (DeviceInfo) mParams.get(Parameters.ACTION_BIND_DEVICE_INFO);
-
-        if (validPrivate(deviceInfo) && mDevice != null && mDevice.isConnected() && deviceInfo.macAddress.equals(mDevice.getMacAddress())) {
+        // validPrivate(deviceInfo)
+        if (mDevice != null && mDevice.isProxyNodeConnected() && deviceInfo.macAddress.equals(mDevice.getMacAddress())) {
             keyBindPrepare();
         } else {
             if (mDevice == null || !mDevice.disconnect()) {
@@ -606,6 +598,7 @@ public class MeshController {
                 saveLog("waiting for disconnect...");
             }
         }
+
     }
 
     public void startRemoteProvision(RemoteProvisionParameters parameters) {
@@ -1090,6 +1083,7 @@ public class MeshController {
         public void onDisconnected() {
             saveLog("onDisconnected:" + mDevice.getMacAddress() + " -- mode: " + actionMode);
             mDelayHandler.removeCallbacksAndMessages(null);
+            isLogin = false;
             onMeshEvent(MeshEvent.EVENT_TYPE_DISCONNECTED, "device disconnected");
             if (disconnectWaiting) {
                 disconnectWaiting = false;
@@ -1373,7 +1367,6 @@ public class MeshController {
 
     private void onScanFilter(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
 
-//        if (!device.getAddress().toUpperCase().equals("AB:CD:BA:E2:5F:07")) return;
 //        if (!device.getAddress().toUpperCase().contains("A6:A5:A4:A3")) return;
 //        if (!device.getAddress().toUpperCase().contains("FF:FF:BB:CC:DD")) return;
 
@@ -1566,7 +1559,7 @@ public class MeshController {
         @Override
         public void onFastProvNodeInfoCallback(byte[] devKey, int nodeAdr, int pid) {
             fastProvisionIndex += fastPvElementCount;
-            MeshController.this.onFastProvisionNodeInfoUpdate(devKey, nodeAdr, pid);
+            MeshController.this.onFastProvisionNodeInfoUpdate(devKey, nodeAdr, fastPvElementCount);
         }
 
         @Override
@@ -1688,6 +1681,7 @@ public class MeshController {
         @Override
         public void onFilterInitComplete() {
             mDelayHandler.removeCallbacks(filterTimeoutTask);
+            isLogin = true;
             if (mDevice != null && mDevice.isConnected()) {
                 if (actionMode == MODE_AUTO_CONNECT) {
                     onAutoConnectSuccess();
@@ -2052,6 +2046,7 @@ public class MeshController {
 
     protected void setLocalAddress(int address) {
         this.localAddress = address;
+
     }
 
     /**
@@ -2544,7 +2539,12 @@ public class MeshController {
         saveLog("cmd complete opCode -- " + String.format("%06X", opCode) + " rspMax -- " + rspMax + " rspCnt -- " + rspCnt);
         synchronized (CMD_LOCK) {
             if (processingCmd != null) {
-                if (processingCmd.opcode == opCode) {
+                final OpcodeType type = MeshUtils.getOpType(opCode);
+                int processingOpcode = processingCmd.opcode;
+                if (type == OpcodeType.VENDOR){
+                    processingOpcode &= 0xFF;
+                }
+                if (processingOpcode == opCode) {
                     processingCmd.rspCnt = rspCnt;
                     onCommandEvent(CommandEvent.EVENT_TYPE_CMD_COMPLETE, processingCmd);
                     processingCmd = null;

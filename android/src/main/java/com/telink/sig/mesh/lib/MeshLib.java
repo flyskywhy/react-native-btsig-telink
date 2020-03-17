@@ -258,7 +258,7 @@ public class MeshLib {
         }
     }
 
-    public int onFastProvEleCntRequire(int pid){
+    public int onFastProvEleCntRequire(int pid) {
         if (fastProvisionHelper != null) {
             return fastProvisionHelper.onFastProvEleCntRequire(pid);
         }
@@ -761,7 +761,6 @@ public class MeshLib {
      */
     public native byte[] getCurrentDeviceKey();
 
-
     public native byte[] decryptOnlineStatusData(byte[] data);
 
 
@@ -827,6 +826,7 @@ public class MeshLib {
 
     public native boolean pauseMeshOta();
 
+    public native void meshRetrieveAll();
 
     /*************************************************************************************
      * mesh storage
@@ -870,7 +870,7 @@ public class MeshLib {
 
     public native void sendCommand(byte[] data, int len);
 
-    public native int getProvisionState();
+//    public native int getProvisionState();
 
     public native void meshSendClProxyBv03(int node_adr);
 

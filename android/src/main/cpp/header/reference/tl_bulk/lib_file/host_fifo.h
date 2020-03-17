@@ -41,6 +41,7 @@ void Thread_main_process();
 int SendOpParaDebug_VC(u16 adr_dst, u8 rsp_max, u16 op, u8 *par, int len);
 void push_notify_into_fifo(u8 *p ,u32 len );
 void reset_host_fifo();
+int IsSendOpBusy(int reliable, u16 adr_dst);
 
 #include "../../../ble_lt_mesh/vendor/common/cmd_interface.h"
 

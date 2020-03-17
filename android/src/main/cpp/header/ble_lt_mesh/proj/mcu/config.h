@@ -54,6 +54,7 @@
 #define MCU_CORE_8261 		6
 #define MCU_CORE_8269 		7
 #define MCU_CORE_8258 		8
+#define MCU_CORE_8278 		9
 
 #if(CHIP_TYPE == CHIP_TYPE_8266)
 	#define MCU_CORE_TYPE	MCU_CORE_8266
@@ -71,6 +72,8 @@
 	#define MCU_CORE_TYPE	MCU_CORE_8269
 #elif(CHIP_TYPE == CHIP_TYPE_8258)
 	#define MCU_CORE_TYPE	MCU_CORE_8258
+#elif(CHIP_TYPE == CHIP_TYPE_8278)
+	#define MCU_CORE_TYPE	MCU_CORE_8278
 #else
 	#define MCU_CORE_TYPE	1000
 #endif

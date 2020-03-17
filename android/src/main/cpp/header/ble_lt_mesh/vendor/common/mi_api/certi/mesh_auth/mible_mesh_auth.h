@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#define SCHD_IDLE                           0
+
 #define MESH_REG_TYPE                       0x40UL
 #define MESH_REG_START                      (MESH_REG_TYPE)
 #define MESH_REG_SUCCESS                    (MESH_REG_TYPE+1)
@@ -35,34 +37,38 @@ extern "C" {
 #define SYS_TYPE                       0xA0UL
 #define SYS_KEY_RESTORE                (SYS_TYPE)
 #define SYS_KEY_DELETE                 (SYS_TYPE+1)
+#define SYS_DEV_INFO_GET               (SYS_TYPE+2)
 
 #define ERR_TYPE                       0xE0UL
 #define ERR_NOT_REGISTERED             (ERR_TYPE)
 #define ERR_REGISTERED                 (ERR_TYPE+1)
 #define ERR_REPEAT_LOGIN               (ERR_TYPE+2)
+#define ERR_INVALID_OOB                (ERR_TYPE+3)
 
 typedef enum {
-	UNAUTHORIZATION = 0,
-	ADMIN_AUTHORIZATION,
-	SHARE_AUTHORIZATION
+    UNAUTHORIZATION = 0,
+    ADMIN_AUTHORIZATION,
+    SHARE_AUTHORIZATION
 } mi_author_stat_t;
 
 typedef enum {
-	SCHD_EVT_REG_SUCCESS                    = 0x01,
-	SCHD_EVT_REG_FAILED                     = 0x02,
-	SCHD_EVT_ADMIN_LOGIN_SUCCESS            = 0x03,
-	SCHD_EVT_ADMIN_LOGIN_FAILED             = 0x04,
-	SCHD_EVT_SHARE_LOGIN_SUCCESS            = 0x05,
-	SCHD_EVT_SHARE_LOGIN_FAILED             = 0x06,
-	SCHD_EVT_TIMEOUT                        = 0x07,
-	SCHD_EVT_KEY_NOT_FOUND                  = 0x08,
-	SCHD_EVT_KEY_FOUND                      = 0x09,
-	SCHD_EVT_KEY_DEL_FAIL                   = 0x0A,
-	SCHD_EVT_KEY_DEL_SUCC                   = 0x0B,
-	SCHD_EVT_MESH_REG_SUCCESS               = 0x0C,
-	SCHD_EVT_MESH_REG_FAILED                = 0x0D,
-    SCHD_EVT_OOB_REQUEST                    = 0x0E
-
+    SCHD_EVT_REG_SUCCESS                    = 0x01,
+    SCHD_EVT_REG_FAILED                     = 0x02,
+    SCHD_EVT_ADMIN_LOGIN_SUCCESS            = 0x03,
+    SCHD_EVT_ADMIN_LOGIN_FAILED             = 0x04,
+    SCHD_EVT_SHARE_LOGIN_SUCCESS            = 0x05,
+    SCHD_EVT_SHARE_LOGIN_FAILED             = 0x06,
+    SCHD_EVT_TIMEOUT                        = 0x07,
+    SCHD_EVT_KEY_NOT_FOUND                  = 0x08,
+    SCHD_EVT_KEY_FOUND                      = 0x09,
+    SCHD_EVT_KEY_DEL_FAIL                   = 0x0A,
+    SCHD_EVT_KEY_DEL_SUCC                   = 0x0B,
+    SCHD_EVT_MESH_REG_SUCCESS               = 0x0C,
+    SCHD_EVT_MESH_REG_FAILED                = 0x0D,
+    SCHD_EVT_OOB_REQUEST                    = 0x0E,
+    SCHD_EVT_MSC_SELF_TEST_PASS             = 0x0F,
+    SCHD_EVT_MSC_SELF_TEST_FAIL             = 0x10,
+    SCHD_EVT_INTERNAL                       = 0x11
 } schd_evt_id_t;
 
 
@@ -134,15 +140,17 @@ typedef struct {
 
 extern uint32_t schd_ticks;
 
-void set_mi_authorization(mi_author_stat_t status);
-int get_mi_mesh_static_oob(uint8_t *p_out, uint8_t len);
-uint32_t get_mi_reg_stat(void);
-uint32_t get_mi_authorization(void);
-uint32_t get_mi_key_id(void);
+void set_mi_unauthorization(void);
+uint8_t get_mi_reg_stat(void);
+uint8_t get_mi_authorization(void);
+
 uint32_t mi_scheduler_init(uint32_t interval, mi_schd_event_handler_t handler,
-    mible_libs_config_t *p_config);
-uint32_t mi_scheduler_start(uint32_t status);
+    mible_libs_config_t const * p_config);
+
+uint32_t mi_scheduler_start(uint32_t procedure);
+
 uint32_t mi_scheduler_stop(void);
+
 void mi_schd_process(void);
 
 #ifdef __cplusplus

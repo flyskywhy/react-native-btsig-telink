@@ -19,10 +19,16 @@
  *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided. 
  *           
  *******************************************************************************************************/
-
+#include "proj/mcu/config.h"
 #include "../config/user_config.h"
 #include "../mcu/gpio.h"
 #include "../mcu/register.h"
+#ifndef WIN32
+#if(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
+#include "drivers/8258/spi_i.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "drivers/8278/spi_i.h"
+#else
 
 // use static inline, because, spi flash code must reside in memory..
 // these code may be embedd in flash code
@@ -57,4 +63,5 @@ static inline u8 mspi_read(void){
 	mspi_wait();
 	return mspi_get();
 }
-
+#endif
+#endif

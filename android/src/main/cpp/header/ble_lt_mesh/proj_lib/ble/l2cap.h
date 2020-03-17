@@ -22,6 +22,13 @@
 #pragma  once
 
 //#include "../hci/hci_include.h"
+#ifndef WIN32
+#include "proj/mcu/config.h"
+#if(__TL_LIB_8258__ || (MCU_CORE_TYPE == MCU_CORE_8258))
+#include "stack/ble/l2cap/l2cap.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "stack/ble_8278/l2cap/l2cap.h"
+#else
 
 
 
@@ -143,3 +150,5 @@ void 		blc_l2cap_register_pre_handler(void *p);
 
 
 //Master
+#endif
+#endif

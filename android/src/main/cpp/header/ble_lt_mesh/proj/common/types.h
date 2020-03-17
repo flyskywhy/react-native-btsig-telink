@@ -23,7 +23,9 @@
 
 #pragma once
 #include <stddef.h>  /* size_t */
-
+#if !WIN32
+#include <stdbool.h>
+#endif
 typedef unsigned char u8 ;
 typedef signed char s8;
 
@@ -40,13 +42,18 @@ typedef unsigned char           word8;
 typedef unsigned short          word16;	
 typedef unsigned long           word32;
 
+#if !WIN32
+typedef unsigned char           uint8_t;	
+typedef unsigned short          uint16_t;	
+typedef unsigned long           uint32_t;
+#endif
 
 #ifndef NULL
 #define NULL 	0
 #endif
 
 #ifndef __cplusplus
-
+//typedef u8 bool;
 
 #ifndef FALSE
 #define FALSE 	0

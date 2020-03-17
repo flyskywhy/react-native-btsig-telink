@@ -25,6 +25,78 @@
 #include "../../proj/tl_common.h"
 #include "../../vendor/common/mesh_node.h"
 
+#define LED_INDICATE_VAL    (rgb_lumen_map[100])
+#define LED_INDICATE_LUM_VAL LED_INDICATE_VAL
+
+#if(CLOCK_SYS_CLOCK_HZ == 48000000)
+#define PWM_CLK_DIV_LIGHT   (1)
+#else
+#define PWM_CLK_DIV_LIGHT   (0)
+#endif
+
+#define PWM_FREQ	        (600)   // unit: Hz
+#define PWM_MAX_TICK        ((CLOCK_SYS_CLOCK_HZ / (PWM_CLK_DIV_LIGHT + 1)) / PWM_FREQ)
+//#define PMW_MAX_TICK		PWM_MAX_TICK
+
+#define LED_MASK							0x07
+#define	config_led_event(on,off,n,sel)		(on | (off<<8) | (n<<16) | (sel<<24))
+
+#define	LED_EVENT_FLASH_4HZ_10S				config_led_event(2,2,40,LED_MASK)
+#define	LED_EVENT_FLASH_STOP				config_led_event(1,1,1,LED_MASK)
+#define	LED_EVENT_FLASH_2HZ_2S				config_led_event(4,4,4,LED_MASK)
+#define	LED_EVENT_FLASH_1HZ_1S				config_led_event(8,8,1,LED_MASK)
+#define	LED_EVENT_FLASH_1HZ_2S				config_led_event(8,8,2,LED_MASK)
+#define	LED_EVENT_FLASH_1HZ_3S				config_led_event(8,8,3,LED_MASK)
+#define	LED_EVENT_FLASH_1HZ_4S				config_led_event(8,8,4,LED_MASK)
+#define	LED_EVENT_FLASH_4HZ					config_led_event(2,2,0,LED_MASK)
+#define	LED_EVENT_FLASH_1HZ					config_led_event(8,8,0,LED_MASK)
+#define	LED_EVENT_FLASH_4HZ_1T				config_led_event(2,2,1,LED_MASK)
+#define	LED_EVENT_FLASH_4HZ_2T				config_led_event(2,2,2,LED_MASK)
+#define	LED_EVENT_FLASH_4HZ_3T				config_led_event(2,2,3,LED_MASK)
+#define	LED_EVENT_FLASH_1HZ_3T				config_led_event(8,8,3,LED_MASK)
+#define	LED_EVENT_FLASH_2HZ_1T				config_led_event(4,4,1,LED_MASK)
+#define	LED_EVENT_FLASH_2HZ_2T				config_led_event(4,4,2,LED_MASK)
+
+#if HOMEKIT_EN
+//////////////////////////////////////////////////////////////////////
+//    LED
+//////////////////////////////////////////////////////////////////////
+#define LED_EVENT_FLASH_STOP                config_led_event(1,1,1,LED_MASK)
+
+//#define LED_EVENT_FLASH_1HZ                 config_led_event(100,100,250,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_2TIMES          config_led_event(8,8,2*2,LED_MASK)//config_led_event(100,100,2*2,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_3TIMES          config_led_event(8,8,3*2,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_4TIMES          config_led_event(8,8,4*2,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_5TIMES          config_led_event(8,8,5*2,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_10TIMES         config_led_event(8,8,10*2,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_1_SECOND        config_led_event(8,8,1*2*1,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_2_SECOND        config_led_event(8,8,2*2*1,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_3_SECOND        config_led_event(8,8,3*2*1,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_4_SECOND        config_led_event(8,8,4*2*1,LED_MASK)
+#define LED_EVENT_FLASH_1HZ_5_SECOND        config_led_event(8,8,5*2*1,LED_MASK)
+
+#define LED_EVENT_FLASH_2HZ                 config_led_event(4,4,250,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_2TIMES          config_led_event(4,4,2*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_3TIMES          config_led_event(4,4,3*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_4TIMES          config_led_event(4,4,4*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_5TIMES          config_led_event(4,4,5*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_10TIMES         config_led_event(4,4,10*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_1_SECOND        config_led_event(4,4,1*2*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_2_SECOND        config_led_event(4,4,2*2*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_3_SECOND        config_led_event(4,4,3*2*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_4_SECOND        config_led_event(4,4,4*2*2,LED_MASK)
+#define LED_EVENT_FLASH_2HZ_5_SECOND        config_led_event(4,4,5*2*2,LED_MASK)
+#define	LED_EVENT_FLASH_1HZ_HK				config_led_event(8,8,250,LED_MASK)
+#define	LED_EVENT_FLASH_4HZ_HK				config_led_event(2,2,250,LED_MASK)
+
+//#define LED_EVENT_FLASH_4HZ                 config_led_event(25,25,250,LED_MASK)
+#define LED_EVENT_FLASH_4HZ_5_SECOND        config_led_event(2,2,5*2*4,LED_MASK)
+
+#define LED_EVENT_FLASH_5HZ                 config_led_event(2,2,250,LED_MASK)//config_led_event(20,20,250,LED_MASK)
+#define LED_EVENT_FLASH_5HZ_3TIMES          config_led_event(2,2,3*2,LED_MASK)
+#define LED_EVENT_FLASH_5HZ_5_SECOND        config_led_event(2,2,5*2*5,LED_MASK)
+
+#endif
 
 #define LEVEL_MIN      			(-32767)
 #define LEVEL_MAX      			(32767)
@@ -259,21 +331,21 @@ u16 get_light_linear_val(int idx);
 int is_linear_flag(int idx);
 
 // led
- 
+#define LGT_CMD_BLE_ADV					0xa0
+#define LGT_CMD_BLE_CONN				0xa1
+
+#define PROV_START_LED_CMD				0xc0
+#define PROV_END_LED_CMD				0xc1
+
 #define	LGT_CMD_SET_MESH_INFO           0xc5
 #define	LGT_CMD_SET_DEV_ADDR            0xc6
 #define	LGT_CMD_SET_SUBSCRIPTION        0xc7
 #define	LGT_CMD_FRIEND_SHIP_OK          0xc8
 #define	LGT_CMD_DUAL_MODE_MESH        	0xc9
 
-#define LGT_CMD_BLE_ADV					0xa0
-#define LGT_CMD_BLE_CONN				0xa1
-
 #define LGT_CMD_SWITCH_POWERON 			0xd0
 #define LGT_CMD_SWITCH_PROVISION		0xd1
-
-#define PROV_START_LED_CMD				0xc0
-#define PROV_END_LED_CMD				0xc1
+#define LGT_CMD_SWITCH_CMD		        0xd2
 
 #define LGT_CMD_PROV_SUC_EVE			LGT_CMD_SET_MESH_INFO
 

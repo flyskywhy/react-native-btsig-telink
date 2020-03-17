@@ -22,6 +22,8 @@
 #include "../../proj/mcu/config.h"
 #if(MCU_CORE_TYPE == MCU_CORE_8258)
 #include "../../drivers/8258/uart.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "../../drivers/8278/uart.h"
 #else
 #ifndef 	_UART_H_
 #define 	_UART_H_

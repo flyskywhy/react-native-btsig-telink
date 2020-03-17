@@ -24,7 +24,22 @@
 
 #include "../../proj/tl_common.h"
 
-#if (0 == MI_API_ENABLE)
+#if (VENDOR_MD_NORMAL_EN)
+// vendor model id
+#if TESTCASE_FLAG_ENABLE
+#define VENDOR_MD_LIGHT_S               ((0x0000<<16) | (0))
+#define VENDOR_MD_LIGHT_C               ((0x0001<<16) | (0))
+#else
+    #if AIS_ENABLE
+#define TEMP_VD_ID_MODEL                (SHA256_BLE_MESH_PID)   // TEMP_VD_ID_MODEL is just use in this file.
+    #else
+#define TEMP_VD_ID_MODEL                (VENDOR_ID)
+    #endif
+#define VENDOR_MD_LIGHT_S               ((0x0000<<16) | (TEMP_VD_ID_MODEL))
+#define VENDOR_MD_LIGHT_C               ((0x0001<<16) | (TEMP_VD_ID_MODEL))
+#define VENDOR_MD_LIGHT_S2              ((0x0002<<16) | (TEMP_VD_ID_MODEL))
+#endif
+
 // op cmd 11xxxxxx yyyyyyyy yyyyyyyy (vendor)
 // ---------------------------------from 0xC0 to 0xFF
 #if (VENDOR_OP_MODE_SEL == VENDOR_OP_MODE_SPIRIT)
@@ -43,6 +58,10 @@
 #define VD_MSG_ATTR_STS					0xD3
 #define VD_MSG_ATTR_INDICA				0xD4
 #define VD_MSG_ATTR_CONFIRM				0xD5
+		#if ALI_MD_TIME_EN
+#define VD_MSG_ATTR_UPD_TIME_REQ		0xDE
+#define VD_MSG_ATTR_UPD_TIME_RSP		0xDF
+		#endif
     #endif
 
 #elif(VENDOR_OP_MODE_SEL == VENDOR_OP_MODE_DEFAULT)
@@ -97,7 +116,7 @@ typedef struct{
 // ------------------
 #if SPIRIT_VENDOR_EN
 #define ATTR_TYPE_MAX_NUM 		2
-#define ATTR_PAR_MAX_LEN		16
+#define ATTR_PAR_MAX_LEN		64
 #define ATTR_TYPE_NOT_EXIST		0xff
 
 //----------------system attributes--------------------------
@@ -141,7 +160,6 @@ typedef struct{
 #define DEVICE_STS_ERR				0x84
 
 typedef struct{
-	u8 op;
 	u8 tid;
 	u16 attr_type;
 }vd_msg_attr_get_t;
@@ -189,7 +207,7 @@ typedef struct{
 	u8 tid;
     material_tx_cmd_t mat;
     mesh_match_type_t match_type;
-    u8 ac_par[11];  // unseg
+    u8 ac_par[ATTR_PAR_MAX_LEN];  
 }mesh_tx_indication_t;
 
 typedef struct{
@@ -198,15 +216,19 @@ typedef struct{
 	u32 sleep_interval;
 }mesh_sleep_pre_t;
 
+extern mesh_tx_indication_t mesh_indication_retry;
+extern mesh_sleep_pre_t	mesh_sleep_time;
+
 #endif
 
 
 //------------------vendor op end-------------------
+void mesh_tx_indication_proc();
 
 int vd_cmd_key_report(u16 adr_dst, u8 key_code);
 int vd_cmd_onoff(u16 adr_dst, u8 rsp_max, u8 onoff, int ack);
 int vd_light_onoff_st_publish(u8 idx);
-int access_cmd_attr_indication(u16 adr_dst, u16 attr_type, u8 *attr_par, u8 par_len);
+int access_cmd_attr_indication(u16 op, u16 adr_dst, u16 attr_type, u8 *attr_par, u8 par_len);
 void APP_set_vd_id_mesh_cmd_vd_func(u16 vd_id);
 
 int mesh_search_model_id_by_op_vendor(mesh_op_resource_t *op_res, u16 op, u8 tx_flag);

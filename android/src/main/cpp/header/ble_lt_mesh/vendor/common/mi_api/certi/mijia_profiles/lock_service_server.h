@@ -32,7 +32,7 @@
 #ifndef __LOCK_SERVICE_SECURE_H__
 #define __LOCK_SERVICE_SECURE_H__
 #include <stdint.h>
-#include "../../mible_port.h"
+#include "mible_port.h"
 
 #define BLE_MI_MAX_DATA_LEN (GATT_MTU_SIZE_DEFAULT - 3) /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Xiaomi  service module. */
 
@@ -81,9 +81,35 @@ typedef struct
  */
 int lock_service_init(lock_init_t *p_config);
 
-int get_lock_opcode(uint8_t *p_opcode);
+/**@brief Respond the present lock stat.
+ *
+ * @param[in] status  0: unlocked
+ *                    1: locked
+ *                    2: bolted
+ *                    
+ * @details This function MUST be called in 5 seconds after the lock opcode received.
+ * Otherwise, Mijia App will disconnect it.
+ *
+ * @retval  0 : successful respond the status.
+ *         -1 : BLE_CONN_HANDLE_INVALID
+ *         -2 : PEER NOT LOGIN.
+ *         -3 : BLE STACK BUSY.
+ */
 int reply_lock_stat(uint8_t status);
-int send_lock_log(uint8_t* log, uint8_t len);
+
+
+/**@brief Respond the lock logs..
+ *
+ * @param[in] type : LOCK EVENTS (defined in the mibeacon)
+ * @param[in] vlen : the length of EVENT value.
+ * @param[in] value: Pointer to the formated LOCK EVENT value.
+ *
+ * @retval  0 : successful respond the status.
+ *         -1 : BLE_CONN_HANDLE_INVALID
+ *         -2 : PEER NOT LOGIN.
+ *         -3 : BLE STACK BUSY.
+ */
+int send_lock_log(uint16_t type, uint8_t vlen, void *value);
 
 #ifdef __cplusplus
 }

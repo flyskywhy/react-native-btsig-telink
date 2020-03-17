@@ -22,6 +22,9 @@
 
 #pragma once
 #include "../../proj/tl_common.h"
+#if NL_API_ENABLE
+#include "nl_api/nl_model_schedules.h"
+#endif
 
 #if WIN32
 #pragma pack(1)
@@ -234,22 +237,13 @@ enum{
 #define SIG_MD_OBJ_TRANSFER_S           0xFF00
 #define SIG_MD_OBJ_TRANSFER_C           0xFF01
 
-// vendor model
-#if TESTCASE_FLAG_ENABLE
-#define VENDOR_MD_LIGHT_S               ((0x0000<<16) | (0))
-#define VENDOR_MD_LIGHT_C               ((0x0001<<16) | (0))
-#else
-#define VENDOR_MD_LIGHT_S               ((0x0000<<16) | (VENDOR_ID))
-#define VENDOR_MD_LIGHT_C               ((0x0001<<16) | (VENDOR_ID))
-#define VENDOR_MD_LIGHT_S2              ((0x0002<<16) | (VENDOR_ID))
-#endif
 
 //--------------------------------------- config model
 #if(0 == TESTCASE_FLAG_ENABLE)
-	#if GATEWAY_ENABLE
-	#define SUB_LIST_MAX                    (2)
+	#if (GATEWAY_ENABLE&&__PROJECT_MESH_PRO__)
+#define SUB_LIST_MAX                    (2)
 	#else
-	#define SUB_LIST_MAX                    (8)
+#define SUB_LIST_MAX                    (8) // can't modify now, because it is used in library.
 	#endif
 #else	
 #define SUB_LIST_MAX                    (2)
@@ -426,16 +420,6 @@ typedef struct{
 }mesh_cfg_model_pub_set_t;
 
 typedef struct{
-	u8 status ;
-	u16 dst;
-	u8 countlog;
-	u8 periodlog;
-	u8 ttl;
-	u16 feature;
-	u16 netkeyIndex;
-}mesh_heartbeat_pub_status_t;
-
-typedef struct{
 	u16 ele_adr;
 	u32 model_id;
 }mesh_cfg_model_pub_get_t;
@@ -485,30 +469,6 @@ typedef struct{
 	u32 model_id;
 }mesh_cfg_model_sub_get_vendor_t;
 
-typedef struct{
-	u16 dst;
-	u8 count_log;
-	u8 period_log;
-	u8 ttl;
-	u16 features;
-	u16 netkeyindex;
-}mesh_cfg_model_heartbeat_pub_get_t;
-
-typedef struct{
-	u16 src ;
-	u16 dst ;
-	u8 period_log;
-}mesh_cfg_model_heartbeat_sub_set_t;
-
-typedef struct{
-	u8 status;
-	u16 src;
-	u16 dst;
-	u8 periodlog;
-	u8 countlog;
-	u8 min_hop;
-	u8 max_hop;
-}mesh_cfg_model_heartbeat_sub_status_t;
 typedef struct{
 	u8 status;
 	u16 ele_adr;
@@ -1089,6 +1049,9 @@ typedef struct{
 #else
 	u8 rsv[4];
 #endif
+#if NL_API_ENABLE
+	u8 nl_data[NL_VENDOR_SCENE_DATA_LENGTH];
+#endif
 }scene_data_t;
 
 typedef struct{
@@ -1359,7 +1322,7 @@ enum{
 typedef struct{
     u8 cur[4];   // current iv index,  store in big endianness
     u8 tx[4];
-    u8 rx[4];
+    u8 rx[4];   // debug Note: it will be fresh by the beacon from other network.
     u32 keep_time_s;
     u8 searching_flag;
     u8 rx_update;   // receive iv index update flag
@@ -1386,6 +1349,11 @@ static inline u32 GET_PAR_LEN_BY_TRANS(int len, int trans_flag){
 }
 
 //--------------- declaration
+int mesh_is_proxy_ready();
+int app_event_handler_adv(u8 *p_payload, int src_type, u8 need_proxy_and_trans_par_val);
+void mesh_gatt_bear_handle(u8 *bear);
+void mesh_nw_pdu_from_gatt_handle(u8 *p_bear);
+int mesh_adv_cmd_set(u8 *p_adv, u8 *p_bear);
 void sleep_us_clear_dog(u32 us);
 void mesh_loop_proc_prior();
 void mesh_node_init();
@@ -1404,6 +1372,7 @@ int is_own_ele(u16 adr);
 int is_ele_in_node(u16 ele_adr, u16 node_adr, u32 cnt);
 int is_retransaction(u16 adr, u8 tid);
 int mesh_provision_par_set(u8 *prov_pars);
+u8 mesh_provision_and_bind_self(u8 *p_prov_data, u8 *p_dev_key, u16 appkey_idx, u8 *p_app_key);
 mesh_net_key_t * is_mesh_net_key_exist(u16 key_idx);
 int is_net_key_save();
 void model_pub_st_cb_re_init_lc_srv(cb_pub_st_t cb);
@@ -1415,10 +1384,12 @@ u16 get_primary_adr_with_check(u16 node_adr, u16 ele_adr);
 u8 * get_virtual_adr_uuid(u16 pub_adr, model_common_t *p_com_md);
 int is_sno_exhausted();
 int is_iv_update_keep_enough_time_ll();
+int is_iv_update_keep_enough_time_rx();
 void iv_index_read_print_test();
 void iv_index_set_keep_time_test();
 void iv_index_set_sno_test();
 void iv_index_test_button_firmware();
+void mesh_receive_ivi_plus_one_in_normal_cb();
 
 //--------------- save
 void mesh_flash_save_check();
@@ -1433,7 +1404,7 @@ int mesh_model_retrieve(int sig_model, u32 md_id);
 void mesh_common_save_all_md();
 int mesh_model_store(int sig_model, u32 md_id);
 void mesh_common_retrieve_cb(int err, u32 adr_base);
-void mesh_common_reset_all(u8 provision_enable);
+void mesh_common_reset_all();
 void factory_test_key_bind(int bind_flag);
 u32 mesh_net_key_find(u16 key_index);
 u8 mesh_net_key_set(u16 op, const u8 *nk, u16 key_idx, int save);
@@ -1470,7 +1441,6 @@ u8 GetNKArrayIdxByPointer(mesh_net_key_t *key);
 
 mesh_app_key_t *mesh_tx_access_key_get(u8 *mat, u8 akf);
 void mesh_misc_store();
-int mesh_key_retrieve();
 void mesh_factory_test_mode_en(u8 en);
 void mesh_adv_txrx_to_self_en(u8 en);
 int is_valid_cfg_op_when_factory_test(u16 op);
@@ -1491,6 +1461,10 @@ void mesh_service_change_report();
 #define MESH_PARA_RETRIEVE_VAL      1
 #define MESH_PARA_STORE_VAL         0
 int mesh_par_retrieve_store_win32(u8 *in_out, u32 *p_adr, u32 adr_base, u32 size,u8 flag);
+void mesh_seg_ack_poll_rx();
+void mesh_seg_ack_poll_tx();
+
+
 
 extern u16 ele_adr_primary;
 extern u8 g_ele_cnt;
@@ -1498,13 +1472,15 @@ extern u8 g_bind_key_max;
 extern u8 key_bind_all_ele_en;
 extern u16 connect_addr_gatt;
 
-//#define node_unprovision_flag   (!is_proved_state())
+//#define node_unprovision_flag   (!is_provision_success())
 extern u8 node_need_store_misc;
 extern u32 node_binding_tick;
 extern u8 factory_test_mode_en;
 extern u8 factory_test_cache_not_equal_mode_en;
 extern u8 mesh_adv_txrx_self_en;
 extern mesh_tid_t mesh_tid;
+extern u8 switch_project_flag;
+
 //------------model
 extern /*const */mesh_page0_t * const gp_page0;
 #define cps_cid                (gp_page0->head.cid)
@@ -1528,9 +1504,11 @@ extern model_mesh_ota_t        model_mesh_ota;
 // extern model_g_power_level_t    model_sig_g_power_level; // share with model_sig_lightness
 
 extern model_vd_light_t       	model_vd_light;
+extern model_vd_light_t       	model_vd_mi_light;
 extern mesh_key_t mesh_key; 
 extern friend_key_t mesh_fri_key_lpn[NET_KEY_MAX][2];
 extern friend_key_t mesh_fri_key_fn[MAX_LPN_NUM][2];
+extern s8 rssi_pkt; // have been -110
 
 extern u8 pts_test_en;
 extern const u16 my_fwRevisionUUID;

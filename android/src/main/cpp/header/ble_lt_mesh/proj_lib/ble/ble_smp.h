@@ -24,7 +24,9 @@
 #define BLE_SMP_H_
 
 #include "ble_common.h"
-
+#if 1
+#include "stack/ble/smp/smp_const.h"
+#else
 
 
 #define 		BOND_DEVICE_WHITELIST_MANAGEMANT_ENABLE		1
@@ -611,7 +613,7 @@ int 	tbl_bond_slave_delete_by_adr(u8 adr_type, u8 *addr);
 void 	tbl_bond_slave_unpair_proc(u8 adr_type, u8 *addr);
 
 void	blm_smp_encChangeEvt(u8 status, u16 connhandle, u8 enc_enable);
-
+#endif
 
 
 

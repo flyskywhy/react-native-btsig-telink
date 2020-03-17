@@ -22,8 +22,10 @@
 #if (!WIN32)
 #include "proj/mcu/config.h"
 #endif
-#if(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
+#if(__TL_LIB_8258__ || (MCU_CORE_TYPE == MCU_CORE_8258))
 #include "stack/ble/ll_adv.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "stack/ble_8278/ll_adv.h"
 #else
 
 #ifndef LL_ADV_H_

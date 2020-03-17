@@ -25,7 +25,7 @@
 #if VC_APP_ENABLE
 #include "../resource.h"		// main symbols
 #endif
-#include "../../../ble_lt_mesh/proj_lib/sig_mesh/app_provison.h"
+#include "../../../ble_lt_mesh/vendor/common/app_provison.h"
 #include "../../../ble_lt_mesh/proj/common/tutility.h"
 
 // store data include into the database 
@@ -122,7 +122,6 @@ extern unsigned int get_lib_version();
 extern void provision_dispatch_pkt(u8 *p ,u8 len,u8* proxy_buf,u16 proxy_len);
 extern u8 provision_dispatch_direct(u8 *p,u8 len,u8* proxy_buf,u16* p_proxy_len);
 extern void start_provision_invite();
-extern unsigned char  get_provision_state();
 extern void set_provision_adv(u8 *p_service_uuid ,u8 *p_service_data, u8 *p_oob_info);
 extern u8 set_app_key_pro_data(u8 *p_dat,u8 len);
 extern int gatt_write_transaction_callback(u8 *p,u16 len,u8 msg_type);

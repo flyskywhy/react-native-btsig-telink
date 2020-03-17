@@ -6,7 +6,7 @@
 #include "../../../proj_lib/ble/blt_config.h"
 #include "../../../vendor/common/user_config.h"
 #include "../../../proj_lib/ble/service/ble_ll_ota.h"
-#include "../../../proj_lib/sig_mesh/app_health.h"
+#include "../app_health.h"
 #include "../../../proj_lib/sig_mesh/app_mesh.h"
 #include "../../../proj_lib/mesh_crypto/le_crypto.h"
 //#include "../../../proj_lib/mesh_crypto/ecc_dsa.h"
@@ -78,6 +78,11 @@ void telink_record_part_init();
 uint8_t buf_is_empty_or_not(uint8_t* p_data,uint8_t len);
 void telink_gatt_event_loop();
 void mi_testboard_init();
+void telink_mible_nvm_write(void * p_data, uint32_t length, uint32_t address);
+void telink_mible_upgrade_firmware(void);
+void telink_mible_ota_start();
+void telink_mible_ota_end();
+u8 mi_mesh_sleep_time_exceed_adv_iner();
 
 
 
@@ -110,6 +115,10 @@ typedef enum {
     mi_mesh_unconfig    = 0x02,
     mi_mesh_avail       = 0x03
 } mi_mesh_stat_t;
+
+#define MI_UNPROV_STATE	0
+#define MI_PROVED_STATE 3
+
 
 #endif
 

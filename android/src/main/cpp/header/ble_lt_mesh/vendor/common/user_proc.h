@@ -5,8 +5,9 @@
 #include "../../proj_lib/ble/blt_config.h"
 #include "../../vendor/common/user_config.h"
 #include "user_ali.h"
+#include "nl_api/nl_common.h"
 
-void ais_pri_data_set(u8 *p);
+u8 ais_pri_data_set(u8 *p);
 void user_sha256_data_proc();
 void user_node_oob_set();
 u8   user_mac_proc();

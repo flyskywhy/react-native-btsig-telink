@@ -35,6 +35,8 @@
 #include "pm_8366.h"
 #elif(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
 #include "drivers/8258/pm.h"
+#elif( MCU_CORE_TYPE == MCU_CORE_8278)
+#include "drivers/8278/pm.h"
 #elif(__TL_LIB_8263__ || MCU_CORE_TYPE == MCU_CORE_8263)
 #include "pm_8263.h"
 #endif

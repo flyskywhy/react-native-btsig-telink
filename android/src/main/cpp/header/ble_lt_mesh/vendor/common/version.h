@@ -26,12 +26,12 @@
 //#define   BUILD_VERSION  	"Revision: 45:49M"
 //#define   BUILD_TIME  		"2012-07-24-21:37:43"
 
-#include "../../proj/mcu/config_chip_type.h"
+#include "../../proj/mcu/config.h"
 #include "mesh_config.h"
 
 #define VERSION_GET(low, high)      ((low)|(high << 8))
 
-#define FW_VERSION_TELINK_RELEASE   (VERSION_GET(0x32, 0x39))       // user don't modify
+#define FW_VERSION_TELINK_RELEASE   (VERSION_GET(0x33, 0x31))       // user can't modify
 
 #define PID_UNKNOW              (0x0000)
 // ------ light ------
@@ -45,8 +45,8 @@
 // ------ SPIRIT_LPN ------
 #define PID_SPIRIT_LPN          (0x0401)
 
-#if (__PROJECT_MESH_PRO__)  // must define in TC32_CC_Assember ->General , too. because cstartup.s can't read predefine value in TC32_compiler-->symbols
-    #if (CHIP_TYPE == CHIP_TYPE_8258)
+#if (__PROJECT_MESH_PRO__ || __PROJECT_MESH_GW_NODE__)  // must define in TC32_CC_Assember ->General , too. because cstartup.s can't read predefine value in TC32_compiler-->symbols
+    #if ((MCU_CORE_TYPE == MCU_CORE_8258) || (MCU_CORE_TYPE == MCU_CORE_8278))
 #define MESH_PID_SEL		(PID_GATEWAY)
 #define MESH_VID		    FW_VERSION_TELINK_RELEASE       // user can redefine
     #else // if (CHIP_TYPE == CHIP_TYPE_8269)
@@ -54,7 +54,7 @@
 #define MESH_VID		    FW_VERSION_TELINK_RELEASE       // user can redefine
     #endif
 #elif (__PROJECT_MESH_LPN__)  // must define in TC32_CC_Assember ->General , too. because cstartup.s can't read predefine value in TC32_compiler-->symbols
-    #if (CHIP_TYPE == CHIP_TYPE_8258)
+    #if ((MCU_CORE_TYPE == MCU_CORE_8258) || (MCU_CORE_TYPE == MCU_CORE_8278))
 #define MESH_PID_SEL		(PID_LPN)
 #define MESH_VID		    FW_VERSION_TELINK_RELEASE       // user can redefine
     #else // if (CHIP_TYPE == CHIP_TYPE_8269)
@@ -70,7 +70,13 @@
 #elif (__PROJECT_8267_MASTER_KMA_DONGLE__)
 #define MESH_PID_SEL		(PID_UNKNOW)
 #define MESH_VID		    FW_VERSION_TELINK_RELEASE       // user can redefine
-#elif (__PROJECT_MESH__ || WIN32)   // light
+#elif (__PROJECT_MESH__)   // light
+#define MESH_PID_SEL		(LIGHT_TYPE_SEL)
+#define MESH_VID		    FW_VERSION_TELINK_RELEASE       // user can redefine
+#elif (__PROJECT_MESH_GW_NODE_HK__)   // light
+#define MESH_PID_SEL		(LIGHT_TYPE_SEL)
+#define MESH_VID		    FW_VERSION_TELINK_RELEASE       // user can redefine
+#elif (WIN32)
 #define MESH_PID_SEL		(LIGHT_TYPE_SEL)
 #define MESH_VID		    FW_VERSION_TELINK_RELEASE       // user can redefine
 #else
@@ -78,5 +84,9 @@
 #endif
 
 #define BUILD_VERSION		(MESH_PID_SEL|(MESH_VID << 16))	// if value change, must make clean. same sequence with cps
+
+// -- 
+#define RUN_254K_IN_20000_EN 0 // enable to run 254K in 0x20000(default is 124k), disable to save RAM	
+
 
 

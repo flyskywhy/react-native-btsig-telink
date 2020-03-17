@@ -40,5 +40,6 @@ extern rc_para_mag rc_mag;
 
 void set_rc_flag_when_send_pkt(int is_sending);
 void mesh_proc_keyboard ();
+void global_reset_new_key_wakeup();
 
 

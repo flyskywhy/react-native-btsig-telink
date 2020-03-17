@@ -28,6 +28,20 @@
 
 typedef void (*pm_optimize_handler_t)(void);
 
+#if 1 // use 1.5K
+static inline void usb_dp_pullup_en (int en)
+{
+	unsigned char dat = ReadAnalogReg(0x00);
+	if (en) {
+		dat &= ~(BIT(4));
+	}
+	else {
+		dat |= BIT(4);
+	}
+
+	WriteAnalogReg (0x00, dat);
+}
+#else  // use 10K
 static inline void usb_dp_pullup_en (int en)
 {
 	unsigned char dat = ReadAnalogReg(0x08);
@@ -40,6 +54,7 @@ static inline void usb_dp_pullup_en (int en)
 
 	WriteAnalogReg (0x08, dat);
 }
+#endif
 
 
 

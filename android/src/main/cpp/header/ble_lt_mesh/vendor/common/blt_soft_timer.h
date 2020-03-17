@@ -3,10 +3,10 @@
  *
  * @brief    for TLSR chips
  *
- * @author	 telink
- * @date     Sep. 30, 2010
+ * @author	 public@telink-semi.com;
+ * @date     Sep. 18, 2015
  *
- * @par      Copyright (c) 2010, Telink Semiconductor (Shanghai) Co., Ltd.
+ * @par      Copyright (c) Telink Semiconductor (Shanghai) Co., Ltd.
  *           All rights reserved.
  *           
  *			 The information contained herein is confidential and proprietary property of Telink 
@@ -19,16 +19,30 @@
  *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided. 
  *           
  *******************************************************************************************************/
+/*
+ * blt_soft_timer.h
+ *
+ *  Created on: 2016-10-28
+ *      Author: Administrator
+ */
 
 #ifndef BLT_SOFT_TIMER_H_
 #define BLT_SOFT_TIMER_H_
+#include "proj/mcu/config.h"
+#if(MCU_CORE_TYPE != MCU_CORE_8269)
 
 
 //user define
-#define		BLT_SOFTWARE_TIMER_ENABLE				0   //enable or disable
+#ifndef BLT_SOFTWARE_TIMER_ENABLE
+#define BLT_SOFTWARE_TIMER_ENABLE					0   //enable or disable
+#endif
+
+
 #define 	MAX_TIMER_NUM							4   //timer max number
 
 
+#define		MAINLOOP_ENTRY							0
+#define 	CALLBACK_ENTRY							1
 
 
 
@@ -39,9 +53,10 @@
 #define		TIME_COMPARE_BIG(t1,t2)   ( (u32)((t1) - (t2)) < BIT(30)  )
 
 
-#define		BLT_TIMER_SAFE_MARGIN	  (4000 * CLOCK_SYS_CLOCK_1MS)
+#define		BLT_TIMER_SAFE_MARGIN_PRE	  (CLOCK_16M_SYS_TIMER_CLK_1US<<7)  //128 us
+#define		BLT_TIMER_SAFE_MARGIN_POST	  (CLOCK_16M_SYS_TIMER_CLK_1S<<2)   // 4S
 static int inline blt_is_timer_expired(u32 t, u32 now) {
-	return ((u32)(now - t) < BLT_TIMER_SAFE_MARGIN);
+	return ((u32)(now + BLT_TIMER_SAFE_MARGIN_PRE - t) < BLT_TIMER_SAFE_MARGIN_POST);
 }
 
 
@@ -67,22 +82,22 @@ typedef struct blt_soft_timer_t {
 
 
 
-void 	blt_soft_timer_init(void);
-void  	blt_soft_timer_process(u8 e, u8 *p, int n);
 
+//////////////////////// USER  INTERFACE ///////////////////////////////////
 //return 0 means Fail, others OK
 int 	blt_soft_timer_add(blt_timer_callback_t func, u32 interval_us);
-int 	blt_soft_timer_delete(u8 index);
+int 	blt_soft_timer_delete(blt_timer_callback_t func);
 
 
 
 
-
-
-void 	blt_process_timer(void);
+//////////////////////// SOFT TIMER MANAGEMENT  INTERFACE ///////////////////////////////////
+void 	blt_soft_timer_init(void);
+void  	blt_soft_timer_process(int type);
+int 	blt_soft_timer_delete_by_index(u8 index);
 
 
 int is_timer_expired(blt_timer_callback_t *e);
 
-
+#endif
 #endif /* BLT_SOFT_TIMER_H_ */

@@ -1,7 +1,7 @@
 /* Copyright 2014, Kenneth MacKay. Licensed under the BSD 2-clause license. */
 
-#ifndef __TC_UECC_H__
-#define __TC_UECC_H__
+#ifndef _UECC_H_
+#define _UECC_H_
 
 
 #include <stdint.h>
@@ -181,7 +181,7 @@ Outputs:
 
 Returns 1 if the shared secret was generated successfully, 0 if an error occurred.
 */
-int uECC_shared_secret(uint8_t *public_key,
+int uECC_shared_secret(const uint8_t *public_key,
                        const uint8_t *private_key,
                        uint8_t *secret,
                        uECC_Curve curve);

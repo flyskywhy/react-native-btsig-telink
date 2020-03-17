@@ -32,6 +32,8 @@
 #include "../mcu_spec/adc_8267.h"
 #elif(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
 #include "drivers/8258/adc.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "drivers/8278/adc.h"
 #elif(__TL_LIB_8263__ || MCU_CORE_TYPE == MCU_CORE_8263)
 #include "../mcu_spec/adc_8263.h"
 #endif

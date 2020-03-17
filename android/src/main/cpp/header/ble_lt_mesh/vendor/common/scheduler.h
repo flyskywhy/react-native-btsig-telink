@@ -45,7 +45,7 @@ enum{
 };
 
 enum{
-    SCHD_MONTH_ANY = 0,
+    SCHD_MONTH_ANY = 0,  // define by Examples of Table 5.14
 };
 
 enum{
@@ -54,7 +54,7 @@ enum{
 };
 
 enum{
-    SCHD_WEEK_ANY = 0,  // SCHD_WEEK_ANY = BIT_MASK_LEN(7),    // just use as input parameter
+    SCHD_WEEK_ANY = 0,  // define by Examples of Table 5.14 // SCHD_WEEK_ANY = BIT_MASK_LEN(7),    // just use as input parameter
 };
 
 enum{

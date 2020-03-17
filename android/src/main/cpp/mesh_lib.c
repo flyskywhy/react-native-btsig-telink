@@ -26,12 +26,12 @@
 
 #include "mesh_lib.h"
 #include "header/ble_lt_mesh/vendor/common/scene.h"
-#include "header/ble_lt_mesh/proj_lib/sig_mesh/app_provison.h"
 #include "header/ble_lt_mesh/vendor/common/ev.h"
-#include "header/ble_lt_mesh/proj_lib/sig_mesh/app_proxy.h"
 #include "header/ble_lt_mesh/vendor/common/mesh_ota.h"
 #include "header/ble_lt_mesh/vendor/common/lighting_model.h"
 #include "header/ble_lt_mesh/vendor/common/mesh_node.h"
+#include "header/ble_lt_mesh/proj_lib/ble/crypt/aes/aes_att.h"
+#include "header/ble_lt_mesh/vendor/common/app_heartbeat.h"
 #include <jni.h>
 #include <time.h>
 #include <stdio.h>
@@ -175,7 +175,7 @@ JNIEXPORT jint JNICALL Java_com_telink_sig_mesh_lib_MeshLib_clockTime(JNIEnv *en
 }
 
 JNIEXPORT jint JNICALL Java_com_telink_sig_mesh_lib_MeshLib_ivTest(JNIEnv *env, jobject obj) {
-    LOGD("ivTest");
+    LOGD("ivTest, adr %d", ele_adr_primary);
     if (iv_idx_st.keep_time_s < 0x60000) {
         iv_idx_st.keep_time_s = 0x60000;
     }
@@ -184,6 +184,14 @@ JNIEXPORT jint JNICALL Java_com_telink_sig_mesh_lib_MeshLib_ivTest(JNIEnv *env, 
 
 JNIEXPORT jint JNICALL Java_com_telink_sig_mesh_lib_MeshLib_snoTest(JNIEnv *env, jobject obj) {
     LOGD("snoTest");
+    if (mesh_adv_tx_cmd_sno < 0xc10000) {
+        mesh_adv_tx_cmd_sno = 0xc10000;
+    }
+    return 1;
+}
+
+JNIEXPORT jint JNICALL Java_com_telink_sig_mesh_lib_MeshLib_ResetLocalAddress(JNIEnv *env, jobject obj, jint address) {
+    LOGD("resetLocalAddress");
     if (mesh_adv_tx_cmd_sno < 0xc10000) {
         mesh_adv_tx_cmd_sno = 0xc10000;
     }
@@ -581,13 +589,13 @@ Java_com_telink_sig_mesh_lib_MeshLib_provisionPktDispatch(JNIEnv *env, jobject j
     free(p);
 }
 
-JNIEXPORT jint JNICALL
-Java_com_telink_sig_mesh_lib_MeshLib_getProvisionState(JNIEnv *env, jobject j) {
-
-//    LOGD("getProvisionState");
-
-    return get_provision_state();
-}
+//JNIEXPORT jint JNICALL
+//Java_com_telink_sig_mesh_lib_MeshLib_getProvisionState(JNIEnv *env, jobject j) {
+//
+////    LOGD("getProvisionState");
+//
+//    return get_provision_state();
+//}
 
 
 // provision 过程中 处理notify
@@ -2147,6 +2155,7 @@ Java_com_telink_sig_mesh_lib_MeshLib_decryptOnlineStatusData(JNIEnv *env, jobjec
 }
 
 
+
 /*************************************************************************************
  ** mesh OTA **
  **************************************************************************************/
@@ -2261,6 +2270,11 @@ Java_com_telink_sig_mesh_lib_MeshLib_pauseMeshOta(JNIEnv *env, jobject j) {
     return 1;
 }
 
+JNIEXPORT void JNICALL
+Java_com_telink_sig_mesh_lib_MeshLib_meshRetrieveAll(JNIEnv *env, jobject j) {
+    LOGD("meshRetrieveAll");
+    mesh_flash_retrieve();
+}
 
 void APP_report_mesh_ota_apply_status(u16 adr_src, fw_update_status_t *p) {
     int status;
@@ -2444,7 +2458,7 @@ int mesh_par_retrieve_store_win32(u8 *in_out, u32 *p_adr, u32 adr_base, u32 size
 //    LOGD("mesh_par_retrieve_store_win32 %x %d", adr_base, flag);
     int err = -1;
     switch (adr_base) {
-        case FLASH_ADR_LIST_CFG_S:
+//        case FLASH_ADR_LIST_CFG_S:
         case FLASH_ADR_PROVISION_CFG_S:
         case FLASH_ADR_FRIEND_SHIP:
         case FLASH_ADR_RESET_CNT:
@@ -2490,8 +2504,8 @@ int mesh_par_retrieve_store_win32(u8 *in_out, u32 *p_adr, u32 adr_base, u32 size
             if (flag == MESH_PARA_RETRIEVE_VAL) {
 //                err = mesh_model_cfg_retrieve_win32((model_sig_cfg_s_t *) in_out);
 
-//                loadMeshInfo(in_out, sizeof(model_sig_cfg_s_t), STORAGE_TYPE_CONFIG_MODEL);
-//                err = 0;
+                loadMeshInfo(in_out, sizeof(model_sig_cfg_s_t), STORAGE_TYPE_CONFIG_MODEL);
+                err = 0;
             }
             break;
 

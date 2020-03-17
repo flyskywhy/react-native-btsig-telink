@@ -36,7 +36,7 @@
 
 
 /****Events****/
-#define HCI_CMD_DISCONNECTION_COMPLETE                               0x05
+#define HCI_EVT_DISCONNECTION_COMPLETE                               0x05
 
 #define HCI_EVT_REMOTE_NAME_REQ_COMPLETE                             0x07
 #define HCI_EVT_ENCRYPTION_CHANGE                                    0x08

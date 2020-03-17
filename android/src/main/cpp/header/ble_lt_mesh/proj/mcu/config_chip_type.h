@@ -30,5 +30,6 @@
 #define CHIP_TYPE_8261		6
 #define CHIP_TYPE_8269		7
 #define	CHIP_TYPE_8258		8
+#define	CHIP_TYPE_8278		9
 
 

@@ -22,14 +22,13 @@
 
 #pragma once
 
-
+#include "mcu/config.h"
 #include "common/types.h"
 #include "common/bit.h"
 #include "common/tutility.h"
 #include "common/static_assert.h"
 #include "common/assert.h"
 #include "../vendor/common/user_config.h"
-#include "mcu/config.h"
 #include "common/compatibility.h"
 #if(MCU_CORE_TYPE == MCU_CORE_8258)
 #include "drivers/8258/analog.h"
@@ -40,6 +39,15 @@
 #include "drivers/8258/dma.h"
 #include "drivers/8258/clock.h"
 #include "drivers/8258/random.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "drivers/8278/analog.h"
+#include "drivers/8278/compiler.h"
+#include "drivers/8278/register.h"
+#include "drivers/8278/gpio.h"
+#include "drivers/8278/pwm.h"
+#include "drivers/8278/dma.h"
+#include "drivers/8278/clock.h"
+#include "drivers/8278/random.h"
 #else
 #include "mcu/analog.h"
 #include "mcu/compiler.h"
@@ -55,9 +63,9 @@
 #include "mcu/irq_i.h"
 #include "common/breakpoint.h"
 #include "common/log.h"
-
-#include "drivers/flash.h"
-
+#if !WIN32
+#include "drivers/8258/flash.h"
+#endif
 //#include "../ble/ble_globals.h"
 
 #if WIN32

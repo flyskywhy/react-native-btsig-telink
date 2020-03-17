@@ -110,12 +110,14 @@ typedef struct
     u16 clientRxMTU; //!< Attribute client receive MTU size 
 } exchangeMTUReq_t;
 
+//TELINK MTU no longer than 256, so 1 byte is enough
 typedef struct{
-	u16 rsp_mtu_size;
-	u16 att_mtu;
+	u8 init_MTU;
+	u8 effective_MTU;
 	u8 Data_pending_time;    //10ms unit
 	u8 Data_permission_check;
 }att_para_t;
+
 /**
  * Exchange MTU Response 
  */
@@ -447,18 +449,32 @@ typedef int (*att_mtuSizeExchange_callback_t)(u16, u16);
 typedef int (*att_handleValueConfirm_callback_t)(void);
 typedef int (*att_readwrite_callback_t)(void* p);
 
+#if(HOMEKIT_EN)
 typedef struct attribute
 {
   u16  attNum;
-  u8*  p_perm;
+  u8   perm;
   u8   uuidLen;
-  u32  attrLen;    //4 bytes aligned
+  u16  attrLen;    // 4 bytes aligned
+  u16  attrMaxLen;
   u8* uuid;
   u8* pAttrValue;
   att_readwrite_callback_t w;
   att_readwrite_callback_t r;
 } attribute_t;
-
+#else
+typedef struct attribute
+{
+  u16  attNum;
+  u8*  p_perm;
+  u8   uuidLen;
+  u32  attrLen;    // 4 bytes aligned
+  u8* uuid;
+  u8* pAttrValue;
+  att_readwrite_callback_t w;
+  att_readwrite_callback_t r;
+} attribute_t;
+#endif
 
 
 
@@ -519,3 +535,18 @@ int 		l2cap_att_client_handler (u16 conn, u8 *p);
 
 
 /************************* Stack Interface, user can not use!!! ***************************/
+static inline u16  blc_att_getEffectiveMtuSize(u16 connHandle)
+{
+	return bltAtt.effective_MTU;
+}
+
+static inline void  blt_att_setEffectiveMtuSize(u16 connHandle, u8 effective_mtu)
+{
+	bltAtt.effective_MTU = effective_mtu;
+}
+
+static inline void  blt_att_resetEffectiveMtuSize(u16 connHandle)
+{
+	bltAtt.effective_MTU = ATT_MTU_SIZE;
+}
+

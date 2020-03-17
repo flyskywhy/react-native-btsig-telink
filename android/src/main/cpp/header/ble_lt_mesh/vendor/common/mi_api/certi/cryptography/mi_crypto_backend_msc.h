@@ -1,9 +1,9 @@
 #ifndef __MIBLE_CRYPTO_BACKEND_MSC_H__
 #define __MIBLE_CRYPTO_BACKEND_MSC_H__
 #include <stdint.h>
-#include "../../mible_type.h"
-#include "../third_party/pt/pt.h"
-#include "../third_party/pt/pt_misc.h"
+#include "mible_type.h"
+#include "third_party/pt/pt.h"
+#include "third_party/pt/pt_misc.h"
 
 typedef enum {
     // Info

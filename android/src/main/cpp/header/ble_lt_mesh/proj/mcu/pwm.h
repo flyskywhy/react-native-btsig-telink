@@ -22,7 +22,7 @@
 
 #ifndef PWM_H_
 #define PWM_H_
-
+#include "config.h"
 
 #if(__TL_LIB_8266__ || MCU_CORE_TYPE == MCU_CORE_8266)
 #include "../mcu_spec/pwm_8266.h"
@@ -32,6 +32,8 @@
 #include "../mcu_spec/pwm_8267.h"
 #elif(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258 )
 #include "drivers/8258/pwm.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278 )
+#include "drivers/8278/pwm.h"
 #elif(__TL_LIB_8263__ || MCU_CORE_TYPE == MCU_CORE_8263)
 #include "../mcu_spec/pwm_8263.h"
 #endif

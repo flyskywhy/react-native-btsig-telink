@@ -95,4 +95,11 @@ extern u8 security_enable;
 #define NONCE_TYPE_DEVICE       0x02
 #define NONCE_TYPE_PROXY        0x03
 
+enum{
+    ERR_NO_NW_DEC_ERR               = 1,    // must 1 for decryption error
+    ERR_NO_NW_DEC_ADR_INVALID       = 2,
+    ERR_NO_NW_DEC_CACHE_OLD         = 3,
+};
+
+
 #endif 

@@ -58,6 +58,16 @@ extern "C" {
 #define DONLGE_MONITOR_MODE	0
 #endif
 
+// default setting
+#ifndef FLASH_1M_ENABLE
+#define FLASH_1M_ENABLE	        0
+#endif
+#ifndef PINGPONG_OTA_DISABLE
+#define PINGPONG_OTA_DISABLE    0
+#endif
+#ifndef	SWITCH_FW_ENABLE
+#define SWITCH_FW_ENABLE		0
+#endif
 
 //////////// debug  /////////////////////////////////
 #ifndef __DEBUG__

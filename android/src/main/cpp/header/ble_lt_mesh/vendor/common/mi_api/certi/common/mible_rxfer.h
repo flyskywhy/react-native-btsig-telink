@@ -1,9 +1,8 @@
 #ifndef __MIBLE_RXFER_H__
 #define __MIBLE_RXFER_H__
 #include <stdint.h>
-#include "../third_party/pt/pt.h"
-#include "../third_party/pt/pt_misc.h"
-
+#include "third_party/pt/pt.h"
+#include "third_party/pt/pt_misc.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,24 +10,25 @@ extern "C" {
 #define MAX_ATT_MTU         20
 
 typedef enum {
-    PASS_THROUGH = 0x00,
-    DEV_CERT,
-    DEV_MANU_CERT,
-    ECC_PUBKEY,
-    DEV_SIGNATURE,
-    DEV_LOGIN_INFO,
-    DEV_SHARE_INFO,
-    SERVER_CERT,
-    SERVER_SIGN,
-    MESH_CONFIG,
-    APP_CONFIRMATION,
-    APP_RANDOM,
-    DEV_CONFIRMATION,
-    DEV_RANDOM,
+    PASS_THROUGH          = 0x00,
+    DEV_CERT              = 0x01,
+    DEV_MANU_CERT         = 0x02,
+    ECC_PUBKEY            = 0x03,
+    DEV_SIGNATURE         = 0x04,
+    DEV_LOGIN_INFO        = 0x05,
+    DEV_SHARE_INFO        = 0x06,
+    SERVER_CERT           = 0x07,
+    SERVER_SIGN           = 0x08,
+    MESH_CONFIG           = 0x09,
+    APP_CONFIRMATION      = 0x0A,
+    APP_RANDOM            = 0x0B,
+    DEV_CONFIRMATION      = 0x0C,
+    DEV_RANDOM            = 0x0D,
+    BIND_KEY              = 0x0E,
 } fctrl_cmd_t;
 
 typedef enum {
-    A_SUCCESS = 0x00,
+    A_SUCCESS             = 0x00,
     A_READY,
     A_BUSY,
     A_TIMEOUT,

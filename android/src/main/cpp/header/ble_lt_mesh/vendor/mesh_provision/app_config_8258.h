@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-#include "../../vendor/common/mesh_config.h"
+#include "../../vendor/common/version.h"    // include mesh_config.h inside.
 //////////////////board sel/////////////////////////////////////
 #define PCBA_8258_DONGLE_48PIN          1
 #define PCBA_8258_C1T139A30_V1_0        2
@@ -53,12 +53,14 @@ extern "C" {
 #define	FLOW_NO_OS				1
 
 /////////////////////HCI ACCESS OPTIONS///////////////////////////////////////
+#define HCI_USE_NONE	0
 #define HCI_USE_UART	1
-#define HCI_USE_USB		0
+#define HCI_USE_USB		2
 #define HCI_ACCESS		HCI_USE_USB
 
 #if (HCI_ACCESS==HCI_USE_UART)
-#define UART_GPIO_SEL           UART_GPIO_8258_PB0_PB1
+#define UART_TX_PIN		UART_TX_PB1
+#define UART_RX_PIN		UART_RX_PB0
 #endif
 
 #define HCI_LOG_FW_EN   0
@@ -75,6 +77,10 @@ extern "C" {
 #define PM_DEEPSLEEP_RETENTION_ENABLE   0
 #define BLE_REMOTE_SECURITY_ENABLE      0
 #define BLE_IR_ENABLE					0
+
+#ifndef BLT_SOFTWARE_TIMER_ENABLE
+#define BLT_SOFTWARE_TIMER_ENABLE		0
+#endif
 
 //////////////////////////// KEYSCAN/MIC  GPIO //////////////////////////////////
 #define	MATRIX_ROW_PULL					PM_PIN_PULLDOWN_100K
@@ -149,20 +155,16 @@ extern "C" {
 
 #define GPIO_LED	PWM_R
 
+////////////USB DP DM///////////////////////////////////////
+#define PA5_FUNC			AS_USB
+#define PA5_INPUT_ENABLE	1
+
+#define PA6_FUNC			AS_USB
+#define PA6_INPUT_ENABLE	1
 
 /////////////open SWS digital pullup to prevent MCU err, this is must ////////////
-#if 1
-#define PB0_DATA_OUT			1
-#else 	// 8266
-#define PA0_DATA_OUT			1
-#endif
+#define PA7_DATA_OUT			1
 
-#if 0	// 8266
-// PB5/PB6 dp/dm for 8266
-//USB DM DP input enable
-#define PB5_INPUT_ENABLE		1
-#define PB6_INPUT_ENABLE		1
-#endif
 
 /////////////////// Clock  /////////////////////////////////
 #define	USE_SYS_TICK_PER_US

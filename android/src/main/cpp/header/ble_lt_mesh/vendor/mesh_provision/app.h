@@ -30,7 +30,7 @@ unsigned char get_gateway_provisison_sts();
 u8 gateway_upload_provision_suc_event(u8 evt,u16 adr,u8 *p_mac,u8 *p_uuid);
 void set_gateway_provision_para_init();
 u8 gateway_upload_keybind_event(u8 evt);
-u8 gateway_upload_provision_slef_sts(u8 sts);
+u8 gateway_upload_provision_self_sts(u8 sts);
 u8 gateway_upload_node_ele_cnt(u8 ele_cnt);
 u8 gateway_upload_node_info(u16 unicast);
 u8 gateway_upload_mesh_ota_sts(u8 *p_dat,int len);

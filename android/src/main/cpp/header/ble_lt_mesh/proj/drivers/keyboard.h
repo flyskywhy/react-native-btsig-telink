@@ -93,6 +93,7 @@ static inline void kb_set_key_invalid(kb_data_t *p){
 
 extern u32 kb_key_pressed(u8 * gpio);
 extern u32 kb_scan_key_value (int numlock_status, int read_key,u8 * gpio);
+void global_var_no_ret_init_kb();
 
 extern u32	scan_pin_need;
 

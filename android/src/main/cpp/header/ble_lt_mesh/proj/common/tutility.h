@@ -27,6 +27,7 @@
 
 #define cat2(i,j)       i##j
 #define cat3(i,j,k)     i##j##k
+#endif
 
 #ifndef min
 #define min(a,b)	((a) < (b) ? (a) : (b))
@@ -47,7 +48,7 @@
 #ifndef max3
 #define max3(a,b,c)	max2(max2(a, b), c)
 #endif
-#endif
+
 #define OFFSETOF(s, m) 			((unsigned int) &((s *)0)->m)
 #ifndef WIN32
 #define CONTAINER_OF(ptr, type, member) ({              \
@@ -135,7 +136,7 @@
  *
  * @return      None
  */
-void generateRandomNum(u8 len, u8 *data);
+void generateRandomNum(int len, u8 *data);
 
 //void swapX(const u8 *src, u8 *dst, u8 len);
 
@@ -157,12 +158,14 @@ void freeTimerTask(void **arg);
 
 
 typedef	struct {
-	u8*		p;
 	u16		size;
 	u8		num;
 	u8		wptr;
 	u8		rptr;
+	u8*		p;
 }	my_fifo_t;
+
+
 
 typedef	struct {
 	u16		len;
@@ -176,9 +179,11 @@ int my_fifo_push (my_fifo_t *f, u8 *p, u16 n, u8 *head, u8 head_len);
 void my_fifo_pop (my_fifo_t *f);
 extern u8 * my_fifo_get (my_fifo_t *f);
 void my_fifo_reset(my_fifo_t *f);
-extern int my_fifo_data_cnt_get (my_fifo_t *f);
+extern u8 my_fifo_data_cnt_get (my_fifo_t *f);
 u8 * my_fifo_get_offset (my_fifo_t *f, u8 offset);
 
-#define		MYFIFO_INIT(name,size,n)		u8 name##_b[size * n]={0};my_fifo_t name = {name##_b, size,n,0,0};  \
+#define		MYFIFO_INIT(name,size,n)		u8 name##_b[(size) * (n)]={0};my_fifo_t name = {size,n,0,0,name##_b};  \
                                             STATIC_ASSERT(BIT_IS_POW2(n))
+#define		MYFIFO_INIT_NO_RET(name,size,n)		_attribute_no_retention_bss_ u8 name##_b[(size) * (n)]={0};_attribute_no_retention_data_ my_fifo_t name = {size,n,0,0,name##_b};  \
+												STATIC_ASSERT(BIT_IS_POW2(n))
 

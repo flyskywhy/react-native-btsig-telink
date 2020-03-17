@@ -29,7 +29,7 @@
 #include "../mcu/register.h"
 #include "gpio_default_8267.h"
 
-enum{
+typedef enum{
 	    GPIO_PA0 = 0x000 | BIT(0),	GPIO_PWM0A0=GPIO_PA0,	GPIO_DMIC_DI=GPIO_PA0,
 		GPIO_PA1 = 0x000 | BIT(1), 							GPIO_DMIC_CK=GPIO_PA1,
 		GPIO_PA2 = 0x000 | BIT(2),	GPIO_PWM0NA2=GPIO_PA2,	GPIO_DO=GPIO_PA2,
@@ -79,7 +79,7 @@ enum{
 		GPIO_PF1 = 0x500 | BIT(1),
 
 		GPIO_MAX_COUNT = 56,
-};
+}GPIO_PinTypeDef;
 
 #define reg_gpio_in(i)			REG_ADDR8(0x580+((i>>8)<<3))
 #define reg_gpio_ie(i)			REG_ADDR8(0x581+((i>>8)<<3))
@@ -88,8 +88,11 @@ enum{
 #define reg_gpio_pol(i)			REG_ADDR8(0x584+((i>>8)<<3))
 #define reg_gpio_ds(i)			REG_ADDR8(0x585+((i>>8)<<3))
 #define reg_gpio_gpio_func(i)	REG_ADDR8(0x586+((i>>8)<<3))
-#define reg_gpio_irq_en0(i)		REG_ADDR8(0x587+((i>>8)<<3))	// 对应reg_irq_mask,reg_irq_src 中的FLD_IRQ_GPIO_EN
-#define reg_gpio_irq_en(i)		REG_ADDR8(0x5c8+(i>>8))			// 对应reg_irq_mask,reg_irq_src 中的FLD_IRQ_GPIO_RISC2_EN, 为了与5320,5328一致, 使用 FLD_IRQ_GPIO_RISC2_EN
+
+#define reg_gpio_irq_wakeup_en(i)	REG_ADDR8(0x587+((i>>8)<<3))  // reg_irq_mask: FLD_IRQ_GPIO_EN
+#define reg_gpio_irq_risc0_en(i)  REG_ADDR8(0x5b8 + (i >> 8))	  // reg_irq_mask: FLD_IRQ_GPIO_RISC0_EN
+#define reg_gpio_irq_risc1_en(i)  REG_ADDR8(0x5c0 + (i >> 8))	  // reg_irq_mask: FLD_IRQ_GPIO_RISC1_EN
+#define reg_gpio_irq_risc2_en(i)  REG_ADDR8(0x5c8 + (i >> 8))     // reg_irq_mask: FLD_IRQ_GPIO_RISC2_EN
 
 #define reg_gpio_wakeup_irq  REG_ADDR8(0x5b5)
 enum{
@@ -157,21 +160,6 @@ static inline void gpio_set_data_strength(u32 pin, u32 value){
 	}
 }
 
-static inline void gpio_en_interrupt(u32 pin){
-	u8	bit = pin & 0xff;
-	BM_SET(reg_gpio_irq_en(pin), bit);
-}
-
-static inline void gpio_set_interrupt(u32 pin, u32 falling){
-	u8	bit = pin & 0xff;
-	BM_SET(reg_gpio_irq_en(pin), bit);
-	if(falling){
-		BM_SET(reg_gpio_pol(pin), bit);
-	}else{
-		BM_CLR(reg_gpio_pol(pin), bit);
-	}
-}
-
 static inline void gpio_set_interrupt_pol(u32 pin, u32 falling){
 	u8	bit = pin & 0xff;
 	if(falling){
@@ -183,7 +171,88 @@ static inline void gpio_set_interrupt_pol(u32 pin, u32 falling){
 
 static inline void gpio_clr_interrupt(u32 pin){
 	u8	bit = pin & 0xff;
-	BM_CLR(reg_gpio_irq_en(pin), bit);
+	BM_CLR(reg_gpio_irq_wakeup_en(pin), bit);
+}
+
+static inline void gpio_en_interrupt(u32 pin, int en){  // reg_irq_mask: FLD_IRQ_GPIO_EN
+	u8	bit = pin & 0xff;
+	if(en){
+		BM_SET(reg_gpio_irq_wakeup_en(pin), bit);
+	}
+	else{
+		BM_CLR(reg_gpio_irq_wakeup_en(pin), bit);
+	}
+}
+
+static inline void gpio_set_interrupt(u32 pin, u32 falling){
+	u8	bit = pin & 0xff;
+	BM_SET(reg_gpio_irq_wakeup_en(pin), bit);
+	if(falling){
+		BM_SET(reg_gpio_pol(pin), bit);
+	}else{
+		BM_CLR(reg_gpio_pol(pin), bit);
+	}
+}
+
+
+static inline void gpio_en_interrupt_risc0(u32 pin, int en){  // reg_irq_mask: FLD_IRQ_GPIO_RISC0_EN
+	u8	bit = pin & 0xff;
+	if(en){
+		BM_SET(reg_gpio_irq_risc0_en(pin), bit);
+	}
+	else{
+		BM_CLR(reg_gpio_irq_risc0_en(pin), bit);
+	}
+}
+
+static inline void gpio_set_interrupt_risc0(u32 pin, u32 falling){
+	u8	bit = pin & 0xff;
+	BM_SET(reg_gpio_irq_risc0_en(pin), bit);
+	if(falling){
+		BM_SET(reg_gpio_pol(pin), bit);
+	}else{
+		BM_CLR(reg_gpio_pol(pin), bit);
+	}
+}
+
+static inline void gpio_en_interrupt_risc1(u32 pin, int en){  // reg_irq_mask: FLD_IRQ_GPIO_RISC1_EN
+	u8	bit = pin & 0xff;
+	if(en){
+		BM_SET(reg_gpio_irq_risc1_en(pin), bit);
+	}
+	else{
+		BM_CLR(reg_gpio_irq_risc1_en(pin), bit);
+	}
+}
+
+static inline void gpio_set_interrupt_risc1(u32 pin, u32 falling){
+	u8	bit = pin & 0xff;
+	BM_SET(reg_gpio_irq_risc1_en(pin), bit);
+	if(falling){
+		BM_SET(reg_gpio_pol(pin), bit);
+	}else{
+		BM_CLR(reg_gpio_pol(pin), bit);
+	}
+}
+
+static inline void gpio_en_interrupt_risc2(u32 pin, int en){  // reg_irq_mask: FLD_IRQ_GPIO_RISC2_EN
+	u8	bit = pin & 0xff;
+	if(en){
+		BM_SET(reg_gpio_irq_risc2_en(pin), bit);
+	}
+	else{
+		BM_CLR(reg_gpio_irq_risc2_en(pin), bit);
+	}
+}
+
+static inline void gpio_set_interrupt_risc2(u32 pin, u32 falling){
+	u8	bit = pin & 0xff;
+	BM_SET(reg_gpio_irq_risc2_en(pin), bit);
+	if(falling){
+		BM_SET(reg_gpio_pol(pin), bit);
+	}else{
+		BM_CLR(reg_gpio_pol(pin), bit);
+	}
 }
 
 static inline void gpio_write(u32 pin, u32 value){
@@ -559,7 +628,7 @@ enum{
                      (gpio==GPIO_PWM5NB7))
 
 void gpio_setup_up_down_resistor(u32 gpio, u32 up_down);
-void gpio_set_interrupt_init(u32 pin, u32 up_down, u32 falling);
+void gpio_set_interrupt_init(u32 pin, u32 up_down, u32 falling, u32 irq_mask);
 
 extern u32 mouse_gpio_table[];
 

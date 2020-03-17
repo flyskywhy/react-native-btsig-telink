@@ -26,6 +26,8 @@
 #include "proj/mcu/config.h"
 #if(__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258)
 #include "drivers/8258/clock.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "drivers/8278/clock.h"
 #else
 
 // we use clock insteady of timer, to differentiate OS timers utility

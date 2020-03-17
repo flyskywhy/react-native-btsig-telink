@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-#include "../../vendor/common/mesh_config.h"
+#include "../../vendor/common/version.h"    // include mesh_config.h inside.
 
 
 #define _USER_CONFIG_DEFINED_	1	// must define this macro to make others known
@@ -46,9 +46,10 @@ extern "C" {
 #define	FLOW_NO_OS				1
 
 /////////////////////HCI ACCESS OPTIONS///////////////////////////////////////
+#define HCI_USE_NONE	0
 #define HCI_USE_UART	1
-#define HCI_USE_USB		0
-#define HCI_ACCESS		HCI_USE_USB
+#define HCI_USE_USB		2
+#define HCI_ACCESS		HCI_USE_NONE
 
 #if (HCI_ACCESS==HCI_USE_UART)
 #define UART_GPIO_SEL           UART_GPIO_8267_PC2_PC3

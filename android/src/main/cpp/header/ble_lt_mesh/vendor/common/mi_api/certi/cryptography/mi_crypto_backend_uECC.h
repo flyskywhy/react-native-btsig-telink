@@ -1,7 +1,7 @@
 #ifndef __MIBLE_CRYPTO_BACKEND_UECC_H__
 #define __MIBLE_CRYPTO_BACKEND_UECC_H__
 #include <stdint.h>
-#include "../../mible_type.h"
+#include "mible_type.h"
 
 void micro_ecc_init(void *p_ctx);
 int micro_ecc_keypair_gen(void *p_ctx, uint8_t *p_sk, uint8_t *p_pk);

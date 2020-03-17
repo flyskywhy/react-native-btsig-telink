@@ -299,6 +299,7 @@ public class MeshService extends Service {
      */
     public boolean stopMeshOTA(String tag) {
         MeshCommand meshCommand = MeshCommand.newInstance(this.netKeyIndex, this.appKeyIndex, 0, this.localAddress, Opcode.FW_DISTRIBUT_STOP.getValue());
+        meshCommand.retryCnt = 0;
         meshCommand.params = DistributionStopMessage.getDefault().toBytes();
         meshCommand.tag = tag;
         return this.sendMeshCommand(meshCommand);
@@ -544,6 +545,12 @@ public class MeshService extends Service {
 
     /********************* lighting *********************/
 
+    public boolean getCtl(int adr, int rspMax, Object tag) {
+        MeshCommand command = MeshCommand.newInstance(this.netKeyIndex, this.appKeyIndex, rspMax, adr, Opcode.LIGHT_CTL_GET.getValue());
+        command.tag = tag;
+        return this.sendMeshCommand(command);
+    }
+
     /**
      * get lightness
      *
@@ -725,6 +732,17 @@ public class MeshService extends Service {
         return this.sendMeshCommand(command);
     }
 
+    public boolean sendTimeStatus(int adr, int rspMax, long taiTime, int zoneOffset, Object tag) {
+        MeshCommand command = MeshCommand.newInstance(this.netKeyIndex,
+                this.appKeyIndex,
+                rspMax,
+                adr, Opcode.TIME_STATUS.getValue());
+        TimeMessage message = TimeMessage.createInstance(taiTime, zoneOffset);
+        message.timeAuthority = 1;
+        command.params = message.toBytes();
+        command.tag = tag;
+        return this.sendMeshCommand(command);
+    }
 
     public boolean setTime(int adr, int rspMax, long taiTime, int zoneOffset, Object tag) {
 //        long time = Calendar.getInstance().getTimeInMillis() / 1000 - MeshLib.Constant.TAI_OFFSET_SECOND;

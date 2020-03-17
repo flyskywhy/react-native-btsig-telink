@@ -82,6 +82,7 @@ typedef struct{
 typedef struct{
 	u8 allow_ota;
 	u32 trans_size_last;
+	u8 one_round_pkts;
 }ais_ota_rsp_t;
 
 typedef struct{
@@ -89,6 +90,7 @@ typedef struct{
 	u32 trans_size_last;
 }ais_ota_receive_t;
 
+#define AIS_MAX_DATA_SIZE	32// please makesure have enough for aes128 padding
 typedef struct{
 	union{
 		u8 header;
@@ -102,13 +104,13 @@ typedef struct{
 	union{
 		u16 frame_desc;
 		struct{
-			u8 msg_seg_index:4;
-			u8 msg_segN:4;
+			u8 frame_seq:4;
+			u8 frame_total:4;
 			u8 length;
 		};
 	};
 	union{
-		u8 data[16];
+		u8 data[AIS_MAX_DATA_SIZE];  
 		u8 device_type;
 		u8 ota_result;
 		ais_ota_req_t ais_ota_req;
@@ -125,7 +127,11 @@ typedef struct{
 #define AIS_INDICATE_HANDLE	0x32
 #define AIS_NOTIFY_HANDLE	0x36
 
-#define AIST_FW_VERSION_GET		0x20
+#define AIS_AUTH_RANDOM			0x10
+#define AIS_AES_CIPHER			0x11
+#define AIS_AUTH_CHECK			0x12
+#define AIS_AUTH_RESULT			0x13
+#define AIS_FW_VERSION_GET		0x20
 #define AIS_FW_VERSION_RSP		0x21
 #define	AIS_OTA_REQ				0x22
 #define	AIS_OTA_RSP				0x23

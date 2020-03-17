@@ -2,8 +2,8 @@
 #define __MI_CRYPTO_H__
 #include <stdint.h>
 
-#include "mi_crypto_backend_msc.h"
-#include "mi_crypto_backend_mbedtls.h"
+#include "cryptography/mi_crypto_backend_msc.h"
+#include "cryptography/mi_crypto_backend_mbedtls.h"
 
 typedef enum {
     P256R1,
@@ -142,6 +142,5 @@ int mi_crypto_record_write(uint8_t record_id, const uint8_t *p_data, uint8_t len
 int mi_crypto_record_read(uint8_t record_id, uint8_t *p_data, uint8_t len);
 
 int mi_crypto_record_delete(uint8_t record_id);
-void set_mi_mac_address(unsigned char *p_mac);
 
 #endif  /* __MI_CRYPTO_H__ */ 

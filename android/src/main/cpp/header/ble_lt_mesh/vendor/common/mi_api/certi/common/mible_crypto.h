@@ -3,11 +3,11 @@
 #include <stdint.h>
 
 typedef struct {
-	uint8_t dev_key[16];
-	uint8_t app_key[16];
-	uint8_t dev_iv[4];
-	uint8_t app_iv[4];
-	uint8_t reserve[24];
+    uint8_t dev_key[16];
+    uint8_t app_key[16];
+    uint32_t dev_iv;
+    uint32_t app_iv;
+    uint8_t reserve[24];
 } session_ctx_t;
 
 int mi_session_init(session_ctx_t *p_ctx);

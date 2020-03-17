@@ -20,7 +20,15 @@
  *           
  *******************************************************************************************************/
 #pragma once
-
+#if !WIN32
+#include "proj/mcu/config.h"
+#include "proj/tl_common.h"
+#endif
+#if(__TL_LIB_8258__ || (MCU_CORE_TYPE == MCU_CORE_8258))
+#include "stack/ble/ble_common.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "stack/ble_8278/ble_common.h"
+#else
 
 /*********************************************************************
  * CONSTANTS
@@ -112,6 +120,7 @@ typedef enum {
 
 #define 		ADV_INTERVAL_1S                          	1600
 #define 		ADV_INTERVAL_1_28_S                         0x0800
+#define			ADV_INTERVAL_2_56_S							0x1000
 #define 		ADV_INTERVAL_10_24S                         16384
 
 #define 		ADV_LOW_LATENCY_DIRECT_INTERVAL             ADV_INTERVAL_10MS
@@ -1256,12 +1265,6 @@ typedef struct {
 } event_adv_report_t;			//20-byte
 
 typedef struct {
-	s8	rssi;       // have been -110
-	s16	dc;
-	u32	timeStamp;
-} adv_report_extend_t;
-
-typedef struct {
 	u8	subcode;
 	u8	status;
 	u16	handle;
@@ -1293,6 +1296,13 @@ typedef struct {
 	u8	status;
 	u16	handle;
 } event_enc_refresh_t;
+#endif
+
+typedef struct {
+	s8	rssi;       // have been -110
+	s16	dc;
+	u32	timeStamp;
+} adv_report_extend_t;
 
 #include "att.h"
 #include "gap.h"

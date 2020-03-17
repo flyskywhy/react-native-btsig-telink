@@ -110,8 +110,8 @@ extern "C" {
 #endif
 
 //------------ mesh config-------------
-#define MD_CFG_CLIENT_EN            (__PROJECT_MESH_PRO__ || TESTCASE_FLAG_ENABLE)   // don't modify
-#define RELIABLE_CMD_EN             (__PROJECT_MESH_PRO__)   // don't modify
+#define MD_CFG_CLIENT_EN            (__PROJECT_MESH_PRO__ || __PROJECT_MESH_GW_NODE__ || TESTCASE_FLAG_ENABLE)   // don't modify
+#define RELIABLE_CMD_EN             (__PROJECT_MESH_PRO__ || __PROJECT_MESH_GW_NODE__)   // don't modify
 
 //------------ mesh config (user can config)-------------
 #define MESH_NORMAL_MODE		0
@@ -120,6 +120,7 @@ extern "C" {
 #define MESH_AES_ENABLE 		3
 #define MESH_GN_ENABLE 		    4
 #define MESH_MI_ENABLE          5
+#define MESH_MI_SPIRIT_ENABLE   6
 #if __PROJECT_MESH_PRO__
 #define MESH_USER_DEFINE_MODE 	MESH_NORMAL_MODE // must normal
 #elif __PROJECT_SPIRIT_LPN__
@@ -127,7 +128,21 @@ extern "C" {
 #else
 #define MESH_USER_DEFINE_MODE 	MESH_NORMAL_MODE
 #endif
+
+// vendor id list
 #define SHA256_BLE_MESH_PID		0x01A8
+#define VENDOR_ID_MI		    0x038F
+
+// mi product type 
+#define MI_PRODUCT_TYPE_CT_LIGHT		0x01
+#define MI_PRODUCT_TYPE_LAMP			0x02
+
+
+#define MI_PRODUCT_TYPE_ONE_ONOFF		0x11
+#define MI_PRODUCT_TYPE_TWO_ONOFF		0x12
+#define MI_PRODUCT_TYPE_THREE_ONOFF		0x13
+
+#define MI_PRODUCT_TYPE_PLUG			0x21
 
 // SHARE subscription list and publish address
 #if (MESH_USER_DEFINE_MODE == MESH_SPIRIT_ENABLE)
@@ -135,6 +150,7 @@ extern "C" {
 #define VENDOR_ID 					SHA256_BLE_MESH_PID
 #define AIS_ENABLE					1
 #define PROVISION_FLOW_SIMPLE_EN    1
+#define ALI_MD_TIME_EN				0
 #elif(MESH_USER_DEFINE_MODE == MESH_CLOUD_ENABLE)
 #define SUBSCRIPTION_SHARE_EN		0
 #define VENDOR_ID 					SHA256_BLE_MESH_PID
@@ -145,10 +161,33 @@ extern "C" {
 #define AIS_ENABLE					0
 #define PROVISION_FLOW_SIMPLE_EN    1
 #elif(MESH_USER_DEFINE_MODE == MESH_MI_ENABLE)
-#define SUBSCRIPTION_SHARE_EN		0
+#define SUBSCRIPTION_SHARE_EN		1
 #define AIS_ENABLE					0
 #define PROVISION_FLOW_SIMPLE_EN    0
 #define MI_API_ENABLE               1
+#define MI_SWITCH_LPN_EN			0   // only support 825x serials 
+	#if MI_SWITCH_LPN_EN
+#define BLT_SOFTWARE_TIMER_ENABLE	1
+#define STEP_PUB_MODE_EN 			1
+#define MI_PRODUCT_TYPE				MI_PRODUCT_TYPE_ONE_ONOFF
+	#else
+#define MI_PRODUCT_TYPE				MI_PRODUCT_TYPE_CT_LIGHT	
+	#endif
+#elif(MESH_USER_DEFINE_MODE == MESH_MI_SPIRIT_ENABLE)
+#define SUBSCRIPTION_SHARE_EN		1
+#define VENDOR_ID                   VENDOR_ID_MI // use mi vendor_id and mi mac by default
+#define AIS_ENABLE					1
+#define PROVISION_FLOW_SIMPLE_EN    1	
+#define ALI_MD_TIME_EN				0
+#define MI_API_ENABLE               1
+#define MI_SWITCH_LPN_EN			0   // only support 825x serials 
+	#if MI_SWITCH_LPN_EN
+#define BLT_SOFTWARE_TIMER_ENABLE	1
+#define STEP_PUB_MODE_EN 			1
+#define MI_PRODUCT_TYPE				MI_PRODUCT_TYPE_ONE_ONOFF
+	#else
+#define MI_PRODUCT_TYPE				MI_PRODUCT_TYPE_CT_LIGHT	
+	#endif
 #elif(MESH_USER_DEFINE_MODE == MESH_NORMAL_MODE || MESH_USER_DEFINE_MODE == MESH_AES_ENABLE )
 #define SUBSCRIPTION_SHARE_EN		0
 #define AIS_ENABLE					0
@@ -161,17 +200,30 @@ extern "C" {
 #define MI_BLE_MESH_CER_ADR 	0x7f000
 #endif
 
+#ifndef NL_API_ENABLE
+#define NL_API_ENABLE 0
+#endif
+
 #if __PROJECT_SPIRIT_LPN__
 #define SPIRIT_PRIVATE_LPN_EN		1//must
 #define SPIRIT_VENDOR_EN			1//must
 #else
 #define SPIRIT_PRIVATE_LPN_EN		0
-#if(MESH_USER_DEFINE_MODE == MESH_SPIRIT_ENABLE)
-#define SPIRIT_VENDOR_EN			0
+#if((MESH_USER_DEFINE_MODE == MESH_SPIRIT_ENABLE) || (MESH_USER_DEFINE_MODE == MESH_MI_SPIRIT_ENABLE))
+#define SPIRIT_VENDOR_EN			1
 #else
 #define SPIRIT_VENDOR_EN			0 //must
 #endif
 #endif
+
+#ifndef MI_SWITCH_LPN_EN
+#define MI_SWITCH_LPN_EN 0
+#endif
+
+#define VENDOR_MD_MI_EN             (MI_API_ENABLE)
+#define VENDOR_MD_NORMAL_EN         ((!MI_API_ENABLE) || AIS_ENABLE)    // include ali
+
+#define DUAL_VENDOR_EN              (VENDOR_MD_MI_EN && VENDOR_MD_NORMAL_EN)
 
 #define LIGHT_TYPE_NONE				0
 #define LIGHT_TYPE_CT				1
@@ -181,13 +233,30 @@ extern "C" {
 #define LIGHT_TYPE_CT_HSL			5
 #define LIGHT_TYPE_DIM			    6   // only single PWM
 #define LIGHT_TYPE_PANEL			7   // only ONOFF model
+#define LIGHT_TYPE_LPN_ONOFF_LEVEL  8   // only ONOFF , LEVEL model
 
 #if WIN32 // __PROJECT_MESH_PRO__
 #define LIGHT_TYPE_SEL				LIGHT_TYPE_CT_HSL  // for APP and gateway
 #elif __PROJECT_MESH_LPN__
-#define LIGHT_TYPE_SEL				LIGHT_TYPE_CT
+#define LIGHT_TYPE_SEL				LIGHT_TYPE_LPN_ONOFF_LEVEL // LIGHT_TYPE_CT
+#elif __PROJECT_MESH_GW_NODE_HK__
+#define LIGHT_TYPE_SEL				LIGHT_TYPE_HSL
 #else
-#define LIGHT_TYPE_SEL				LIGHT_TYPE_CT	// LIGHT_TYPE_HSL	//
+	#if MI_API_ENABLE
+		#if MI_PRODUCT_TYPE == MI_PRODUCT_TYPE_CT_LIGHT
+#define LIGHT_TYPE_SEL				LIGHT_TYPE_CT
+		#elif MI_PRODUCT_TYPE == MI_PRODUCT_TYPE_LAMP
+#define LIGHT_TYPE_SEL				LIGHT_TYPE_CT		
+		#elif (	MI_PRODUCT_TYPE == MI_PRODUCT_TYPE_ONE_ONOFF ||\
+				MI_PRODUCT_TYPE == MI_PRODUCT_TYPE_TWO_ONOFF ||\
+				MI_PRODUCT_TYPE == MI_PRODUCT_TYPE_THREE_ONOFF)
+#define LIGHT_TYPE_SEL				LIGHT_TYPE_PANEL
+		#elif (MI_PRODUCT_TYPE == MI_PRODUCT_TYPE_PLUG)
+#define LIGHT_TYPE_SEL				LIGHT_TYPE_PANEL
+		#endif
+	#else
+#define LIGHT_TYPE_SEL				LIGHT_TYPE_CT	// 
+	#endif
 #endif
 
 #if (LIGHT_TYPE_SEL == LIGHT_TYPE_CT) || (LIGHT_TYPE_SEL == LIGHT_TYPE_CT_HSL)
@@ -215,6 +284,9 @@ extern "C" {
 #if (LIGHT_TYPE_SEL == LIGHT_TYPE_PANEL)
 #define MD_LIGHTNESS_EN             0
 #define MD_LEVEL_EN                 0
+#elif (LIGHT_TYPE_SEL == LIGHT_TYPE_LPN_ONOFF_LEVEL)
+#define MD_LIGHTNESS_EN             0
+#define MD_LEVEL_EN                 1
 #else
 #define MD_LIGHTNESS_EN             1
 #define MD_LEVEL_EN                 1   // must 1
@@ -222,17 +294,17 @@ extern "C" {
 
 #define MESH_RX_TEST	(0&&(!WIN32))
 #define MESH_DELAY_TEST_EN		0
-#if (!WIN32 && __PROJECT_MESH_PRO__)
-#define MD_MESH_OTA_EN				1   // no ota function for gateway to save RAM
+#if (!WIN32 && __PROJECT_MESH_PRO__)   // gateway
+#define MD_MESH_OTA_EN				1
 #else
-	#if MI_API_ENABLE
+	#if ((MESH_USER_DEFINE_MODE == MESH_MI_ENABLE) || (LIGHT_TYPE_SEL == LIGHT_TYPE_PANEL) || __PROJECT_MESH_LPN__ || SPIRIT_PRIVATE_LPN_EN)
 #define MD_MESH_OTA_EN				0
 	#else
 #define MD_MESH_OTA_EN				1
 	#endif
 #endif
 
-#if (MD_MESH_OTA_EN && __PROJECT_MESH_PRO__)
+#if (MD_MESH_OTA_EN && (__PROJECT_MESH_PRO__ || __PROJECT_MESH_GW_NODE__))
 #define DISTRIBUTOR_UPDATE_CLIENT_EN    1
 #else
 #define DISTRIBUTOR_UPDATE_CLIENT_EN    0
@@ -272,7 +344,8 @@ extern "C" {
 #define MD_SERVER_EN                1   // SIG and vendor MD
 #define MD_CLIENT_EN                1   // just SIG MD
 #define MD_CLIENT_VENDOR_EN         1
-#elif(__PROJECT_MESH_PRO__)     // GATEWAY
+#elif(__PROJECT_MESH_PRO__ || __PROJECT_MESH_GW_NODE__)     // GATEWAY
+	#if MCU_CORE_TYPE == MCU_CORE_8269 // ram is not enough ,it will have different settings for 69 and 5x .
 #define MD_DEF_TRANSIT_TIME_EN      1
 #define MD_POWER_ONOFF_EN           MD_DEF_TRANSIT_TIME_EN 	// because both of them save in same flash sector.
 #define MD_TIME_EN                  0
@@ -282,13 +355,37 @@ extern "C" {
 #define	MD_LOCATION_EN				0	// location,sensor,battery use same flash addr, but one sector max store 6 models
 #define MD_SENSOR_EN				0	
 #define MD_BATTERY_EN				0
-
+		#if(__PROJECT_MESH_GW_NODE__)
+#define MD_SERVER_EN                1  
+#define MD_CLIENT_EN                1 
+		#else
 #define MD_SERVER_EN                0   // SIG and vendor MD
 #define MD_CLIENT_EN                (!MD_SERVER_EN) // just SIG MD
+		#endif
 #define MD_CLIENT_VENDOR_EN         0
 #define MD_VENDOR_2ND_EN            (DEBUG_VENDOR_CMD_EN && MI_API_ENABLE)
+	#else // core type is 825x serial ,and the ram is enough .
+#define MD_DEF_TRANSIT_TIME_EN      1
+#define MD_POWER_ONOFF_EN           MD_DEF_TRANSIT_TIME_EN 	// because both of them save in same flash sector.
+#define MD_TIME_EN                  1
+#define MD_SCENE_EN                 1
+#define MD_SCHEDULE_EN              MD_TIME_EN  // because both of them save in same flash sector.
+#define MD_PROPERTY_EN				0
+#define	MD_LOCATION_EN				0	// location,sensor,battery use same flash addr, but one sector max store 6 models
+#define MD_SENSOR_EN				1	
+#define MD_BATTERY_EN				0
+		#if(__PROJECT_MESH_GW_NODE__)
+#define MD_SERVER_EN                1  
+#define MD_CLIENT_EN                1 
+		#else
+#define MD_SERVER_EN                0   // SIG and vendor MD
+#define MD_CLIENT_EN                (!MD_SERVER_EN) // just SIG MD
+		#endif
+#define MD_CLIENT_VENDOR_EN         1
+#define MD_VENDOR_2ND_EN            (DEBUG_VENDOR_CMD_EN && MI_API_ENABLE)
+	#endif
 #else                           // light node
-    #if (LIGHT_TYPE_SEL == LIGHT_TYPE_PANEL)
+    #if ((LIGHT_TYPE_SEL == LIGHT_TYPE_PANEL) || (LIGHT_TYPE_SEL == LIGHT_TYPE_LPN_ONOFF_LEVEL))
 #define MD_DEF_TRANSIT_TIME_EN      0
     #else
 #define MD_DEF_TRANSIT_TIME_EN      1
@@ -308,7 +405,9 @@ extern "C" {
 
 #define MD_SERVER_EN                1   // SIG and vendor MD
 #define MD_CLIENT_EN                0   // just SIG MD
-    #if((LIGHT_TYPE_SEL == LIGHT_TYPE_PANEL) || SPIRIT_VENDOR_EN)
+    #if(DUAL_VENDOR_EN)
+#define MD_CLIENT_VENDOR_EN         0
+    #elif ((LIGHT_TYPE_SEL == LIGHT_TYPE_PANEL) || SPIRIT_VENDOR_EN)
 #define MD_CLIENT_VENDOR_EN         1
     #else
 #define MD_CLIENT_VENDOR_EN         0
@@ -375,10 +474,12 @@ extern "C" {
 #define MD_BIND_WHITE_LIST_EN 		0
 #endif
 
+#if WIN32
 // log enable
 #define LOG_VC_RX_TEST_EN			0
 #define LOG_WRITE_CMD_FIFO_EN		1
 #define LOG_PROVISION_EN 			0
+#endif
 
 // feture part ,enable or disable to cut down the ram cost 
 #if (__PROJECT_MESH_LPN__ && (!WIN32))
@@ -387,6 +488,18 @@ extern "C" {
 #define FEATURE_PROV_EN 		1
 #define FEATURE_RELAY_EN		0
 #define FEATURE_PROXY_EN 		1
+#elif (__PROJECT_SPIRIT_LPN__ && (!WIN32))
+#define FEATURE_FRIEND_EN 		1
+#define FEATURE_LOWPOWER_EN		0
+#define FEATURE_PROV_EN 		1
+#define FEATURE_RELAY_EN		0
+#define FEATURE_PROXY_EN 		1
+#elif(MI_SWITCH_LPN_EN &&(!WIN32))
+#define FEATURE_FRIEND_EN 		0
+#define FEATURE_LOWPOWER_EN		0
+#define FEATURE_PROV_EN 		1
+#define FEATURE_RELAY_EN		0
+#define FEATURE_PROXY_EN 		0
 #else
 #define FEATURE_FRIEND_EN 		1
 #define FEATURE_LOWPOWER_EN		0
@@ -400,14 +513,14 @@ extern "C" {
     #endif
 #endif
 
-#if FEATURE_LOWPOWER_EN
+#if (FEATURE_LOWPOWER_EN || SPIRIT_PRIVATE_LPN_EN)
 #define MAX_LPN_NUM					1   // must 1
 #else
-#define MAX_LPN_NUM					2
+#define MAX_LPN_NUM					2   // should be less than or equal to 16
 #define FN_PRIVATE_SEG_CACHE_EN     0   // not push all segments to friend cache at the same time
 #endif
 
-#if 1
+#if 1 // for debug
 #define DEBUG_PROXY_FRIEND_SHIP		0
 #define PROXY_FRIEND_SHIP_MAC_FN	(0x82690014)
 #define PROXY_FRIEND_SHIP_MAC_LPN1	(0x82690015)
@@ -416,9 +529,7 @@ extern "C" {
 #define DEBUG_IV_UPDATE_TEST_EN     (0)
 #endif
 
-#define USER_DEFINE_SET_CCC_ENABLE 	1
-#define PROXY_LIST_FUN_ENABLE	0
-#define PROXY_FILTER_WORK_ENABLE 1
+#define USER_DEFINE_SET_CCC_ENABLE 	1   // must 1
 
 #define PROXY_PDU_TIMEOUT_TICK 		20*1000*1000
 #if (WIN32 || FEATURE_LOWPOWER_EN || __PROJECT_MESH_SWITCH__)
@@ -430,21 +541,21 @@ extern "C" {
 #endif
 
 
+#if VENDOR_MD_NORMAL_EN
 // vendor op mode define
 #define VENDOR_OP_MODE_SPIRIT       1
-#define VENDOR_OP_MODE_MI_API       2
-#define VENDOR_OP_MODE_DEFAULT      3
+#define VENDOR_OP_MODE_DEFAULT      2
 
-#if ((MESH_USER_DEFINE_MODE == MESH_SPIRIT_ENABLE) || (MESH_USER_DEFINE_MODE == MESH_CLOUD_ENABLE))
+#if (AIS_ENABLE)
 #define VENDOR_OP_MODE_SEL          VENDOR_OP_MODE_SPIRIT
-#elif (MI_API_ENABLE)
-#define VENDOR_OP_MODE_SEL          VENDOR_OP_MODE_MI_API
 #else
 #define VENDOR_OP_MODE_SEL          VENDOR_OP_MODE_DEFAULT  // don't modify this setting
+#endif
 #endif
 
 
 // flash save flag 
+#define SAVE_FLAG_PRE	(0xAF)
 #define SAVE_FLAG       (0xA5)
 
 //------------ mesh keycode-------------
@@ -476,6 +587,7 @@ extern "C" {
 
 #define			IRQ_TIMER1_ENABLE  			    0
 #define			IRQ_TIME1_INTERVAL			    (1000) // unit: us
+#define			IRQ_GPIO_ENABLE  			    0
 
 
 /* Disable C linkage for C++ Compilers: */

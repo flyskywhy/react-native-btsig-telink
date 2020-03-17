@@ -160,7 +160,11 @@
 
 #define GAP_APPEARE_UNKNOWN                     0x0000 //!< Unknown
 
-
+#if(MCU_CORE_TYPE == MCU_CORE_8258)
+#include "stack/ble/gap/gap.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278)
+#include "stack/ble_8278/gap/gap.h"
+#endif
 /** @} end of group GAP_Constants */
 
 /** @} end of group GAP_Constants_Module */

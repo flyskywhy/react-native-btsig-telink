@@ -16,20 +16,23 @@ mkdir $tools_dir/telink-ble-phone
 cp -rf ../reference/tl_bulk/Release/sig_mesh_tool.exe $tools_dir/telink-ble-phone
 cp -rf ../reference/tl_bulk/sig_mesh_master.ini $tools_dir/telink-ble-phone
 cp -rf ../reference/tl_bulk/tl_node_gateway.ini $tools_dir/telink-ble-phone
-cp -rf ./sig_mesh_master_dongle_8267_69/sig_mesh_master_dongle_8267_69.bin $tools_dir/telink-ble-phone
+cp -rf ./8269_mesh_master_dongle/8269_mesh_master_dongle.bin $tools_dir/telink-ble-phone
+cp -rf ../reference/tl_bulk/three_para.txt $tools_dir/telink-ble-phone
 
-
-cp -rf proj proj_lib vendor boot drivers $sdk_dir
+cp -rf proj proj_lib vendor boot drivers stack homekit_src $sdk_dir
 cp * .project .cproject $sdk_dir
 find $sdk_dir/proj_lib -name *.c |xargs rm -rf
 find $sdk_dir -name *.zip |xargs rm -rf
 find $sdk_dir -name *.rar |xargs rm -rf
 rm -rf $sdk_dir/release_mesh.sh
-rm -rf $sdk_dir/vendor/common/mijia_ble_api_master/ble_encrypt
 
-cp lib_sig_mesh/libsig_mesh.a	$sdk_dir/proj_lib
-cp lib_sig_mesh_LPN/libsig_mesh_LPN.a	$sdk_dir/proj_lib
-cp lib_sig_mesh_prov/libsig_mesh_prov.a	$sdk_dir/proj_lib
+cp lib_sig_mesh_8269/libsig_mesh_8269.a	$sdk_dir/proj_lib
+cp lib_sig_mesh_LPN_8269/libsig_mesh_LPN_8269.a	$sdk_dir/proj_lib
+cp lib_sig_mesh_prov_8269/libsig_mesh_prov_8269.a	$sdk_dir/proj_lib
+cp lib_sig_mesh_825x/libsig_mesh_825x.a	$sdk_dir/proj_lib
+cp lib_sig_mesh_LPN_825x/libsig_mesh_LPN_825x.a	$sdk_dir/proj_lib
+cp lib_sig_mesh_prov_825x/libsig_mesh_prov_825x.a	$sdk_dir/proj_lib
+cp lib_sig_mesh_gw_node_825x/libsig_mesh_gw_node_825x.a	$sdk_dir/proj_lib
 
 rm -rf $sdk_dir/*.IAB
 rm -rf $sdk_dir/*.IAD

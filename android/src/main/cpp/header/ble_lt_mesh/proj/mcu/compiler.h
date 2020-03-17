@@ -43,7 +43,7 @@
 
 #include "config.h"
 
-#if (CHIP_TYPE == CHIP_TYPE_8258)
+#if ((MCU_CORE_TYPE == MCU_CORE_8258) || (MCU_CORE_TYPE == MCU_CORE_8278))
 #define	BLC_PM_DEEP_RETENTION_MODE_EN       1
 #else
 #define	BLC_PM_DEEP_RETENTION_MODE_EN       0   // must 0

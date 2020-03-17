@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-#include "../../vendor/common/mesh_config.h"
+#include "../../vendor/common/version.h"    // include mesh_config.h inside.
 
 
 #define _USER_CONFIG_DEFINED_	1	// must define this macro to make others known
@@ -48,20 +48,14 @@ extern "C" {
 #define XIAOMI_TEST_CODE_ENABLE 	0
 
 /////////////////////HCI ACCESS OPTIONS///////////////////////////////////////
+#define HCI_USE_NONE	0
 #define HCI_USE_UART	1
-#define HCI_USE_USB		0
+#define HCI_USE_USB		2
+
 #if WIN32
 #define HCI_ACCESS		HCI_USE_USB
 #else
-	#if XIAOMI_MODULE_ENABLE
-		#if (BOARD_MODE == BOARD_8269_DONGLE)
-#define HCI_ACCESS		HCI_USE_USB			
-		#else
-#define HCI_ACCESS		HCI_USE_UART		
-		#endif
-	#else
-#define HCI_ACCESS		HCI_USE_USB	
-	#endif
+#define HCI_ACCESS		HCI_USE_NONE	
 #endif
 
 #if (HCI_ACCESS==HCI_USE_UART)
@@ -97,7 +91,11 @@ extern "C" {
 #if (MESH_RX_TEST || (!MD_DEF_TRANSIT_TIME_EN))
 #define TRANSITION_TIME_DEFAULT_VAL (0)
 #else
+	#if MI_API_ENABLE
+#define TRANSITION_TIME_DEFAULT_VAL (0)
+	#else
 #define TRANSITION_TIME_DEFAULT_VAL (GET_TRANSITION_TIME_WITH_STEP(1, TRANSITION_STEP_RES_1S)) // (0x41)  // 0x41: 1 second // 0x00: means no default transition time
+	#endif
 #endif
 
 /////////////////// MODULE /////////////////////////////////
@@ -231,7 +229,11 @@ extern "C" {
 
 /////////////////// watchdog  //////////////////////////////
 #define MODULE_WATCHDOG_ENABLE		1
-#define WATCHDOG_INIT_TIMEOUT		2000  //ms
+#if (MESH_USER_DEFINE_MODE == MESH_MI_ENABLE)
+#define WATCHDOG_INIT_TIMEOUT		20000  //in mi mode the watchdog timeout is 20s
+#else
+#define WATCHDOG_INIT_TIMEOUT		2000  //in mi mode the watchdog timeout is 20s
+#endif
 
 
 /////////////////// set default   ////////////////

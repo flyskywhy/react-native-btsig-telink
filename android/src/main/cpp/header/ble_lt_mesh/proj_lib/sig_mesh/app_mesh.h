@@ -61,6 +61,9 @@
 	#endif 
 #endif
 extern u8  tbl_mac [6];
+#if(MESH_USER_DEFINE_MODE == MESH_MI_SPIRIT_ENABLE)
+extern u8  con_mac_address [6];
+#endif
 extern const u8	const_tbl_advData[22] ;
 extern const u8	const_tbl_scanRsp [9] ;
 #define ADR_PROV        0x0003
@@ -257,13 +260,29 @@ extern const u8	const_tbl_scanRsp [9] ;
 #else
 #define MESH_ELE_MAX_NUM        32
 #endif
+#define ADV_INTERVAL_UNIT		(ADV_INTERVAL_10MS)	
 
-#define ADV_INTERVAL_UNIT		(ADV_INTERVAL_10MS)
+#define ADV_INTERVAL_1_2_S		1920 //625*1920 = 1.2s
 
+#if MI_SWITCH_LPN_EN
+#define ADV_INTERVAL_MIN		(ADV_INTERVAL_1_2_S)
+#define ADV_INTERVAL_MAX		(ADV_INTERVAL_1_2_S)
+#else
 #define ADV_INTERVAL_MIN		(ADV_INTERVAL_UNIT)
 #define ADV_INTERVAL_MAX		(ADV_INTERVAL_UNIT)
+#endif
+
 #if MI_API_ENABLE
+	#if MI_SWITCH_LPN_EN
+#define ADV_INTERVAL_MS			(20)   // no random 20ms
+#define ADV_INTERVAL_MS_PROVED	(20)	
+	#else
 #define ADV_INTERVAL_MS			(40)   // with random (0~30ms)
+#define ADV_INTERVAL_MS_PROVED	(300)
+	#endif
+#elif HOMEKIT_EN	
+#define ADV_INTERVAL_MS			(ADV_INTERVAL_30MS)
+#define ADV_SWITCH_MESH_TIMES 	(4)
 #else
 #define ADV_INTERVAL_MS			(160)   // with random (0~30ms)
 #endif
@@ -275,7 +294,7 @@ extern const u8	const_tbl_scanRsp [9] ;
 #define TRANSMIT_CNT_LPN_ACCESS_CMD  	(7)
 #define TRANSMIT_INVL_STEPS_DEF	(2)
 #else
-	#if XIAOMI_TEST_CODE_ENABLE
+	#if MI_API_ENABLE
 #define TRANSMIT_CNT_DEF		(2)
 #define TRANSMIT_INVL_STEPS_DEF	(4)
 	#else
@@ -286,22 +305,38 @@ extern const u8	const_tbl_scanRsp [9] ;
 #define TRANSMIT_DEF_PAR		(model_sig_cfg_s.nw_transmit.val)
 #define TRANSMIT_CNT			(model_sig_cfg_s.nw_transmit.count)
 #define TRANSMIT_INVL_STEPS		(model_sig_cfg_s.nw_transmit.invl_steps)
-	#if XIAOMI_TEST_CODE_ENABLE
+	#if MI_API_ENABLE
 #define TRANSMIT_CNT_DEF_RELAY  (2)
 #define TRANSMIT_INVL_STEPS_DEF_RELAY	(4)
 	#else
-#define TRANSMIT_CNT_DEF_RELAY  (3)
-#define TRANSMIT_INVL_STEPS_DEF_RELAY	(0)
+#define TRANSMIT_CNT_DEF_RELAY          (TRANSMIT_CNT_DEF) // (3)
+#define TRANSMIT_INVL_STEPS_DEF_RELAY	(TRANSMIT_INVL_STEPS_DEF) // (0)
 	#endif
 
 #define TRANSMIT_DEF_PAR_BEACON	(TRANSMIT_DEF_PAR)
 
 #define REPEATE_CNT_UNRELIABLE  (1)		// use network retransmit instead.
 
+#define ALONE_BUFF_FOR_RELAY_EN (1)
+
 #define MESH_ADV_CMD_BUF_CNT    (8)
+#if WIN32 
+#define MESH_ADV_BUF_RELAY_CNT  (8)
+#else
+	#if (MCU_CORE_TYPE == CHIP_TYPE_8269 )
+		#define MESH_ADV_BUF_RELAY_CNT  (8)
+	#else
+		#define MESH_ADV_BUF_RELAY_CNT  (8)
+	#endif
+#endif
 #define CMD_RAND_DELAY_MAX_MS   (10)
 #define CMD_INTERVAL_MS         ((u32)((GET_ADV_INTERVAL_MS(ADV_INTERVAL_UNIT)*(TRANSMIT_INVL_STEPS+1) + CMD_RAND_DELAY_MAX_MS) * (TRANSMIT_CNT + 1)))
+
+#if MI_API_ENABLE
+#define SEG_RX_ACK_IDLE_MS      (200)
+#else
 #define SEG_RX_ACK_IDLE_MS      (500) // (6*CMD_INTERVAL_MS)		// default 1440ms  // should be( >= 150 + 50*TTL)
+#endif
 #if FEATURE_LOWPOWER_EN
 #define SEG_RX_TIMEOUT_MS       (15*1000)
 #else
@@ -311,7 +346,7 @@ extern const u8	const_tbl_scanRsp [9] ;
 #define SEG_TX_TIMEOUT_MS       (SEG_RX_TIMEOUT_MS)
 
 #define TTL_TEST_ACK            (0x0b)
-#if XIAOMI_TEST_CODE_ENABLE
+#if MI_API_ENABLE
 #define TTL_DEFAULT             (5)
 #else
 #define TTL_DEFAULT             (5)         // max relay count = TTL_DEFAULT - 1
@@ -344,6 +379,8 @@ extern const u8	const_tbl_scanRsp [9] ;
 #define SZMIC_NW32              (4)
 #define SZMIC_NW64              (8)
 
+#define SZMIC_SEG_FLAG          (0)     // 0 means to use SZMIC_TRNS_SEG32, 1 means to use SZMIC_TRNS_SEG64.
+#define GET_SEG_SZMIC(szmic)    (szmic ? SZMIC_TRNS_SEG64 : SZMIC_TRNS_SEG32)
 
 enum{
 	SEG_RX_STATE_ING		= 0,
@@ -376,12 +413,12 @@ enum{
 
 typedef struct{
 	union{
-		u8 *par;
-		u8 *p_ac;
+		u8 *par;        // it is used before mesh_tx_cmd2_access_()
+		u8 *p_ac;       // it is used after mesh_tx_cmd2_access_()
 	};
 	union{
-		u32 par_len;
-		u32 len_ac;
+		u32 par_len;    // it is used before mesh_tx_cmd2_access_()
+		u32 len_ac;     // it is used after mesh_tx_cmd2_access_()
 	};
 	u16 adr_src;
 	u16 adr_dst;
@@ -492,6 +529,19 @@ typedef struct{
 #define ACCESS_WITH_MIC_LEN_MAX_UNSEG   (sizeof(mesh_cmd_lt_unseg_t) - 1)   // 15
 #define ACCESS_NO_MIC_LEN_MAX_UNSEG     (ACCESS_WITH_MIC_LEN_MAX_UNSEG - SZMIC_TRNS_UNSEG) // 11
 
+//---------- iv update
+#define IV_UPDATE_SKIP_96HOUR_EN        (TESTCASE_FLAG_ENABLE || PTS_TEST_EN)
+
+#if IV_UPDATE_SKIP_96HOUR_EN
+#define SEC_NW_BC_INV_DEF_100MS       	(20)	// security network beacon interval default
+#else
+	#if MI_API_ENABLE
+#define SEC_NW_BC_INV_DEF_100MS       	(200)   // set the mi secure beacon to 20s
+	#else
+#define SEC_NW_BC_INV_DEF_100MS       	(100)	// security network beacon interval default
+	#endif
+#endif
+
 typedef struct{
 	u32 aid  :6;
 	u32 akf  :1;
@@ -601,6 +651,18 @@ typedef struct{
 }mesh_cmd_bear_seg_t;
 
 typedef struct{
+    union{
+        u16 valid;
+        struct{
+            u8 cnt;
+            u8 tick_10ms;
+        };
+    };
+    u8 rsv[2];
+    mesh_cmd_bear_unseg_t bear;
+}mesh_relay_buf_t;
+
+typedef struct{
 	u16 src;
 	u16 dst;
 	u8 data[12];
@@ -643,7 +705,7 @@ int	rf_link_slave_add_status (mesh_rc_rsp_t *p_rsp, u16 op);
 int mesh_rsp_handle(mesh_rc_rsp_t *p_rsp);
 int is_busy_tx_seg(u16 adr_dst);
 int is_busy_reliable_cmd(u16 adr_dst);
-u8 * get_ut_tx_buf(u32 len_ac, u16 adr_dst, u8 *ac2self, u32 ac2self_max);
+u8 * get_ut_tx_buf(u32 len_ac, u16 adr_dst, u8 *ac2self, u32 ac2self_max, int seg_must);
 
 int is_unicast_adr(u16 adr);
 int is_virtual_adr(u16 adr);
@@ -685,6 +747,8 @@ typedef struct{
 }mesh_rx_seg_par_t;
 
 extern mesh_tx_seg_par_t mesh_tx_seg_par;
+extern mesh_rx_seg_par_t mesh_rx_seg_par;
+
 //----------------------------------- control packet
 // LPN send(publish) message on its own(exclude ACK), use key depend on Publish Friendship Credentials Flag
 #define CMD_CTL_ACK                 (0x00)
@@ -722,7 +786,7 @@ extern mesh_tx_seg_par_t mesh_tx_seg_par;
 
 #define FRIEND_KEY_NO_SECU_FLAG     (0x7F)
 
-#define SUB_LIST_MAX_LPN            (5)     //  max contain 5 adr in one unsegment control message
+#define SUB_LIST_MAX_LPN            (5)     //  max contain 5 adr in one unsegment control message, be used in library, user can't modify now.
 #define SUB_LIST_MAX_IN_ONE_MSG    	(5)
 #if PTS_TEST_EN
 #define FN_CACHE_SIZE_LOG           (3)		//  FN BV08 required
@@ -741,10 +805,15 @@ extern mesh_tx_seg_par_t mesh_tx_seg_par;
 #define FRI_FIRST_CLR_INTERVAL_100MS	(10)
 #define FRI_LPN_WAIT_FN_NW_TRANSMIT_MS	(200)	// 
 #define FRI_LPN_WAIT_SEG_ACK_MS     (500)	// 
+
+#define LPN_MIN_CACHE_SIZE_LOG      (1)     // at lease 2 messages
+#define LPN_POLL_TIMEOUT_100MS      (10*10) // unit: 100ms, 0x0A~0x34BBFF
 #define FRI_POLL_INTERVAL_MS        (2000)	// auto send poll interval
 
 #define FRI_REQ_TIMEOUT_MS          (2000)  // must larger than 1100ms
 #define FRI_REQ_RETRY_IDLE_MS       (FRI_REQ_TIMEOUT_MS - FRI_ESTABLISH_PERIOD_MS)	// auto trigger next FRI_REQ_RETRY_MAX request interval 
+
+#define LPN_SCAN_PROVISION_START_TIMEOUT_MS   (60*1000)   // from power up to this time, if didn't receive provision start command, LPN will auto enter sleep.
 
 #define LPN_ADV_EN                  0
 #define LPN_ADV_INTERVAL_MS         (2000)
@@ -911,18 +980,6 @@ typedef struct{
     u8 link_ok;
 }mesh_lpn_par_t;
 
-typedef struct{
-	u8 iniTTL:7;
-	u8 rfu:1;
-	u16 fea;
-}mesh_hb_msg_t;
-
-typedef struct{
-	u16 src;
-	u16 dst;
-	mesh_hb_msg_t hb_msg;
-}mesh_hb_msg_cb_t;
-
 //---------------------
 #define ELE_CNT_MAX_LIB     (8)
 typedef struct{
@@ -932,7 +989,7 @@ typedef struct{
 
 typedef struct{
 	u8 *model;
-	u8 *res;
+	u8 *res;                // mesh_op_resource_t
 	mesh_cmd_nw_t *p_nw;    // it may be NULL, must check not NULL before used.
 	u32 op_rsp;
 	u16 op;
@@ -1074,6 +1131,7 @@ enum{
 
 
 // 
+#if 0 // use ST_SUCCESS instead
 typedef enum{
 	MESH_CFG_STS_SUCCESS=0,
 	MESH_CFG_STS_INVALID_ADR,
@@ -1095,15 +1153,7 @@ typedef enum{
 	MESH_CFG_STS_INVAILD_BINDING,
 	MESH_CFG_STS_RFU,
 }mesh_sts_code_e;
-
-typedef enum{
-	MESH_HB_RELAY_BIT = 0,
-	MESH_HB_PROXY_BIT ,	
-	MESH_HB_FRI_BIT ,	
-	MESH_HB_LOWPOWER_BIT,
-}mesh_heartbeat_feature_e;
-
-
+#endif
 //--------------- inline function
 static inline u8 mesh_nw_transmit_cnt_get(){
 	return model_sig_cfg_s.nw_transmit.count;
@@ -1159,14 +1209,6 @@ int mesh_cmd_sig_cfg_model_sub_set(u8 *par, int par_len, mesh_cb_fun_par_t *cb_p
 int mesh_cmd_sig_sig_model_sub_get(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
 int mesh_cmd_sig_vendor_model_sub_get(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
 
-// heart beat part dispatch 
-int mesh_cmd_sig_heart_pub_status(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
-int mesh_cmd_sig_heartbeat_pub_get(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
-int mesh_cmd_sig_heartbeat_pub_set(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
-int mesh_cmd_sig_heartbeat_sub_get(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
-int mesh_cmd_sig_heartbeat_sub_set(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
-int mesh_cmd_sig_heartbeat_sub_status(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par);
-
 //-------- config model end -------
 enum{
 	EV_TRAVERSAL_SET_MD_ELE_ADR		= 0,
@@ -1183,12 +1225,14 @@ void mesh_set_model_ele_adr(u16 ele_adr, u32 model_id, int sig_model);
 void mesh_tx_pub_period(u16 ele_adr, u32 model_id, int sig_model);
 void ev_handle_traversal_cps_ll(u32 ev, u8 *par, u16 ele_adr, u32 model_id, int sig_model);
 void ev_handle_traversal_cps(u32 ev, u8 *par);
+void traversal_cps_reset_vendor_id(u16 vd_id);
 int mesh_search_model_id_by_op(mesh_op_resource_t *op_res, u16 op, u8 tx_flag);
 void get_cps_from_keybind_list(mesh_page0_t *page0_out, mesh_page0_t *p_rsp_page0);
 u32 get_cps_ele_len(const mesh_element_head_t *p_ele);
 u8 is_model_in_key_bind_list(u16 *p_mode_id);
 int mesh_tx_cmd_rsp_cfg_model(u16 op, u8 *par, u32 par_len, u16 adr_dst);
 u32 get_blt_conn_interval_us();
+u32 get_ele_idx(u16 ele_adr);
 
 //--------
 int blc_hci_handler (u8 *p, int n);
@@ -1204,9 +1248,12 @@ void kick_out();
 int is_fixed_group(u16 adr_dst);
 
 int my_fifo_push_adv (my_fifo_t *f, u8 *p, u8 n, u8 ow);
+int my_fifo_push_relay (my_fifo_t *f, mesh_cmd_bear_unseg_t *p_in, u8 n, u8 ow);
 int my_fifo_push_hci_tx_fifo (u8 *p, u16 n, u8 *head, u8 head_len);
-int mesh_adv_cmd_set(u8 *p_adv, u8 *p_bear);
+int relay_adv_prepare_handler(rf_packet_adv_t * p);
+void my_fifo_poll_relay(my_fifo_t *f);
 u8* get_adv_cmd();
+mesh_relay_buf_t * my_fifo_get_relay(my_fifo_t *f);
 int is_busy_mesh_tx_cmd(u16 adr_dst);
 int mesh_tx_cmd_add_packet(u8 *p_bear);
 int mesh_tx_cmd_add_packet_fn2lpn(u8 *p_bear);
@@ -1226,7 +1273,7 @@ void mesh_seg_ack_poll();
 int is_busy_segment_flow();
 int is_tx_seg_one_round_ok();
 void cache_init(u16 ele_adr);
-int is_exist_in_cache(u8 *p, u8 friend_key_flag);
+int is_exist_in_cache(u8 *p, u8 friend_key_flag, int save);
 void mesh_friend_ship_proc_LPN(u8 *bear);
 void mesh_friend_ship_proc_FN(u8 *bear);
 void friend_cmd_send_fn(u8 lpn_idx, u8 op);
@@ -1249,6 +1296,9 @@ int is_cmd2lpn(u16 adr_dst);
 void lpn_quick_send_adv();
 void mesh_friend_ship_clear_LPN();
 int mesh_rc_segment_handle(mesh_cmd_bear_seg_t *p_bear, u32 ctl, mesh_match_type_t *p_match_type);
+void mesh_tx_reliable_finish();
+void VC_check_next_segment_pkt();
+
 u8 mesh_subsc_adr_cnt_get (mesh_cmd_bear_unseg_t *p_br);
 void friend_subsc_add(u16 *adr_list, u32 subsc_cnt);
 void friend_subsc_rmv(u16 *adr_list, u32 subsc_cnt);
@@ -1299,11 +1349,7 @@ u32 rf_link_get_op_by_ac(u8 *ac);
 int is_reliable_cmd(u16 op, u32 vd_op_rsp);
 u8  cal_node_identity_by_proxy_sts(u8 proxy_sts);
 
-extern void init_heartbeat_str();
-extern u8 cal_heartbeat_count_log(u16 val);
-extern void mesh_heartbeat_poll_100ms();
-void mesh_cmd_sig_lowpower_heartbeat();
-
+int mesh_tx_cmd_reliable(material_tx_cmd_t *p);
 int mesh_tx_cmd(material_tx_cmd_t *p);
 int mesh_tx_cmd_rsp(u16 op, u8 *par, u32 par_len, u16 adr_src, u16 adr_dst, u8 *uuid, model_common_t *pub_md);
 void set_material_tx_cmd(material_tx_cmd_t *p_mat, u16 op, u8 *par, u32 par_len, u16 adr_src, u16 adr_dst, u8 retry_cnt, int rsp_max, u8 *uuid, u8 nk_array_idx, u8 ak_array_idx, model_common_t *pub_md);
@@ -1325,16 +1371,13 @@ void mesh_loop_process();
 void mesh_init_all();
 void memcpy4(void * d, const void * s, unsigned int length);
 void * memset4(void * dest, int val, unsigned int len);
-int app_hci_cmd_from_usb (void);
-int app_event_handler_adv(u8 *p_payload, int src_type, u8 need_proxy_and_trans_par_val);
 int app_event_handler_adv_monitor(u8 *p_payload);
 void RefreshStatusNotifyByHw(unsigned char *p, int len);
 int app_event_report_provision2usb(u8 *prov_par);
 void mesh_kr_cfgcl_mode_set(u16 addr, u8 mode,u16 nk_idx);
 int mesh_adr_check(u16 adr_src, u16 adr_dst);
-int mesh_is_proxy_ready();
+int mesh_adr_check_src_own_rx(u16 adr_src);
 int mesh_proxy_adv2gatt(u8 *bear,u8 adv_type);
-void mesh_nw_pdu_from_gatt_handle(u8 *p_bear);
 int mesh_dongle_adv_report2vc(u8 *p_payload, u8 report_cmd);
 int mesh_bear_tx2mesh(u8 *bear, u8 trans_par_val);
 int mesh_bear_tx2gatt(u8 *bear,u8 adv_type);
@@ -1343,7 +1386,6 @@ int mesh_cmd_action_need_local(mesh_match_type_t *p_match_type);
 
 int debug_mesh_vc_adv_report2gatt(u8 *bear);
 int debug_mesh_dongle_adv_bear2usb(u8 *bear);
-void mesh_gatt_bear_handle(u8 *bear);
 int debug_mesh_report_provision_par2usb(u8 *net_info);
 int debug_mesh_report_BLE_st2usb(u8 connect);
 int debug_mesh_report_one_pkt_completed();
@@ -1369,7 +1411,6 @@ int mesh_g_onoff_st_publish(u8 idx);
 int mesh_g_level_st_publish(u8 idx);
 int mesh_g_power_st_publish(u8 idx);
 int mesh_health_cur_sts_publish(u8 idx);
-void set_provision_stop_flag_act(u8 stop_flag);
 void mesh_kc_cfgcl_mode_para(u16 apk_idx,u8 *p_appkey);
 void mesh_kc_cfgcl_mode_para_set(u16 apk_idx,u8 *p_appkey,u16 unicast,u16 nk_idx,u8 fast_bind);
 void mesh_fast_prov_start(u16 pid);
@@ -1443,11 +1484,11 @@ void user_log_info(u8 *pbuf,int len,char  *format,...);
 #define TL_LOG_LEVEL_INFO         3U
 #define TL_LOG_LEVEL_DEBUG        4U
 #if WIN32
-#if DEBUG_PROXY_FRIEND_SHIP
+	#if DEBUG_PROXY_FRIEND_SHIP
 #define TL_LOG_LEVEL              TL_LOG_LEVEL_INFO // TL_LOG_LEVEL_WARNING
-#else
+	#else
 #define TL_LOG_LEVEL              TL_LOG_LEVEL_DEBUG
-#endif
+	#endif
 #else
 #define TL_LOG_LEVEL              TL_LOG_LEVEL_INFO
 #endif
@@ -1495,9 +1536,9 @@ typedef enum{
 // just for node part 
 #define MAX_STRCAT_BUF		48
 	#if 1
-#define TL_LOG_SEL_VAL	BIT(TL_LOG_USER)//(BIT(TL_LOG_NODE_SDK)|BIT(TL_LOG_FRIEND)|BIT(TL_LOG_IV_UPDATE)) // |BIT(TL_LOG_NODE_SDK_NW_UT)
+#define TL_LOG_SEL_VAL	(BIT(TL_LOG_USER))//(BIT(TL_LOG_NODE_SDK)|BIT(TL_LOG_FRIEND)|BIT(TL_LOG_IV_UPDATE)) // |BIT(TL_LOG_NODE_SDK_NW_UT)
 	#else
-#define TL_LOG_SEL_VAL  (BIT(TL_LOG_PROVISION)|BIT(TL_LOG_FRIEND)|BIT(TL_LOG_NODE_SDK)|BIT(TL_LOG_NODE_BASIC))
+#define TL_LOG_SEL_VAL  (BIT(TL_LOG_USER)|BIT(TL_LOG_PROVISION)|BIT(TL_LOG_FRIEND)|BIT(TL_LOG_NODE_SDK)|BIT(TL_LOG_NODE_BASIC))
 	#endif
 #endif
 
@@ -1536,9 +1577,8 @@ typedef enum{
 void MessageBoxVC(const char *str);
 
 FLASH_ADDRESS_EXTERN;
-extern u8 hb_sts_change ;
-
 extern my_fifo_t mesh_adv_cmd_fifo;
+extern my_fifo_t mesh_adv_fifo_relay;
 extern my_fifo_t mesh_adv_fifo_fn2lpn;
 extern my_fifo_t hci_rx_fifo;
 extern my_fifo_t hci_tx_fifo;
@@ -1552,16 +1592,9 @@ extern u8 monitor_mode_en;
 extern u8 monitor_filter_sno_en;
 extern u8 irq_ev_one_pkt_completed;
 extern u8 lpn_provision_ok;
-extern u32 hb_pub_tick ;
-extern u32 hb_sub_tick ;
-extern u8 heartbeat_en ;
-extern u8 hb_sts_change ;
-extern u32 hb_pub_100ms ;
-extern u32 hb_sub_100ms ;
 extern u8 mesh_init_flag ;
 extern u16 app_adr;
-
-extern void heartbeat_cmd_send_conf(u8 ttl,u16 feature,u16 dst);
+extern u8 misc_flag ;
 #if 0
 #define LAYER_PARA_DEBUG(buf_name)  {        \
     static u8 buf_name =0;                           \
@@ -1600,6 +1633,7 @@ u8 gateway_heartbeat_cb(u8 *para,u8 len );
 void check_mesh_kr_cfgcl_timeout();
 u8 gateway_keybind_rsp_cmd(u8 opcode );
 int mesh_construct_adv_bear_with_bc(u8 *bear, u8 *nw, u8 len_nw);
+int mesh_rsp_sub_status(u8 st, mesh_cfg_model_sub_set_t *p_set, int sig_model, u16 adr_dst);
 
 
 static inline u8 mesh_nw_len_get_by_bear (mesh_cmd_bear_unseg_t *p_br){
@@ -1621,6 +1655,21 @@ static inline mesh_cmd_bear_unseg_t *GET_BEAR_FROM_ADV_PAYLOAD (u8 *p_payload){
 static inline u8 *GET_ADV_PAYLOAD_FROM_BEAR (mesh_cmd_bear_unseg_t *bear){
 	return (&bear->len);
 }
+
+static inline u8 transmit_cnt_get(u8 tran_val){
+    mesh_transmit_t *p_trans_par = (mesh_transmit_t *)&tran_val;
+	return p_trans_par->count;
+}
+
+static inline u8 transmit_invl_step_get(u8 tran_val){
+    mesh_transmit_t *p_trans_par = (mesh_transmit_t *)&tran_val;
+	return p_trans_par->invl_steps;
+}
+
+static inline u8 transmit_invl_step_get_10ms(u8 tran_val){
+	return transmit_invl_step_get(tran_val) + 1;
+}
+
 extern u8 model_need_key_bind_whitelist(u16 *key_bind_list_buf,u8 *p_list_cnt,u8 max_cnt);
 
 extern u8 gateway_provision_send_pid_mac(u8 *p_id,u8 *p_mac);
@@ -1704,7 +1753,11 @@ u8 get_online_st_adv_type();
 int mesh_node_check_force_notify(u16 dst, u8 par0);
 void online_st_force_notify_check(mesh_cmd_bear_unseg_t *p_bear, u8 *ut_dec, int src_type);
 void online_st_force_notify_check3(mesh_cmd_bear_unseg_t *p_bear, u8 *ut_dec);
-void mesh_heartbeat_cb_data(u16 src, u16 dst,u8 *p_hb);
+int mesh_add_seg_ack(const mesh_rx_seg_par_t *p_rx_seg_par);
+int mesh_rx_seg_ack_handle(int tx_flag);
+void mesh_tx_segment_finished();
+u8 pub_step_proc_cb(u8 sts_flag,model_common_t *p_model,u32 model_id);
+void init_ecc_key_pair();
 
 extern u8 mesh_node_report_enable;
 extern u32 online_status_timeout;
@@ -1715,9 +1768,9 @@ extern u32 online_status_timeout;
 #include "../../vendor/common/mesh_node.h"
 #include "../../proj_lib/mesh_crypto/mesh_crypto.h"
 #include "../../vendor/common/system_time.h"
-#include "app_beacon.h"
-#include "app_provison.h"
-#include "app_proxy.h"
+#include "../../vendor/common/app_beacon.h"
+#include "../../vendor/common/app_provison.h"
+#include "../../vendor/common/app_proxy.h"
 #include "../../vendor/common/mesh_test_cmd.h"
 #include "../../vendor/common/mesh_common.h"
 #include "../../vendor/common/vendor_model.h"

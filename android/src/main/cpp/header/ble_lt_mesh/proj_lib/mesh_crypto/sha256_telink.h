@@ -19,7 +19,6 @@
  *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided. 
  *           
  *******************************************************************************************************/
-#if !MI_API_ENABLE
 #ifndef MBEDTLS_SHA256_H
 #define MBEDTLS_SHA256_H
 
@@ -135,5 +134,4 @@ void mbedtls_sha256( const unsigned char *input, size_t ilen,
 #ifdef __cplusplus
 }
 #endif
-#endif 
 #endif /* mbedtls_sha256.h */

@@ -21,6 +21,7 @@
  *******************************************************************************************************/
 
 #pragma once
+#include "tutility.h"
 
 /////////////////////////////////////////////////////
 //  compatibility for old api, 	 no so good but keep them for the moment
@@ -69,9 +70,18 @@
 #define TCMD_WAREG			0x8
 
 typedef struct TBLCMDSET {
-	unsigned short	adr;
-	unsigned char	dat;
-	unsigned char	cmd;
+	union{
+		unsigned short	adr;
+		unsigned short	ADR;
+	};
+	union{
+		unsigned char	dat;
+		unsigned char	DAT;
+	};
+	union{
+		unsigned char	cmd;
+		unsigned char	CMD;
+	};
 } TBLCMDSET;
 
 int LoadTblCmdSet (	const TBLCMDSET * pt, int size);

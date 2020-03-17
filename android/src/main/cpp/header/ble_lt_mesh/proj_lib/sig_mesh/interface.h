@@ -27,8 +27,8 @@
 #include "app_mesh.h"
 #include "../../proj_lib/mesh_crypto/mesh_crypto.h"
 #include "../../proj_lib/pm.h"
-#include "app_proxy.h"
-#include "app_health.h"
+#include "../../vendor/common/app_proxy.h"
+#include "../../vendor/common/app_health.h"
 
 
 /************************************output function *************************************/
@@ -152,15 +152,6 @@ return : none
 ******************************************************************/	
 void start_provision_invite();
 
-/************************** get_provision_state *********
-function :get the provision complete or not 
-para:  
-return :
-            1: means provision complete
-            0: in the provision procedure.
-     
-******************************************************************/
-unsigned char  get_provision_state();
 
 /************************** app_event_handler_adv *********
 function :proc the  mesh packet 

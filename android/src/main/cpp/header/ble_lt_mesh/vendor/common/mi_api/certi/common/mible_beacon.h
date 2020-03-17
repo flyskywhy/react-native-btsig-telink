@@ -1,37 +1,13 @@
 #ifndef MIBLE_BEACON_H__
 #define MIBLE_BEACON_H__
 
-#include "../../mible_api.h"
-#include "../../mible_log.h"
-#include "../../mible_port.h"
-#include "../../mible_type.h"
-
-#define MIBLE_MAX_ADV_LENGTH                        31
-
-typedef struct {
-    uint8_t         time_protocol       :1;
-    uint8_t         reserved1           :1;
-    uint8_t         reserved2           :1;
-    uint8_t         is_encrypt          :1;
-
-    uint8_t         mac_include         :1;
-    uint8_t         cap_include         :1;
-    uint8_t         obj_include         :1;
-    uint8_t         mesh                :1;
-
-    uint8_t         reserved4           :1;
-    uint8_t         bond_confirm        :1;
-    uint8_t         secure_auth         :1;
-    uint8_t         secure_login        :1;
-
-    uint8_t         version             :4;
-} mibeacon_frame_ctrl_t;
+#include "mible_type.h"
+#include "mible_port.h"
 
 typedef enum {
     MI_EVT_BASE          = 0x0000,
     MI_EVT_CONNECT       = 0x0001,
     MI_EVT_SIMPLE_PAIR   = 0x0002,
-    MI_EVT_LOCK_LEGACY   = 0x0005,
     MI_EVT_DOOR          = 0x0007,
     MI_EVT_LOCK          = 0x000B,
 
@@ -51,68 +27,63 @@ typedef enum {
 
 } mibeacon_obj_name_t;
 
-typedef struct {
-    uint16_t        type;
-    uint8_t         len;
-    uint8_t         need_encrypt;
-    uint8_t         val[12];
- } mibeacon_obj_t;
+/**
+ * @brief   Set adv data with mibeacon and user customized data.
+ * @param   [in] is_solicited: set solicite bit.
+ *          [in] mesh_stat   : set mesh status.
+ *          [in] p_user_data : pointer to user customized data.
+ *          [in] user_dlen   : user data length.
+ * @return
+ *          MI_SUCCESS:            Set successfully.
+ *          MI_ERR_DATA_SIZE:      user data length excceed the maximun or 
+ *                                 contains invalid adv struct.
+ */
+mible_status_t mibeacon_adv_data_set(bool is_solicited, uint8_t mesh_stat,
+                                     uint8_t *p_user_data, uint8_t user_dlen);
 
-typedef struct {
-    uint8_t         connectable  :1;
-    uint8_t         centralable  :1;
-    uint8_t         encryptable  :1;
-    uint8_t         bondAbility  :2;
-    uint8_t         IO_capability:1;
-    uint8_t         reserved     :2;
-} mibeacon_capability_t;
+/**
+ * @brief   Start adv mibeacon.
+ * @param   [in] adv_interval_ms:  adv interval in millsecond.
+ *
+ * @return
+ * @return  MI_SUCCESS             Successfully initiated advertising procedure.
+ *          MI_ERR_INVALID_PARAM   Invalid parameter(s) supplied.
+ */
+mible_status_t mibeacon_adv_start(uint16_t adv_interval_ms);
 
-typedef struct {
-    uint8_t in_digits            :1;
-    uint8_t in_alphabet          :1;
-    uint8_t in_nfc_tag           :1;
-    uint8_t in_image             :1;
-    uint8_t out_digits           :1;
-    uint8_t out_alphabet         :1;
-    uint8_t out_nfc_tag          :1;
-    uint8_t out_image            :1;
+/**
+ * @brief   Stop adv mibeacon.
+ *
+ * @return  MI_SUCCESS             Successfully stopped advertising procedure.
+ *          MI_ERR_INVALID_STATE   Not in advertising state.
+ */
+mible_status_t mibeacon_adv_stop(void);
 
-    uint8_t reserved             :8;
-} mibeacon_cap_sub_io_t;
-
-typedef struct {
-    uint8_t         pb_adv       :1;
-    uint8_t         pb_gatt      :1;
-    uint8_t         state        :2;
-    uint8_t         version      :4;
-
-    uint8_t         reserved     :8;
-} mibeacon_mesh_t;
-
-typedef struct {
-    mibeacon_frame_ctrl_t   frame_ctrl;
-    uint16_t                pid;
-    mible_addr_t           *p_mac;
-    mibeacon_capability_t  *p_capability;
-    mibeacon_cap_sub_io_t  *p_cap_sub_IO;
-    mibeacon_obj_t         *p_obj;
-    uint8_t                 obj_num;
-    mibeacon_mesh_t        *p_mesh;
-} mibeacon_config_t;
-
-mible_status_t mibeacon_init(uint8_t *key);
-
-mible_status_t mibeacon_data_set(mibeacon_config_t const * const config,
-        uint8_t *p_output, uint8_t *p_output_len);
-
-mible_status_t mible_service_data_set(mibeacon_config_t const * const config,
-        uint8_t *p_output, uint8_t *p_output_len);
-
-mible_status_t mible_manu_data_set(mibeacon_config_t const * const config,
-        uint8_t *p_output, uint8_t *p_output_len);
-
-int mibeacon_obj_enque(mibeacon_obj_name_t nm, uint8_t len, void *val);
-
-void set_beacon_key(uint8_t *p_key);
+/**
+ * @brief   Enqueue a object value into the mibeacon object tx queue.
+ *
+ * @param   [in] nm:  object id name
+ *          [in] len: length of the object value
+ *          [in] val: pointer to the object value
+ *          [in] stop_adv: When the object queue is sent out, it will SHUTDOWN BLE advertising
+ *
+ * @return  MI_SUCCESS             Successfully enqueued a object into the object queue.
+ *          MI_ERR_DATA_SIZE       Object value length is too long.
+ *          MI_ERR_RESOURCES       Object queue is full. Please try again later.
+ *          MI_ERR_INTERNAL        Can not invoke the sending handler.
+ *
+ * @note    This function ONLY works when the device has been registered and has restored the keys.
+ *
+ * The mibeacon object is an adv message contains the status or event. BLE gateway
+ * can receive the beacon message (by BLE scanning) and upload it to server for
+ * triggering customized home automation scene.
+ *
+ * OBJ_QUEUE_SIZE      : max num of objects can be concurrency advertising
+ *                      ( actually, it will be sent one by one )
+ * OBJ_ADV_INTERVAL    : the object adv interval
+ * OBJ_ADV_TIMEOUT_MS  : the time one object will be continuously sent.
+ *
+ */
+int mibeacon_obj_enque(mibeacon_obj_name_t nm, uint8_t len, void *val, uint8_t stop_adv);
 
 #endif

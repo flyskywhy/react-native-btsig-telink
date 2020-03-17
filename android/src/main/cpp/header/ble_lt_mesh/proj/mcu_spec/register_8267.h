@@ -272,6 +272,7 @@ enum{
  *****************************************************/
 #define reg_rst0				REG_ADDR8(0x60)
 #define reg_rst0_16				REG_ADDR16(0x60)
+
 #define reg_rst1				REG_ADDR8(0x61)
 #define reg_rst2				REG_ADDR8(0x62)
 #define reg_rst_clk0			REG_ADDR32(0x60)

@@ -30,6 +30,8 @@
 #include "../mcu_spec/register_8267.h"
 #elif	 (__TL_LIB_8258__ || MCU_CORE_TYPE == MCU_CORE_8258 )
 #include "drivers/8258/register.h"
+#elif(MCU_CORE_TYPE == MCU_CORE_8278 )
+#include "drivers/8278/register.h"
 #elif(__TL_LIB_8366__ || MCU_CORE_TYPE == MCU_CORE_8366)
 #include "../mcu_spec/register_8366.h"
 #elif(__TL_LIB_8263__ || MCU_CORE_TYPE == MCU_CORE_8263)

@@ -62,8 +62,8 @@ typedef unsigned short lc_t;
 #define LC_END(s) }
 
 typedef struct {
-	lc_t lc;
-	char status;
+    lc_t lc;
+    char status;
 } pt_t;
 
 #define PT_WAITING 0U
@@ -123,7 +123,7 @@ typedef struct {
  *
  * \hideinitializer
  */
-#define PT_END(pt) LC_END((pt)->lc); PT_YIELD_FLAG = 0; \
+#define PT_END(pt) LC_END((pt)->lc); PT_YIELD_FLAG = 0;                        \
                    PT_INIT(pt); return PT_ENDED; }
 
 /**
@@ -137,12 +137,12 @@ typedef struct {
  *
  * \hideinitializer
  */
-#define PT_WAIT_UNTIL(pt, condition)	        \
-  do {                                          \
-    LC_SET((pt)->lc);                           \
-    if(!(condition)) {                          \
-      return PT_WAITING;                        \
-    }                                           \
+#define PT_WAIT_UNTIL(pt, condition)                                           \
+  do {                                                                         \
+    LC_SET((pt)->lc);                                                          \
+    if(!(condition)) {                                                         \
+      return PT_WAITING;                                                       \
+    }                                                                          \
   } while(0)
 
 /**
@@ -204,10 +204,10 @@ typedef struct {
  *
  * \hideinitializer
  */
-#define PT_RESTART(pt)              \
-  do {                              \
-    PT_INIT(pt);                    \
-    return PT_WAITING;              \
+#define PT_RESTART(pt)                                                         \
+  do {                                                                         \
+    PT_INIT(pt);                                                               \
+    return PT_WAITING;                                                         \
   } while(0)
 
 /**
@@ -221,10 +221,10 @@ typedef struct {
  *
  * \hideinitializer
  */
-#define PT_EXIT(pt)				\
-  do {						\
-    PT_INIT(pt);				\
-    return PT_EXITED;			\
+#define PT_EXIT(pt)                                                            \
+  do {                                                                         \
+    PT_INIT(pt);                                                               \
+    return PT_EXITED;                                                          \
   } while(0)
 
 /**
@@ -251,13 +251,13 @@ typedef struct {
  *
  * \hideinitializer
  */
-#define PT_YIELD(pt)				\
-  do {						\
-    PT_YIELD_FLAG = 0;				\
-    LC_SET((pt)->lc);				\
-    if(PT_YIELD_FLAG == 0) {			\
-      return PT_YIELDED;			\
-    }						\
+#define PT_YIELD(pt)                                                           \
+  do {                                                                         \
+    PT_YIELD_FLAG = 0;                                                         \
+    LC_SET((pt)->lc);                                                          \
+    if(PT_YIELD_FLAG == 0) {                                                   \
+      return PT_YIELDED;                                                       \
+    }                                                                          \
   } while(0)
 
 /**
@@ -271,20 +271,20 @@ typedef struct {
  *
  * \hideinitializer
  */
-#define PT_YIELD_UNTIL(pt, cond)		\
-  do {						\
-    PT_YIELD_FLAG = 0;				\
-    LC_SET((pt)->lc);				\
-    if((PT_YIELD_FLAG == 0) || !(cond)) {	\
-      return PT_YIELDED;			\
-    }						\
+#define PT_YIELD_UNTIL(pt, cond)                                               \
+  do {                                                                         \
+    PT_YIELD_FLAG = 0;                                                         \
+    LC_SET((pt)->lc);                                                          \
+    if((PT_YIELD_FLAG == 0) || !(cond)) {                                      \
+      return PT_YIELDED;                                                       \
+    }                                                                          \
   } while(0)
 
 
 struct pt_sem {
   unsigned int count;
 };
-	
+    
 /**
  * Initialize a semaphore
  *
@@ -300,7 +300,7 @@ struct pt_sem {
  * \hideinitializer
  */
 #define PT_SEM_INIT(s, c) (s)->count = c
-	
+    
 /**
  * Wait for a semaphore
  *
@@ -317,12 +317,12 @@ struct pt_sem {
  *
  * \hideinitializer
  */
-#define PT_SEM_WAIT(pt, s)	\
-	  do {						\
-		PT_WAIT_UNTIL(pt, (s)->count > 0);		\
-		--(s)->count;				\
-	  } while(0)
-	
+#define PT_SEM_WAIT(pt, s)                                                     \
+      do {                                                                     \
+        PT_WAIT_UNTIL(pt, (s)->count > 0);                                     \
+        --(s)->count;                                                          \
+      } while(0)
+    
 /**
  * Signal a semaphore
  *

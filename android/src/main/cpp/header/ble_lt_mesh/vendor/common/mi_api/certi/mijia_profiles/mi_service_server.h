@@ -35,26 +35,15 @@
 
 #define BLE_MI_MAX_DATA_LEN (GATT_MTU_SIZE_DEFAULT - 3) /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Xiaomi  service module. */
 
+typedef void (* mi_service_evt_handler_t)(uint8_t is_connected);
+
 /**@brief Function for initializing the Xiaomi Service.
  */
-uint32_t mi_service_init();
+uint32_t mi_service_init(void);
 
-/**@brief Function for sending Auth status to the peer.
- *
- * @details This function sends the input status as an AUTH characteristic notification to the
- *          peer.
- *
- * @param[in] status    Status to be sent.
- *
- * @retval MI_SUCCESS If the status was sent successfully. Otherwise, an error code is returned.
- */
+/* internal api */
+void mi_service_event_register(mi_service_evt_handler_t h);
 uint32_t opcode_send(uint32_t status);
 uint32_t opcode_recv(void);
 
-#ifdef __cplusplus
-}
-#endif
-
 #endif // __MI_SERVICE_SECURE_H__
-
-/** @} */

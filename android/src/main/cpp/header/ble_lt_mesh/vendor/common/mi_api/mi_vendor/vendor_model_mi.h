@@ -25,20 +25,20 @@
 #include "../../../../proj/tl_common.h"
 #include "../../mesh_node.h"
 
-#if (MI_API_ENABLE)
+#if (VENDOR_MD_MI_EN)
 // op cmd 11xxxxxx yyyyyyyy yyyyyyyy (vendor)
 // ---------------------------------from 0xF0 to 0xFF
-#define VD_RC_KEY_REPORT				0xF0
+#define VD_MI_RC_KEY_REPORT				0xF0
 #if DEBUG_VENDOR_CMD_EN
-#define VD_LIGHT_ONOFF_GET				0xF1
-#define VD_LIGHT_ONOFF_SET				0xF2
-#define VD_LIGHT_ONOFF_SET_NOACK		0xF3
-#define VD_LIGHT_ONOFF_STATUS		    0xF4
+#define VD_MI_LIGHT_ONOFF_GET			0xF1
+#define VD_MI_LIGHT_ONOFF_SET			0xF2
+#define VD_MI_LIGHT_ONOFF_SET_NOACK		0xF3
+#define VD_MI_LIGHT_ONOFF_STATUS		0xF4
     #if MD_VENDOR_2ND_EN
-#define VD_LIGHT_ONOFF_GET2			    0xF5
-#define VD_LIGHT_ONOFF_SET2			    0xF6
-#define VD_LIGHT_ONOFF_SET_NOACK2		0xF7
-#define VD_LIGHT_ONOFF_STATUS2		    0xF8
+#define VD_MI_LIGHT_ONOFF_GET2			0xF5
+#define VD_MI_LIGHT_ONOFF_SET2			0xF6
+#define VD_MI_LIGHT_ONOFF_SET_NOACK2	0xF7
+#define VD_MI_LIGHT_ONOFF_STATUS2		0xF8
     #endif
 #endif
 
@@ -51,6 +51,16 @@
 #define VD_MI_RELAY_ACTION 			0xc7
 #define VD_MI_EVENT_REPORT			0xc8
 
+#define VD_MI_GW_NODE				0xfe
+	#define MI_GW_FOUND_REQ				2
+	#define MI_NODE_FOUND_REQ			3
+	#define MI_NET_PARA_RSP				128
+
+#define VD_MI_NODE_GW				0xff
+	#define MI_SIMPLE_ROW_RSP 			1
+	#define MI_GW_FOUND_RSP				2
+	#define MI_DEV_FOUND_RSP			3
+	#define MI_NET_PARA_REQ				128
 typedef struct{
 	u8 ssid;
 	u8 piid;
@@ -58,26 +68,23 @@ typedef struct{
 
 typedef struct{
 	vd_mi_head_str mi_head;
-	u8 buf[6];
+	u8 buf[4];
 }vd_mi_get_property_str;
 
 
 typedef struct{
 	vd_mi_head_str mi_head;
 	u8 value[4];
-	u8 buf[2];
 }vd_mi_set_property_str;
 
 typedef struct{
 	vd_mi_head_str mi_head;
 	u8 value[4];
-	u8 buf[2];
 }vd_mi_set_noack_property_str;
 
 typedef struct{
 	vd_mi_head_str mi_head;
 	u8 value[4];
-	u8 buf[2];
 }vd_mi_property_changed_str;
 
 
@@ -107,9 +114,9 @@ typedef struct{
 	u8 value6;
 }vd_mi_event_report_str;
 
-#define MIOT_SEPC_VENDOR_MODEL_SER	VENDOR_MD_LIGHT_S
-#define MIOT_SEPC_VENDOR_MODEL_CLI	VENDOR_MD_LIGHT_C 
-#define MIOT_VENDOR_MD_SER			VENDOR_MD_LIGHT_S2	
+#define MIOT_SEPC_VENDOR_MODEL_SER	((0x0000<<16) | (VENDOR_ID_MI))
+#define MIOT_SEPC_VENDOR_MODEL_CLI	((0x0001<<16) | (VENDOR_ID_MI)) 
+#define MIOT_VENDOR_MD_SER			((0x0002<<16) | (VENDOR_ID_MI))	
 
 //------0xE0 ~ 0xFF for customer
 
@@ -118,31 +125,29 @@ typedef struct{
 typedef struct{
 	u8 code;
 	u8 rsv[7];
-}vd_rc_key_report_t;
+}vd_mi_rc_key_report_t;
 
 typedef struct{
 	u8 onoff;
 	u8 tid;
-}vd_light_onoff_set_t;
+}vd_mi_light_onoff_set_t;
 
 typedef struct{
 	u8 present_onoff;
-}vd_light_onoff_st_t;
+}vd_mi_light_onoff_st_t;
 
 // ------------------
 
 
 //------------------vendor op end-------------------
 
-int vd_cmd_key_report(u16 adr_dst, u8 key_code);
-int vd_cmd_onoff(u16 adr_dst, u8 rsp_max, u8 onoff, int ack);
-int vd_light_onoff_st_publish(u8 idx);
-int vd_light_onoff_st_publish2(u8 idx);
+int mi_vd_cmd_key_report(u16 adr_dst, u8 key_code);
+int mi_vd_cmd_onoff(u16 adr_dst, u8 rsp_max, u8 onoff, int ack);
+int mi_vd_light_onoff_st_publish(u8 idx);
+int mi_vd_light_onoff_st_publish2(u8 idx);
 
-void APP_set_vd_id_mesh_cmd_vd_func(u16 vd_id);
 
-int mesh_search_model_id_by_op_vendor(mesh_op_resource_t *op_res, u16 op, u8 tx_flag);
-int is_cmd_with_tid_vendor(u8 *tid_pos_out, u16 op, u8 tid_pos_vendor_app);
-int cb_app_vendor_all_cmd(mesh_cmd_ac_vd_t *ac, int ac_len, mesh_cb_fun_par_vendor_t *cb_par);
+int mi_mesh_search_model_id_by_op_vendor(mesh_op_resource_t *op_res, u16 op, u8 tx_flag);
+int is_mi_cmd_with_tid_vendor(u8 *tid_pos_out, u16 op, u8 tid_pos_vendor_app);
 #endif
 
