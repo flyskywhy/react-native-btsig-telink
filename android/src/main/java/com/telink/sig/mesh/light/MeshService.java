@@ -595,20 +595,6 @@ public class MeshService extends Service {
     }
 
     /**
-     * get lightness and temperature, will response only once not the size of elements,
-     * the only response combines lightness and temperature,
-     * the only response's srcAdr is device meshAddress (@param adr here)
-     *
-     * @param adr    dest address
-     * @param rspMax response max cnt
-     */
-    public boolean getCtl(int adr, int rspMax, Object tag) {
-        MeshCommand command = MeshCommand.newInstance(this.netKeyIndex, this.appKeyIndex, rspMax, adr, Opcode.LIGHT_CTL_GET.getValue());
-        command.tag = tag;
-        return this.sendMeshCommand(command);
-    }
-
-    /**
      * get temperature
      *
      * @param adr    dest address
