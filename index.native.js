@@ -470,7 +470,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 5:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 6:
@@ -490,7 +490,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 10:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 11:
@@ -506,19 +506,19 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 14:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 15:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 16:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 17:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 18:
