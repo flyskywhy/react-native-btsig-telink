@@ -334,7 +334,7 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         if (this.allowSceneCadence) {
                             this.isSceneCadenceBusy = true;
-                            NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, value], immediate);
+                            NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, this.ledFilter3040(value)], immediate);
                         }
                         changed = true;
                     }
@@ -397,6 +397,20 @@ class TelinkBtSig {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    // 为了解决颜色不准的问题，最终发现原因是灯串硬件亮度级别是 8 位与手机估计至少 12 位亮度级别
+    // 存在矛盾，也就是说是灯串硬件等级（成本）较低造成的，光靠调灯串硬件固件是不行的。现在的解决方
+    // 法是查看 RGB 中的某个分量，如果低于某个值（视灯串 LED 的 gamma 表而定）的就变为 0 之类的方法。
+    // 具体来说，低于等于 0x30 的就变为 0 ，位于 0x30 和 0x40 之间的就变为 0x40，其它不变。
+    static ledFilter3040(value) {
+        if (value <= 0x30) {
+            return 0;
+        }
+        if (value < 0x40) {
+            return 0x40;
+        }
+        return value;
+    }
+
     static async changeScene({
         meshAddress,
         sceneSyncMeshAddress,
@@ -435,15 +449,24 @@ class TelinkBtSig {
                     s: saturation / this.SATURATION_MAX,
                     v: value / this.BRIGHTNESS_MAX,
                 }).toRgb();;
+            } else {
+                color3.r = this.ledFilter3040(color3.r);
+                color3.g = this.ledFilter3040(color3.g);
+                color3.b = this.ledFilter3040(color3.b);
             }
             let color3Bg = colorBg && tinycolor(colorBg).toRgb();
+            if (color3Bg) {
+                color3Bg.r = this.ledFilter3040(color3Bg.r);
+                color3Bg.g = this.ledFilter3040(color3Bg.g);
+                color3Bg.b = this.ledFilter3040(color3Bg.b);
+            }
             let colors3 = [];
             colors.map(color => {
                 colors3.push(0);
                 let rgb = tinycolor(color).toRgb();
-                colors3.push(rgb.r);
-                colors3.push(rgb.g);
-                colors3.push(rgb.b);
+                colors3.push(this.ledFilter3040(rgb.r));
+                colors3.push(this.ledFilter3040(rgb.g));
+                colors3.push(this.ledFilter3040(rgb.b));
             });
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(type)) {
@@ -618,9 +641,9 @@ class TelinkBtSig {
                                         let subdataLength = 7;
                                         let bulbsStart = subdata[1];
                                         let bulbsLength = subdata[2];
-                                        let bulbsColorR = subdata[3] >> 16 & 0xFF;
-                                        let bulbsColorG = subdata[3] >> 8 & 0xFF;
-                                        let bulbsColorB = subdata[3] & 0xFF;
+                                        let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
+                                        let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
+                                        let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
                                         rawData = rawData.concat([
                                             subdataLength,
                                             bulbsMode,

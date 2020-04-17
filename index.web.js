@@ -120,6 +120,16 @@ class TelinkBtSig {
         type,
     }) {}
 
+    static ledFilter3040(value) {
+        if (value <= 0x30) {
+            return 0;
+        }
+        if (value < 0x40) {
+            return 0x40;
+        }
+        return value;
+    }
+
     static changeScene({
         meshAddress,
         scene,
@@ -139,9 +149,9 @@ class TelinkBtSig {
                                         let subdataLength = 7;
                                         let bulbsStart = subdata[1];
                                         let bulbsLength = subdata[2];
-                                        let bulbsColorR = subdata[3] >> 16 & 0xFF;
-                                        let bulbsColorG = subdata[3] >> 8 & 0xFF;
-                                        let bulbsColorB = subdata[3] & 0xFF;
+                                        let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
+                                        let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
+                                        let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
                                         rawData = rawData.concat([
                                             subdataLength,
                                             bulbsMode,
