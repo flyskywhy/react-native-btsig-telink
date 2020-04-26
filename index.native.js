@@ -334,7 +334,7 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         if (this.allowSceneCadence) {
                             this.isSceneCadenceBusy = true;
-                            NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, this.ledFilter3040(value)], immediate);
+                            NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, value], immediate);
                         }
                         changed = true;
                     }
