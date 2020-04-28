@@ -919,6 +919,14 @@ class TelinkBtSig {
         NativeModule.sendCommand(0x01B6, meshAddress, [0, 0], immediate);
     }
 
+    // 是否是两个发布版本之间的测试版本
+    static isTestFw({
+        fwVer,
+    }) {
+        // 一般发布版本号都是 '16' 代表 v1.6 之类的，类似 'g7' 或 'h7' 或 'i7' 之类的代表正在开发中的下一个版本的测试版本
+        return 'a' <= fwVer[0] && fwVer[0] <= 'z';
+    }
+
     static getOtaState({
         meshAddress = 0x0000,
         relayTimes = 7,
