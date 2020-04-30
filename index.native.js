@@ -453,7 +453,7 @@ class TelinkBtSig {
                 color3.r = this.ledFilter3040(color3.r);
                 color3.g = this.ledFilter3040(color3.g);
                 color3.b = this.ledFilter3040(color3.b);
-                if (tinycolor(color3).toHsv().v <= this.BRIGHTNESS_MIN / 100) {
+                if (tinycolor(color3).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
                     color3.r = 0;
                     color3.g = 0;
                     color3.b = 0;
@@ -464,7 +464,7 @@ class TelinkBtSig {
                 color3Bg.r = this.ledFilter3040(color3Bg.r);
                 color3Bg.g = this.ledFilter3040(color3Bg.g);
                 color3Bg.b = this.ledFilter3040(color3Bg.b);
-                if (tinycolor(color3Bg).toHsv().v <= this.BRIGHTNESS_MIN / 100) {
+                if (tinycolor(color3Bg).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
                     color3Bg.r = 0;
                     color3Bg.g = 0;
                     color3Bg.b = 0;
@@ -477,7 +477,7 @@ class TelinkBtSig {
                 rgb.r = this.ledFilter3040(rgb.r);
                 rgb.g = this.ledFilter3040(rgb.g);
                 rgb.b = this.ledFilter3040(rgb.b);
-                if (tinycolor(rgb).toHsv().v <= this.BRIGHTNESS_MIN / 100) {
+                if (tinycolor(rgb).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
                     rgb.r = 0;
                     rgb.g = 0;
                     rgb.b = 0;
