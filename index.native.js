@@ -663,6 +663,15 @@ class TelinkBtSig {
                                         let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
                                         let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
                                         let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
+                                        if (tinycolor({
+                                            r: bulbsColorR,
+                                            g: bulbsColorG,
+                                            b: bulbsColorB,
+                                        }).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
+                                            bulbsColorR = 0;
+                                            bulbsColorG = 0;
+                                            bulbsColorB = 0;
+                                        }
                                         rawData = rawData.concat([
                                             subdataLength,
                                             bulbsMode,
