@@ -30,7 +30,7 @@ class TelinkBtSig {
     static HUE_MAX = 360;
     static SATURATION_MIN = 0;
     static SATURATION_MAX = 100;
-    static BRIGHTNESS_MIN = 5;
+    static BRIGHTNESS_MIN = 39; // 实测灯串不会随着亮度变化而改变颜色的最低亮度
     static BRIGHTNESS_MAX = 100;
     static COLOR_TEMP_MIN = 5;
     static COLOR_TEMP_MAX = 100;
@@ -453,20 +453,38 @@ class TelinkBtSig {
                 color3.r = this.ledFilter3040(color3.r);
                 color3.g = this.ledFilter3040(color3.g);
                 color3.b = this.ledFilter3040(color3.b);
+                if (tinycolor(color3).toHsv().v <= this.BRIGHTNESS_MIN / 100) {
+                    color3.r = 0;
+                    color3.g = 0;
+                    color3.b = 0;
+                }
             }
             let color3Bg = colorBg && tinycolor(colorBg).toRgb();
             if (color3Bg) {
                 color3Bg.r = this.ledFilter3040(color3Bg.r);
                 color3Bg.g = this.ledFilter3040(color3Bg.g);
                 color3Bg.b = this.ledFilter3040(color3Bg.b);
+                if (tinycolor(color3Bg).toHsv().v <= this.BRIGHTNESS_MIN / 100) {
+                    color3Bg.r = 0;
+                    color3Bg.g = 0;
+                    color3Bg.b = 0;
+                }
             }
             let colors3 = [];
             colors.map(color => {
                 colors3.push(0);
                 let rgb = tinycolor(color).toRgb();
-                colors3.push(this.ledFilter3040(rgb.r));
-                colors3.push(this.ledFilter3040(rgb.g));
-                colors3.push(this.ledFilter3040(rgb.b));
+                rgb.r = this.ledFilter3040(rgb.r);
+                rgb.g = this.ledFilter3040(rgb.g);
+                rgb.b = this.ledFilter3040(rgb.b);
+                if (tinycolor(rgb).toHsv().v <= this.BRIGHTNESS_MIN / 100) {
+                    rgb.r = 0;
+                    rgb.g = 0;
+                    rgb.b = 0;
+                }
+                colors3.push(rgb.r);
+                colors3.push(rgb.g);
+                colors3.push(rgb.b);
             });
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(type)) {

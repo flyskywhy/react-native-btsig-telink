@@ -10,7 +10,7 @@ class TelinkBtSig {
     static HUE_MAX = 360;
     static SATURATION_MIN = 0;
     static SATURATION_MAX = 100;
-    static BRIGHTNESS_MIN = 1;
+    static BRIGHTNESS_MIN = 39;
     static BRIGHTNESS_MAX = 100;
     static COLOR_TEMP_MIN = 1;
     static COLOR_TEMP_MAX = 100;
