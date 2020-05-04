@@ -19,12 +19,12 @@ timer = nil; \
 #define kOTAWriteInterval (0.005)
 
 
-//@interface RNBtSigTelink() <BTCentralManagerDelegate>
-@interface RNBtSigTelink()
+//@interface TelinkBtSig() <BTCentralManagerDelegate>
+@interface TelinkBtSig()
 
 @end
 
-@implementation RNBtSigTelink {
+@implementation TelinkBtSig {
     RCTPromiseResolveBlock _resolveBlock;
     RCTPromiseResolveBlock _resolvedateBlock;
     RCTPromiseResolveBlock _resolveMesheBlock;
@@ -84,7 +84,7 @@ RCT_EXPORT_MODULE()
            ];
 }
 
-RCT_EXPORT_METHOD(doInit) {
+RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno) {
     //    [[BTCentralManager shareBTCentralManager] stopScan];
     //扫描我的在线灯
     // [BTCentralManager shareBTCentralManager].delegate = self;
@@ -100,9 +100,9 @@ RCT_EXPORT_METHOD(doInit) {
     //初始化SDK
     [SDKLibCommand startMeshSDK];
 
-    // [self sendEventWithName:@"serviceConnected" body:nil];
-    // [self sendEventWithName:@"bluetoothEnabled" body:nil];
-    // [self sendEventWithName:@"deviceStatusLogout" body:nil];
+     [self sendEventWithName:@"serviceConnected" body:nil];
+     [self sendEventWithName:@"bluetoothEnabled" body:nil];
+     [self sendEventWithName:@"deviceStatusLogout" body:nil];
 
     // //注册通知，当app由后台切换到前台，在appdelegate中通知获取灯的状态，避免在后台时，灯的状态发生改变，而app上数据没有更新
     // [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidBecomeActive) name:@"applicationDidBecomeActive" object:nil];
@@ -276,27 +276,27 @@ RCT_EXPORT_METHOD(doInit) {
 //     [[MeshOTAManager share] setCurrentDevices:self.devArray];
 // }
 
-// RCT_EXPORT_METHOD(doDestroy) {
-//     NSLog(@"doDestroy");
-// }
+ RCT_EXPORT_METHOD(doDestroy) {
+     NSLog(@"doDestroy");
+ }
 
 // RCT_EXPORT_METHOD(doResume) {
 //     NSLog(@"doResume");
 //     self.manager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
 // }
 
-// RCT_EXPORT_METHOD(enableBluetooth) {
-//     NSLog(@"enableBluetooth");
-// }
+ RCT_EXPORT_METHOD(enableBluetooth) {
+     NSLog(@"enableBluetooth");
+ }
 
-// RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve
-//                   rejecter:(RCTPromiseRejectBlock)reject) {
-//     resolve(@YES);
-//     NSLog(@"notModeAutoConnectMesh");
-// }
+ RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve
+                   rejecter:(RCTPromiseRejectBlock)reject) {
+     resolve(@YES);
+     NSLog(@"notModeAutoConnectMesh");
+ }
 
-// RCT_EXPORT_METHOD(autoConnect:(NSString *)userMeshName userMeshPwd:(NSString *)userMeshPwd otaMac:(NSString *)otaMac)
-// {
+ RCT_EXPORT_METHOD(autoConnect:(NSString *)userMeshName userMeshPwd:(NSString *)userMeshPwd otaMac:(NSString *)otaMac)
+ {
 //     NSLog(@"meshName==========%@", userMeshName);
 //     [[BTCentralManager shareBTCentralManager] stopScan];
 //     [self.devArray removeAllObjects];
@@ -307,20 +307,19 @@ RCT_EXPORT_METHOD(doInit) {
 //     self.HomePage = YES;
 //     self.userMeshName = userMeshName;
 //     self.userMeshPwd = userMeshPwd;
-
+//
 //     [kCentralManager startScanWithName:userMeshName Pwd:userMeshPwd AutoLogin:YES];
-// }
+ }
 
-// RCT_EXPORT_METHOD(autoRefreshNotify:(NSInteger) repeatCount Interval:(NSInteger) NSInteger) {
+ RCT_EXPORT_METHOD(autoRefreshNotify:(NSInteger) repeatCount Interval:(NSInteger) NSInteger) {
 //     [kCentralManager setNotifyOpenPro];
-// }
+ }
 
-// RCT_EXPORT_METHOD(idleMode:(BOOL)disconnect) {
-//     NSLog(@"idleMode");
-// }
+ RCT_EXPORT_METHOD(idleMode:(BOOL)disconnect) {
+     NSLog(@"idleMode");
+ }
 
-// RCT_EXPORT_METHOD(startScan:(NSString *)meshName outOfMeshName:(NSString *)outOfMeshName timeoutSeconds:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingleNode) {
-//     NSLog(@"meshName==========%@", meshName);
+RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingleNode) {
 //     [self sendEventWithName:@"deviceStatusLogout" body:nil];
 //     [[BTCentralManager shareBTCentralManager] stopScan];
 //     [self.devArray removeAllObjects];
@@ -338,17 +337,17 @@ RCT_EXPORT_METHOD(doInit) {
 //     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1000 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
 //         [kCentralManager startScanWithName:meshName Pwd:@"123" AutoLogin:NO];
 //     });
-// }
+ }
 
-// RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *) value immediate :(BOOL)immediate) {
+ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *) value immediate :(BOOL)immediate) {
 //     NSArray *arr = [kCentralManager devArrs];
 //     for (BTDevItem *item in arr) {
 //         NSLog(@"sendCommand meshAddress = %d", item.u_DevAdress);
 //     }
 //     [[BTCentralManager shareBTCentralManager] sendCommand:opcode meshAddress:meshAddress value:value];
-// }
+ }
 
-// RCT_EXPORT_METHOD(startOta:(NSArray *) value) {
+ RCT_EXPORT_METHOD(startOta:(NSArray *) value) {
 //     //数组转化成bytes
 //     unsigned c = (int)value.count;
 //     uint8_t *bytes = (uint8_t*)malloc(sizeof(*bytes) * c);
@@ -389,7 +388,7 @@ RCT_EXPORT_METHOD(doInit) {
 //             [self sendEventWithName:@"deviceStatusOtaMasterFail" body:dict];
 //         }];
 //     }
-// }
+ }
 
 // - (void)configMeshOTAList {
 //     [[MeshOTAManager share] startMeshOTAWithDeviceType:1 otaData:self.otaData progressHandle:^(MeshOTAState meshState, NSInteger progress) {
@@ -418,7 +417,7 @@ RCT_EXPORT_METHOD(doInit) {
 // }
 
 
-// RCT_EXPORT_METHOD(changePower:(NSInteger)meshAddress value:(NSInteger)value) {
+ RCT_EXPORT_METHOD(changePower:(NSInteger)meshAddress value:(NSInteger)value) {
 //     NSArray *arr = [kCentralManager devArrs];
 //     for (BTDevItem *dev in arr) {
 //         if (dev.u_DevAdress == meshAddress) {
@@ -430,9 +429,9 @@ RCT_EXPORT_METHOD(doInit) {
 //             }
 //         }
 //     }
-// }
+ }
 
-// RCT_EXPORT_METHOD(changeBrightness:(NSString *)meshAddress value:(NSInteger)value) {
+ RCT_EXPORT_METHOD(changeBrightness:(NSString *)meshAddress value:(NSInteger)value) {
 //     for (DeviceModel *dev in self.devArray) {
 //         if ([[NSString stringWithFormat:@"%x", dev.u_DevAdress] isEqual:meshAddress]) {
 //             NSLog(@"brightness====%ld", dev.brightness);
@@ -445,22 +444,22 @@ RCT_EXPORT_METHOD(doInit) {
 //             [kCentralManager setLightOrGroupLumWithDestinateAddress:dev.u_DevAdress WithLum:value];
 //         }
 //     }
-// }
+ }
 
-// RCT_EXPORT_METHOD(changeTemperatur:(NSString *)meshAddress value:(float)value) {
+ RCT_EXPORT_METHOD(changeTemperatur:(NSString *)meshAddress value:(float)value) {
 //     for (DeviceModel *dev in self.devArray) {
 //         if ([[NSString stringWithFormat:@"%x", dev.u_DevAdress] isEqual:meshAddress]) {
 //             [kCentralManager setCTOfLightWithDestinationAddress:dev.u_DevAdress AndCT:value];
 //         }
 //     }
-// }
+ }
 
-// RCT_EXPORT_METHOD(changeColor:(NSString *)meshAddress value:(NSInteger)value) {
+ RCT_EXPORT_METHOD(changeColor:(NSString *)meshAddress value:(NSInteger)value) {
 //     //NSLog(@"value4=====%ld", value);
 //     //[[BTCentralManager shareBTCentralManager] setLightOrGroupRGBWithDestinateAddress:self.selData.u_DevAdress WithColorR:red WithColorG:green WithB:blue];
-// }
+ }
 
-// RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cfg:(NSDictionary *)cfg resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cfg:(NSDictionary *)cfg resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
 //     self.cfg = [[NSMutableDictionary alloc] initWithDictionary:cfg];
 //     self.node = [[NSMutableDictionary alloc] initWithDictionary:node];
 //     self.configNode = YES;
@@ -474,7 +473,7 @@ RCT_EXPORT_METHOD(doInit) {
 
 //     _resolveBlock = resolve;
 //     _rejectBlock = reject;
-// }
+ }
 
 // - (void)resultOfReplaceAddress:(uint32_t )resultAddress
 // {
@@ -488,16 +487,12 @@ RCT_EXPORT_METHOD(doInit) {
 //     }
 // }
 
-// RCT_EXPORT_METHOD(setNodeGroupAddr) {
-//     NSLog(@"setNodeGroupAddr");
-// }
-
-// RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+ RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
 //     NSLog(@"getTime");
 //     NSArray *value = [NSArray arrayWithObject:[NSNumber numberWithInteger:relayTimes]];
 //     [[BTCentralManager shareBTCentralManager] sendCommand:0xE8 meshAddress:meshAddress value:value];
 //     _resolvedateBlock = resolve;
-// }
+ }
 
 // - (void)getDevDate:(NSDate *)date
 // {
@@ -511,15 +506,14 @@ RCT_EXPORT_METHOD(doInit) {
 //     _resolvedateBlock(event);
 // }
 
-// RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes alarmId:(NSInteger)alarmId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+ RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes alarmId:(NSInteger)alarmId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
 //     NSLog(@"getAlarm");
 //     //    NSArray *value = [NSArray arrayWithObjects:[NSNumber numberWithInteger:relayTimes],[NSNumber numberWithInteger:alarmId],nil];
 //     //    [[BTCentralManager shareBTCentralManager] sendCommand:0xE6 meshAddress:meshAddress value:value];
 //     //    _resolvesegetAlarm = resolve;
-// }
+ }
 
-// RCT_EXPORT_METHOD(setNodeGroupAddr:(BOOL)toDel meshAddress:(NSInteger)meshAddress groupAddress:(NSInteger)groupAddress resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
-// {
+ RCT_EXPORT_METHOD(setNodeGroupAddr:(BOOL)toDel meshAddress:(NSInteger)meshAddress groupAddress:(NSInteger)groupAddress resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
 //     NSMutableArray *array = [[NSMutableArray alloc] init];
 //     if (toDel) {
 //         [array addObject:[NSNumber numberWithInt:0]];
@@ -530,7 +524,7 @@ RCT_EXPORT_METHOD(doInit) {
 
 //     _resolvesetNodeGroupAddr = resolve;
 //     _rejectsetNodeGroupAddr = reject;
-// }
+ }
 
 // - (void)onGetGroupNotify:(NSArray *)array
 // {

@@ -4,7 +4,7 @@
 // #import "DeviceModel.h"
 #import <CoreBluetooth/CoreBluetooth.h>
 
-@interface RNBtSigTelink : RCTEventEmitter <RCTBridgeModule, CBCentralManagerDelegate>
+@interface TelinkBtSig : RCTEventEmitter <RCTBridgeModule, CBCentralManagerDelegate>
 
 @property (nonatomic, assign) BOOL isNeedRescan;
 @property(nonatomic, strong) CBCentralManager *manager;
