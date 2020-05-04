@@ -2,6 +2,11 @@
 Component implementation for Bluetooth SIG mesh SDK of Telink.
 
 ## Usage
+
+    npm install react-native-btsig-telink --save
+
+For RN < 0.60, run `react-native link react-native-btsig-telink`.
+
 ### iOS
 Open `SigMeshOC/SigMeshOC.xcodeproj` by Xcode, in 'Signing & Capabilities' of Target 的 'SigMeshOC', choose `Team` to your Apple ID, then close Xcode and:
 
