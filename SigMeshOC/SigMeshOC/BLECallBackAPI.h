@@ -30,7 +30,7 @@
 #import "BLEProperties.h"
 
 typedef void(^bleCentralUpdateStateCallBack)(CBCentralManagerState state);
-typedef void(^bleScanNewDeviceCallBack)(CBPeripheral *peripheral,BOOL provisioned);
+typedef void(^bleScanNewDeviceCallBack)(CBPeripheral *peripheral,BOOL provisioned, SigScanRspModel *scanRspModel);
 typedef void(^bleDisconnectOrConnectFailCallBack)(CBPeripheral *peripheral);
 typedef void(^bleReadOTACharachteristicCallBack)(CBCharacteristic *characteristic);
 typedef void(^bleFinishScanedCharachteristicCallBack)(CBPeripheral *peripheral);
