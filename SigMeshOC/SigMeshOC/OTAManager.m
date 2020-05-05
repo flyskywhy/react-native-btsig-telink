@@ -380,7 +380,7 @@
             }
         }
     }];
-    [self.ble bleScanNewDevice:^(CBPeripheral *peripheral, BOOL provisioned, SigScanRspModel *scanRspModel) {
+    [self.ble bleScanNewDevice:^(CBPeripheral *peripheral, BOOL provisioned) {
         if (!provisioned && [SigDataSource.share getScanRspModelWithAddress:self.currentModel.address]) {
             //扫描到当前需要OTA的设备
             [weakSelf.ble stopScan];

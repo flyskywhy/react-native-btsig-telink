@@ -180,13 +180,13 @@ static NSTimeInterval commentTime;
         if (provisionAble) {
             kEndTimer(_provisionScanTimer);
             if (self.bleScanNewDeviceCallBack) {
-                self.bleScanNewDeviceCallBack(peripheral, YES, scanRspModel);
+                self.bleScanNewDeviceCallBack(peripheral, YES);
             }
         }else if (unProvisionAble){
             if (self.state != StateAddDevice_provision && self.state != StateAddDevice_keyBind) {
                 if (self.state == StateOTA) {
                     if (self.bleScanNewDeviceCallBack) {
-                        self.bleScanNewDeviceCallBack(peripheral, NO, scanRspModel);
+                        self.bleScanNewDeviceCallBack(peripheral, NO);
                     }
                 }else if (self.state == StateNormal){
                     [self.store addRSSIWithPeripheral:peripheral RSSI:RSSI.intValue];
@@ -199,7 +199,7 @@ static NSTimeInterval commentTime;
                 }
             }else if (self.state == StateAddDevice_keyBind){
                 if (self.bleScanNewDeviceCallBack) {
-                    self.bleScanNewDeviceCallBack(peripheral, NO, scanRspModel);
+                    self.bleScanNewDeviceCallBack(peripheral, NO);
                 }
             }
         }
@@ -420,7 +420,7 @@ static NSTimeInterval commentTime;
     if (self.bleScanNewDeviceCallBack) {
         CBPeripheral *peripheral = [self.store hightestRSSI];
         if (peripheral) {
-            self.bleScanNewDeviceCallBack(peripheral, NO, nil);
+            self.bleScanNewDeviceCallBack(peripheral, NO);
         }else{
             [self startAutoConnect];
         }
@@ -1329,7 +1329,7 @@ static NSTimeInterval commentTime;
 - (void)blockState{
 //    TeLog(@"");
     __weak typeof(self) weakSelf = self;
-    [self setBleScanNewDeviceCallBack:^(CBPeripheral *peripheral, BOOL provisioned, SigScanRspModel *scanRspModel) {
+    [self setBleScanNewDeviceCallBack:^(CBPeripheral *peripheral, BOOL provisioned) {
 //        TeLog(@"uuid:%@,able:%d,state:%lu",peripheral.identifier.UUIDString,provisioned,(unsigned long)weakSelf.state);
         if (weakSelf.state == StateAddDevice_provision) {
             if ([weakSelf.tempProvisionSuccessList.allKeys containsObject:peripheral.identifier.UUIDString] ||
