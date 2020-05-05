@@ -1,6 +1,7 @@
 #import "RNBtSigTelink.h"
-#import "RCTLog.h"
+//#import "RCTLog.h"
 #import <SigMeshOC/SDKLibCommand.h>
+#import <SigMeshOC/Bluetooth.h>
 //#import "BTCentralManager.h"
 //#import "MeshOTAManager.h"
 //#import "MeshOTAItemModel.h"
@@ -17,6 +18,16 @@ timer = nil; \
 
 #define kOTAPartSize (16*8)
 #define kOTAWriteInterval (0.005)
+
+@implementation deviceModel
+//- (BOOL)isEqual:(id)object{
+//    if ([object isKindOfClass:[deviceModel class]]) {
+//        return [_peripheral.identifier.UUIDString isEqualToString:((deviceModel *)object).peripheral.identifier.UUIDString];
+//    } else {
+//        return NO;
+//    }
+//}
+@end
 
 
 //@interface TelinkBtSig() <BTCentralManagerDelegate>
@@ -320,7 +331,40 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
  }
 
 RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingleNode) {
-//     [self sendEventWithName:@"deviceStatusLogout" body:nil];
+    self.allDevices = [NSMutableArray array];
+    __weak typeof(self) weakSelf = self;
+    [Bluetooth.share cancelAllConnecttionWithComplete:^{
+        [self sendEventWithName:@"deviceStatusLogout" body:nil];
+        [Bluetooth.share setBleScanNewDeviceCallBack:^(CBPeripheral *peripheral, BOOL provisioned, SigScanRspModel *scanRspModel) {
+            if (provisioned) {
+                deviceModel *device = [[deviceModel alloc] init];
+                device.peripheral = peripheral;
+                device.macAddress = scanRspModel.macAddress;
+                if (![weakSelf.allDevices containsObject:device]) {
+                    [weakSelf.allDevices addObject:device];
+                    NSLog(@"ScanNewDevice macAddress = %@", scanRspModel.macAddress);
+
+                    NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
+//                    [event setObject:scanRspModel.nodeIdentityData forKey:@"deviceName"];
+//                    [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.networkIDData] forKey:@"meshName"];
+//                    [event setObject:[NSNumber numberWithInt:scanRspModel.address] forKey:@"meshAddress"];
+                    [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.macAddress] forKey:@"macAddress"];
+//                    [event setObject:[NSNumber numberWithInt:scanRspModel.uuid] forKey:@"meshUUID"];
+                    [event setObject:[NSNumber numberWithInt:scanRspModel.PID] forKey:@"productUUID"];
+//                    [event setObject:[NSNumber numberWithInt:scanRspModel.CID] forKey:@"status"];
+                    [self sendEventWithName:@"leScan" body:event];
+                }
+            }
+        }];
+        [Bluetooth.share stopAutoConnect];
+        [Bluetooth.share setProvisionState];
+        [Bluetooth.share startScan];
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf performSelector:@selector(scanFinish) withObject:nil afterDelay:timeoutSeconds];
+        });
+    }];
+
 //     [[BTCentralManager shareBTCentralManager] stopScan];
 //     [self.devArray removeAllObjects];
 //     [self.BTDevArray removeAllObjects];
@@ -337,7 +381,12 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
 //     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1000 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
 //         [kCentralManager startScanWithName:meshName Pwd:@"123" AutoLogin:NO];
 //     });
- }
+}
+
+- (void)scanFinish{
+    [Bluetooth.share setNormalState];
+    [Bluetooth.share stopScan];
+}
 
  RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *) value immediate :(BOOL)immediate) {
 //     NSArray *arr = [kCentralManager devArrs];

@@ -4,7 +4,13 @@
 // #import "DeviceModel.h"
 #import <CoreBluetooth/CoreBluetooth.h>
 
+@interface deviceModel : NSObject
+@property (nonatomic,strong) CBPeripheral *peripheral;
+@property (nonatomic,assign) NSString *macAddress;
+@end
+
 @interface TelinkBtSig : RCTEventEmitter <RCTBridgeModule, CBCentralManagerDelegate>
+@property (nonatomic,strong) NSMutableArray <deviceModel *> *allDevices;
 
 @property (nonatomic, assign) BOOL isNeedRescan;
 @property(nonatomic, strong) CBCentralManager *manager;
