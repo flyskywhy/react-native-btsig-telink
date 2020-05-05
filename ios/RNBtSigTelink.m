@@ -2,6 +2,7 @@
 //#import "RCTLog.h"
 #import <SigMeshOC/SDKLibCommand.h>
 #import <SigMeshOC/Bluetooth.h>
+#import <SigMeshOC/SigDataSource.h>
 //#import "BTCentralManager.h"
 //#import "MeshOTAManager.h"
 //#import "MeshOTAItemModel.h"
@@ -335,20 +336,25 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
     __weak typeof(self) weakSelf = self;
     [Bluetooth.share cancelAllConnecttionWithComplete:^{
         [self sendEventWithName:@"deviceStatusLogout" body:nil];
-        [Bluetooth.share setBleScanNewDeviceCallBack:^(CBPeripheral *peripheral, BOOL provisioned, SigScanRspModel *scanRspModel) {
+        [Bluetooth.share setBleScanNewDeviceCallBack:^(CBPeripheral *peripheral, BOOL provisioned) {
             if (provisioned) {
+                SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:peripheral.identifier.UUIDString];
+                if (scanRspModel == nil || scanRspModel.macAddress == nil) {
+                    return;
+                }
+                NSString *macAddress = scanRspModel.macAddress;
                 deviceModel *device = [[deviceModel alloc] init];
                 device.peripheral = peripheral;
-                device.macAddress = scanRspModel.macAddress;
+                device.macAddress = macAddress;
                 if (![weakSelf.allDevices containsObject:device]) {
                     [weakSelf.allDevices addObject:device];
-                    NSLog(@"ScanNewDevice macAddress = %@", scanRspModel.macAddress);
+                    NSLog(@"ScanNewDevice macAddress = %@", macAddress);
 
                     NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
 //                    [event setObject:scanRspModel.nodeIdentityData forKey:@"deviceName"];
 //                    [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.networkIDData] forKey:@"meshName"];
 //                    [event setObject:[NSNumber numberWithInt:scanRspModel.address] forKey:@"meshAddress"];
-                    [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.macAddress] forKey:@"macAddress"];
+                    [event setObject:[NSString stringWithFormat:@"%@", macAddress] forKey:@"macAddress"];
 //                    [event setObject:[NSNumber numberWithInt:scanRspModel.uuid] forKey:@"meshUUID"];
                     [event setObject:[NSNumber numberWithInt:scanRspModel.PID] forKey:@"productUUID"];
 //                    [event setObject:[NSNumber numberWithInt:scanRspModel.CID] forKey:@"status"];
