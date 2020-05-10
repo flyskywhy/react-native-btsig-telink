@@ -87,28 +87,28 @@ NSString *const CommandIsBusyKey = @"IsBusy";
             memcpy(&temp, pu, 1);
             _type = temp;
         }
-        if (_rspData.length >= 2) {
+        if (_rspData.length >= 2+1) {
             temp = 0;
-            memcpy(&temp, pu+1, 1);
+            memcpy(&temp, pu+1, 1+1);
             _length = temp;
         }
-        if (_rspData.length >= 4) {
+        if (_rspData.length >= 4+1) {
             temp = 0;
-            memcpy(&temp, pu+2, 2);
+            memcpy(&temp, pu+2+1, 2);
             _address = temp;
         }
-        if (_rspData.length >= 6) {
+        if (_rspData.length >= 6+1) {
             temp = 0;
-            memcpy(&temp, pu+4, 2);
+            memcpy(&temp, pu+4+1, 2);
             _rspAddress = temp;
         }
-        if (_rspData.length >= 9) {
+        if (_rspData.length >= 9+1) {
             temp = 0;
-            memcpy(&temp, pu+6, 3);
+            memcpy(&temp, pu+6+1, 3);
             _vendorOPCode = temp;
         }
-        if (_rspData.length > 9) {
-            _customData = [data subdataWithRange:NSMakeRange(9, _rspData.length-9)];
+        if (_rspData.length > 9+1) {
+            _customData = [data subdataWithRange:NSMakeRange(9+1, _rspData.length-9-1)];
         }
     }
     return self;
