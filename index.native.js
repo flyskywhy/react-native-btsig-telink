@@ -71,6 +71,7 @@ class TelinkBtSig {
     static passthroughMode = undefined; // 通过串口或者说自定义发送数据来控制蓝牙节点
 
     static longCommandParams = true; // 可以在一条命令中发送大量数据，无需拆分成许多小命令
+    static MESH_CMD_ACCESS_LEN_MAX = 380;
 
     // 逻辑上能否通过蓝牙模块返回的在线状态或者开关灯等状态推理出在线状态
     static hasOnlineStatusNotify = true;
