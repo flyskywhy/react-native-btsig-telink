@@ -98,6 +98,11 @@
 @property (nonatomic, strong) NSMutableArray <NSNumber *>*defaultGroupSubscriptionModels;//modelID of subscription group
 @property (nonatomic, strong) NSMutableArray <DeviceTypeModel *>*defaultNodeInfos;// default nodeInfo for fast bind.
 
+- (NSData *)getLocationMeshData;
+- (void)addLocationNodeWithProvisioner:(SigProvisionerModel *)provisioner;
+- (void)loadScanList;
+- (void)loadEncryptedNodeIdentityList;
+
 /// Init SDK location Data(include create mesh.json, check provisioner, provisionLocation)
 - (void)configData;
 
