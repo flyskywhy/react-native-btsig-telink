@@ -140,7 +140,7 @@ RCT_EXPORT_MODULE()
 }
 
 // ref to configData() in SigMeshOC/SigDataSource.m
-- (void)initMesh:(NSString *)netKey appKey:(NSString *)appKey devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno {
+- (void)initMesh:(NSString *)netKeyJS appKey:(NSString *)appKeyJS devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno {
     NSData *locationData = [SigDataSource.share getLocationMeshData];
     BOOL exist = locationData.length > 0;
     if (!exist) {
@@ -151,7 +151,7 @@ RCT_EXPORT_MODULE()
         netkey.index = 0;
         netkey.phase = 0;
         netkey.timestamp = [LibTools getNowTimeTimestampFrome2000];
-        netkey.key = [LibTools convertDataToHexStr:[netKey dataUsingEncoding:NSUTF8StringEncoding]];
+        netkey.key = [LibTools convertDataToHexStr:[netKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
         netkey.name = @"";
         netkey.minSecurity = @"high";
         [SigDataSource.share.netKeys addObject:netkey];
@@ -159,7 +159,7 @@ RCT_EXPORT_MODULE()
         //2.appKeys
         SigAppkeyModel *appkey = [[SigAppkeyModel alloc] init];
         appkey.oldKey = @"";
-        appkey.key = [LibTools convertDataToHexStr:[appKey dataUsingEncoding:NSUTF8StringEncoding]];
+        appkey.key = [LibTools convertDataToHexStr:[appKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
         appkey.name = @"";
         appkey.boundNetKey = 0;
         appkey.index = 0;
@@ -192,11 +192,22 @@ RCT_EXPORT_MODULE()
         NSData *data = [SigDataSource.share getLocationMeshData];
         NSDictionary *meshDict = [LibTools getDictionaryWithJSONData:data];
         [SigDataSource.share setDictionaryToDataSource:meshDict];
+
+        //1.netKeys
+        SigNetkeyModel *netkey = [SigDataSource.share.netKeys firstObject];
+        netkey.key = [LibTools convertDataToHexStr:[netKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
+        [SigDataSource.share.netKeys replaceObjectAtIndex:0 withObject:netkey];
+
+        //2.appKeys
+        SigAppkeyModel *appkey = [SigDataSource.share.appKeys firstObject];
+        appkey.key = [LibTools convertDataToHexStr:[appKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
+        [SigDataSource.share.appKeys replaceObjectAtIndex:0 withObject:appkey];
+
         //Attention: it will set _ivIndex to @"11223344" when mesh.json hasn't the key @"ivIndex"
         if (!SigDataSource.share.ivIndex || SigDataSource.share.ivIndex.length == 0) {
             SigDataSource.share.ivIndex = @"11223344";
-            [SigDataSource.share saveLocationData];
         }
+        [SigDataSource.share saveLocationData];
 
         // set devices, ref to provision_end_callback() in SigMeshOC/LibHandle.m
         for (int i = 0; i < devices.count; i++) {
@@ -205,14 +216,9 @@ RCT_EXPORT_MODULE()
             NSDictionary *device = devices[i];
             [model setAddress:[device[@"meshAddress"] unsignedShortValue]];
 
-            // VC_node_info_t info = model.nodeInfo;
-            // info.element_cnt = device[@"elementCnt"];
-            // info.cps.page0_head.cid = kCompanyID;
-            // info.cps.page0_head.pid = device[@"type"];
-            // model.nodeInfo = info;
             model.nodeInfo = *((VC_node_info_t *)[self byteArray2Data:device[@"nodeInfo"]].bytes);
 
-            model.deviceKey = [LibTools convertDataToHexStr:[self byteArray2Data:device[@"dhmKey"]].bytes];
+            model.deviceKey = [LibTools convertDataToHexStr:[self byteArray2Data:device[@"dhmKey"]]];
             model.peripheralUUID = nil;
             model.macAddress = device[@"macAddress"];
             // model.UUID = identify;
@@ -265,8 +271,8 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     // self.isStartOTA = NO;
 
     //init SDK
-    [SDKLibCommand startMeshSDK];
-    // [self startMeshSDK:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno];
+//    [SDKLibCommand startMeshSDK];
+     [self startMeshSDK:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno];
 
      __weak typeof(self) weakSelf = self;
 
@@ -813,7 +819,7 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
     //    [Bluetooth.share stopAutoConnect];
     //    [Bluetooth.share cancelAllConnecttionWithComplete:nil];
         [Bluetooth.share clearCachelist];
-        NSData *key = [SigDataSource.share curNetKey]; // TODO: use from js
+        NSData *key = [SigDataSource.share curNetKey];
 
         // TODO: use getPeripheralWithUUID() instead of getDeviceModelWithMac(), and modify SigScanRspModel.isEqual()
         // in SigMeshOC/Model.m to the form of SigNodeModel.isEqual() in SigMeshOC/SigDataSource.m
@@ -865,8 +871,6 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
 
             int VC_node_info_t_length = sizeof(VC_node_info_t);
             char nodeInfoArray[VC_node_info_t_length];
-
-            // TODO: 是否需要：把大端模式的数字Number转为本机数据存放模式比如 UInt16 address = CFSwapInt16BigToHost(node.address);
 
             memcpy(nodeInfoArray, &node_info, VC_node_info_t_length);
             int nodeInfoWithoutCpsDataLength = 22;
