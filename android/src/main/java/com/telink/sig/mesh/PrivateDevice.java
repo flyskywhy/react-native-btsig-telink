@@ -6,8 +6,6 @@ package com.telink.sig.mesh;
 
 public enum PrivateDevice {
 
-    // TODO: 这些数据后续也许可以考虑移到 JS 层的 Defines.js，以便于定制客户私有设备
-
     // PANEL(0x0211, 0x0007, "panel",
     //         new byte[]{(byte) 0x11, (byte) 0x02, (byte) 0x07, (byte) 0x00, (byte) 0x32, (byte) 0x37, (byte) 0x69, (byte) 0x00, (byte) 0x07, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0x00
     //                 , (byte) 0x02, (byte) 0x00, (byte) 0x03, (byte) 0x00, (byte) 0x04, (byte) 0x00, (byte) 0x05, (byte) 0x00, (byte) 0x00, (byte) 0xfe, (byte) 0x01, (byte) 0xfe, (byte) 0x02, (byte) 0xfe, (byte) 0x00, (byte) 0xff
@@ -23,8 +21,14 @@ public enum PrivateDevice {
     //                 , (byte) 0x03, (byte) 0x12, (byte) 0x04, (byte) 0x12, (byte) 0x06, (byte) 0x12, (byte) 0x07, (byte) 0x12, (byte) 0x00, (byte) 0x13, (byte) 0x01, (byte) 0x13, (byte) 0x03, (byte) 0x13, (byte) 0x04, (byte) 0x13
     //                 , (byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x00, (byte) 0x02, (byte) 0x10, (byte) 0x06, (byte) 0x13}),
 
-    // 当固件中调整了 element 或 model 导致 cpsData 有变动时，需要同步修改这里的数据
-    // 这里只需要提供 0xFB00 ，因为 onProvisionSuccess() 中会将其补完至比如 0xFB78
+    // when cpsData is changed by the change of element or model in firmware, FB00[] is also need changed here and in
+    // DeviceTypeModel of react-native-btsig-telink/SigMeshOC/SigMeshOC/Model.m
+    //
+    // note 3 code in SigDataSource.m about FB00
+    // note filter() here about FB00
+    //
+    // Only need describe 0xFB00 here, because it will be e.g. 0xFB78 in onProvisionSuccess() of TelinkBtSigNativeModule.java
+    // The version (byte) 0x31, (byte) 0x32 also will be replaced in onProvisionSuccess() of TelinkBtSigNativeModule.java
     FB00(0x0211, 0xFB00, "lightstring",
             new byte[]{(byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0xFB, (byte) 0x31, (byte) 0x32, (byte) 0x69, (byte) 0x00, (byte) 0x07, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x13, (byte) 0x01, (byte) 0x00, (byte) 0x00
                     , (byte) 0x02, (byte) 0x00, (byte) 0x03, (byte) 0x00, (byte) 0x04, (byte) 0x00, (byte) 0x00, (byte) 0xFE, (byte) 0x01, (byte) 0xFE, (byte) 0x00, (byte) 0xFF, (byte) 0x01, (byte) 0xFF, (byte) 0x00, (byte) 0x12
