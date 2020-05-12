@@ -784,6 +784,19 @@ static Byte CTByte[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x01, (Byte) 0x00, (Byt
     , (Byte) 0x03, (Byte) 0x12, (Byte) 0x04, (Byte) 0x12, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12, (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x13, (Byte) 0x03, (Byte) 0x13, (Byte) 0x04, (Byte) 0x13
     , (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x02, (Byte) 0x00, (Byte) 0x02, (Byte) 0x10, (Byte) 0x06, (Byte) 0x13};
 
+// when cpsData is changed by the change of element or model in firmware, FB00[] is also need changed here and in
+// react-native-btsig-telink/android/src/main/java/com/telink/sig/mesh/PrivateDevice.java
+//
+// note 3 code in SigDataSource.m about FB00
+// note initWithCID() and isEqual() here about FB00
+//
+// Only need describe 0xFB00 here, because it will be replaced by e.g. 0xFB78 in ^keyBindSuccess() of ios/RNBtSigTelink.m
+// The version (Byte) 0x31, (Byte) 0x32 also will be replaced in ^keyBindSuccess() of ios/RNBtSigTelink.m
+static Byte FB00[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0xFB, (Byte) 0x31, (Byte) 0x32, (Byte) 0x69, (Byte) 0x00, (Byte) 0x07, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x00, (Byte) 0x00
+    , (Byte) 0x02, (Byte) 0x00, (Byte) 0x03, (Byte) 0x00, (Byte) 0x04, (Byte) 0x00, (Byte) 0x00, (Byte) 0xFE, (Byte) 0x01, (Byte) 0xFE, (Byte) 0x00, (Byte) 0xFF, (Byte) 0x01, (Byte) 0xFF, (Byte) 0x00, (Byte) 0x12
+    , (Byte) 0x01, (Byte) 0x12, (Byte) 0x00, (Byte) 0x10, (Byte) 0x02, (Byte) 0x10, (Byte) 0x04, (Byte) 0x10, (Byte) 0x06, (Byte) 0x10, (Byte) 0x07, (Byte) 0x10, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12
+    , (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x13, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00};
+
 - (instancetype)initWithCID:(UInt16)cid PID:(SigNodePID)pid{
     if (self = [super init]) {
         _CID = cid;
@@ -798,6 +811,9 @@ static Byte CTByte[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x01, (Byte) 0x00, (Byt
             }else if (pid == SigNodePID_CT) {
                 //set default VC_node_info_t of CT
                 memcpy(&node_info.cps.page0_head.cid, CTByte, sizeof(CTByte));
+            } else if (pid == 0xFB00) {
+                //set default VC_node_info_t of FB00
+                memcpy(&node_info.cps.page0_head.cid, FB00, sizeof(FB00));
             }
             _defultNodeInfo = node_info;
         }
@@ -816,7 +832,17 @@ static Byte CTByte[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x01, (Byte) 0x00, (Byt
 
 - (BOOL)isEqual:(id)object{
     if ([object isKindOfClass:[DeviceTypeModel class]]) {
-        return _CID == ((DeviceTypeModel *)object).CID && _PID == ((DeviceTypeModel *)object).PID;
+        if (((DeviceTypeModel *)object).CID == _CID) {
+            if ((_PID & 0xFF00) == 0xFB00 && ((DeviceTypeModel *)object).PID == 0xFB00) {
+                return YES;
+            } else if (((DeviceTypeModel *)object).PID == _PID) {
+                return YES;
+            } else {
+                return NO;
+            }
+        } else {
+            return NO;
+        }
     } else {
         return NO;
     }

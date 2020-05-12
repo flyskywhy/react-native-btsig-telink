@@ -98,6 +98,9 @@
         DeviceTypeModel *model2 = [[DeviceTypeModel alloc] initWithCID:kCompanyID PID:SigNodePID_CT];
         [_defaultNodeInfos addObject:model1];
         [_defaultNodeInfos addObject:model2];
+
+        DeviceTypeModel *model3 = [[DeviceTypeModel alloc] initWithCID:kCompanyID PID:0xFB00];
+        [_defaultNodeInfos addObject:model3];
     }
     return self;
 }
@@ -105,9 +108,14 @@
 - (DeviceTypeModel *)getNodeInfoWithCID:(UInt16)CID PID:(UInt16)PID {
     DeviceTypeModel *model = nil;
     for (DeviceTypeModel *tem in _defaultNodeInfos) {
-        if (tem.CID == CID && tem.PID == PID) {
-            model = tem;
-            break;
+        if (tem.CID == CID) {
+            if ((PID & 0xFF00) == 0xFB00 && tem.PID == 0xFB00) {
+                model = tem;
+                break;
+            } else if (tem.PID == PID) {
+                model = tem;
+                break;
+            }
         }
     }
     return model;
@@ -1113,6 +1121,9 @@
             break;
         case SigNodePID_Panel:
             node_ele_cnt = 8;
+            break;
+        case 0xFB00:
+            node_ele_cnt = 1;
             break;
         default:
             TeLog(@"[ERROR]:please fix the code of pid:0x%04x",pid);
