@@ -6,7 +6,7 @@
 
 @interface deviceModel : NSObject
 @property (nonatomic,strong) CBPeripheral *peripheral;
-@property (nonatomic,assign) NSString *macAddress;
+@property (nonatomic,strong) NSString *macAddress;
 @end
 
 @interface TelinkBtSig : RCTEventEmitter <RCTBridgeModule, CBCentralManagerDelegate>
