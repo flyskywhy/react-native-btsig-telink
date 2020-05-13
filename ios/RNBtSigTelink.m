@@ -857,6 +857,8 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
                 if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.CID != 0 && scanRspModel.PID != 0) {
                     DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanRspModel.CID PID:scanRspModel.PID];
                     node_info.cps.len_cps = deviceType.cpsDataLen; // otherwise the SDK will give you 0x0C
+                    VC_node_info_t private_node_info = deviceType.defultNodeInfo;
+                    memcpy(&node_info.cps.page0_head.cid, (Byte *)&private_node_info.cps.page0_head.cid, deviceType.cpsDataLen);
                     node_info.cps.page0_head.pid = scanRspModel.PID;
                     NSLog(@"TelinkBtSig AddNewDevice replace pid %x", node_info.cps.page0_head.pid);
                     if ([scanRspModel.advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {
