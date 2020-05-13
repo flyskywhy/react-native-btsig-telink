@@ -807,13 +807,16 @@ static Byte FB00[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0xFB, (Byte)
             
             if (pid == SigNodePID_Panel) {
                 //set default VC_node_info_t of panel
-                memcpy(&node_info.cps.page0_head.cid, PanelByte, sizeof(PanelByte));
+                _cpsDataLen = sizeof(PanelByte);
+                memcpy(&node_info.cps.page0_head.cid, PanelByte, _cpsDataLen);
             }else if (pid == SigNodePID_CT) {
                 //set default VC_node_info_t of CT
-                memcpy(&node_info.cps.page0_head.cid, CTByte, sizeof(CTByte));
+                _cpsDataLen = sizeof(CTByte);
+                memcpy(&node_info.cps.page0_head.cid, CTByte, _cpsDataLen);
             } else if (pid == 0xFB00) {
                 //set default VC_node_info_t of FB00
-                memcpy(&node_info.cps.page0_head.cid, FB00, sizeof(FB00));
+                _cpsDataLen = sizeof(FB00);
+                memcpy(&node_info.cps.page0_head.cid, FB00, _cpsDataLen);
             }
             _defultNodeInfo = node_info;
         }

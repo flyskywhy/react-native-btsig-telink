@@ -336,6 +336,8 @@ typedef enum : UInt16 {
 
 @property (nonatomic, assign) VC_node_info_t defultNodeInfo;
 
+@property (nonatomic, assign) UInt16 cpsDataLen;
+
 - (instancetype)initWithCID:(UInt16)cid PID:(SigNodePID)pid;
 - (void)setDefultNodeInfoData:(NSData *)data;
 
