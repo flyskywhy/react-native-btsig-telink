@@ -850,9 +850,13 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
             SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
             VC_node_info_t node_info = model.nodeInfo;
 
+//            NSLog(@"TelinkBtSig AddNewDevice node_info %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
+
             if (fastBind) {
                 SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:identify];
-                if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.PID != 0) {
+                if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.CID != 0 && scanRspModel.PID != 0) {
+                    DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanRspModel.CID PID:scanRspModel.PID];
+                    node_info.cps.len_cps = deviceType.cpsDataLen; // otherwise the SDK will give you 0x0C
                     node_info.cps.page0_head.pid = scanRspModel.PID;
                     NSLog(@"TelinkBtSig AddNewDevice replace pid %x", node_info.cps.page0_head.pid);
                     if ([scanRspModel.advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {
@@ -864,13 +868,14 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
                             }
                         }
                     }
+//                    NSLog(@"TelinkBtSig AddNewDevice node_repl %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
                     model.nodeInfo = node_info;
                     [SigDataSource.share saveDeviceWithDeviceModel:model];
                 }
             }
 
             int VC_node_info_t_length = sizeof(VC_node_info_t);
-            char nodeInfoArray[VC_node_info_t_length];
+            u8 nodeInfoArray[VC_node_info_t_length];
 
             memcpy(nodeInfoArray, &node_info, VC_node_info_t_length);
             int nodeInfoWithoutCpsDataLength = 22;
