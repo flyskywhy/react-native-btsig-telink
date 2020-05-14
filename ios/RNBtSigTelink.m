@@ -346,7 +346,23 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     Bluetooth.share.commandHandle.changeBrightnessCallBack = onGetLightnessNotify;
     Bluetooth.share.commandHandle.changeTemperatureCallBack = onGetCtlNotify;
     Bluetooth.share.commandHandle.getFwInfoCallBack = onGetFirmwareInfo;
-// TODO:    Bluetooth.share.bleCentralUpdateStateCallBack = what centralManagerDidUpdateState() did bellow
+
+    Bluetooth.share.bleCentralUpdateStateCallBack = ^(CBCentralManagerState state) {
+        if (Bluetooth.share.state == StateNormal) {
+            switch (state) {
+                case CBCentralManagerStatePoweredOn:
+                    [weakSelf sendEventWithName:@"bluetoothEnabled" body:nil];
+                    NSLog(@"TelinkBtSig bluetoothEnabled");
+                    break;
+                case CBCentralManagerStatePoweredOff:
+                     [weakSelf sendEventWithName:@"bluetoothDisabled" body:nil];
+                     NSLog(@"TelinkBtSig bluetoothDisabled");
+                   break;
+                default:
+                    break;
+            }
+        }
+    };
 
     [self sendEventWithName:@"serviceConnected" body:nil];
     [self sendEventWithName:@"bluetoothEnabled" body:nil];
@@ -384,18 +400,6 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
 }
 
-
-- (void)centralManagerDidUpdateState:(nonnull CBCentralManager *)central {
-     //第一次打开或者每次蓝牙状态改变都会调用这个函数
-     if (central.state == CBCentralManagerStatePoweredOn) {
-         NSLog(@"蓝牙设备开着");
-     } else {
-         NSLog(@"蓝牙设备关着");
-
-         UIAlertView *alterView = [[UIAlertView alloc]initWithTitle:@"提示" message:@"请打开蓝牙！" delegate:self cancelButtonTitle:@"确定" otherButtonTitles:nil];
-         [alterView show];
-     }
-}
 
 // - (void)OnDevChange:(id)sender Item:(BTDevItem *)item Flag:(DevChangeFlag)flag {
 //     //if (!self.isStartOTA) return;
