@@ -141,91 +141,76 @@ RCT_EXPORT_MODULE()
 
 // ref to configData() in SigMeshOC/SigDataSource.m
 - (void)initMesh:(NSString *)netKeyJS appKey:(NSString *)appKeyJS devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno {
-    NSData *locationData = [SigDataSource.share getLocationMeshData];
-    BOOL exist = locationData.length > 0;
-    if (!exist) {
-        //don't exist mesh.json, create and init mesh
-        //1.netKeys
-        SigNetkeyModel *netkey = [[SigNetkeyModel alloc] init];
-        netkey.oldKey = @"";
-        netkey.index = 0;
-        netkey.phase = 0;
-        netkey.timestamp = [LibTools getNowTimeTimestampFrome2000];
-        netkey.key = [LibTools convertDataToHexStr:[netKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
-        netkey.name = @"";
-        netkey.minSecurity = @"high";
-        [SigDataSource.share.netKeys addObject:netkey];
+    // Even exist mesh.json, still create a new one with data from JS and init mesh
+    //1.netKeys
+    SigNetkeyModel *netkey = [[SigNetkeyModel alloc] init];
+    netkey.oldKey = @"";
+    netkey.index = 0;
+    netkey.phase = 0;
+    netkey.timestamp = [LibTools getNowTimeTimestampFrome2000];
+    netkey.key = [LibTools convertDataToHexStr:[netKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
+    netkey.name = @"";
+    netkey.minSecurity = @"high";
+    [SigDataSource.share.netKeys addObject:netkey];
 
-        //2.appKeys
-        SigAppkeyModel *appkey = [[SigAppkeyModel alloc] init];
-        appkey.oldKey = @"";
-        appkey.key = [LibTools convertDataToHexStr:[appKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
-        appkey.name = @"";
-        appkey.boundNetKey = 0;
-        appkey.index = 0;
-        [SigDataSource.share.appKeys addObject:appkey];
+    //2.appKeys
+    SigAppkeyModel *appkey = [[SigAppkeyModel alloc] init];
+    appkey.oldKey = @"";
+    appkey.key = [LibTools convertDataToHexStr:[appKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
+    appkey.name = @"";
+    appkey.boundNetKey = 0;
+    appkey.index = 0;
+    [SigDataSource.share.appKeys addObject:appkey];
 
-        //3.provisioners
-        SigProvisionerModel *provisioner = [[SigProvisionerModel alloc] initWithExistProvisionerCount:0 andProvisionerUUID:[LibTools convertDataToHexStr:[LibTools initMeshUUID]]];
-        [SigDataSource.share.provisioners addObject:provisioner];
+    //3.provisioners
+    SigProvisionerModel *provisioner = [[SigProvisionerModel alloc] initWithExistProvisionerCount:0 andProvisionerUUID:[LibTools convertDataToHexStr:[LibTools initMeshUUID]]];
+    [SigDataSource.share.provisioners addObject:provisioner];
 
-        //4.add new provisioner to nodes
-        [SigDataSource.share addLocationNodeWithProvisioner:provisioner];
+    //4.add new provisioner to nodes
+    [SigDataSource.share addLocationNodeWithProvisioner:provisioner];
 
-        //5.add default group
-        SigGroupModel *group = [[SigGroupModel alloc] init];
-        group.address = [NSString stringWithFormat:@"%04X",0xffff];
-        group.parentAddress = [NSString stringWithFormat:@"%04X",0];
-        group.name = @"All";
-        [SigDataSource.share.groups addObject:group];
+    //5.add default group
+    SigGroupModel *group = [[SigGroupModel alloc] init];
+    group.address = [NSString stringWithFormat:@"%04X",0xffff];
+    group.parentAddress = [NSString stringWithFormat:@"%04X",0];
+    group.name = @"All";
+    [SigDataSource.share.groups addObject:group];
 
-        SigDataSource.share.meshUUID = netkey.key;
-        SigDataSource.share.$schema = @"telink-semi.com";
-        SigDataSource.share.meshName = @"Telink-Sig-Mesh";
-        SigDataSource.share.version = LibTools.getSDKVersion;
-        SigDataSource.share.timestamp = [LibTools getNowTimeTimestampFrome2000];
+    SigDataSource.share.meshUUID = netkey.key;
+    SigDataSource.share.$schema = @"telink-semi.com";
+    SigDataSource.share.meshName = @"Telink-Sig-Mesh";
+    SigDataSource.share.version = LibTools.getSDKVersion;
+    SigDataSource.share.timestamp = [LibTools getNowTimeTimestampFrome2000];
 
-        NSLog(@"TelinkBtSig creat mesh_sample.json success");
-        [SigDataSource.share saveLocationData];
-    } else {
-        //exist mesh.json, load json
-        NSData *data = [SigDataSource.share getLocationMeshData];
-        NSDictionary *meshDict = [LibTools getDictionaryWithJSONData:data];
-        [SigDataSource.share setDictionaryToDataSource:meshDict];
+    // set devices, ref to provision_end_callback() and App_key_bind_end_callback() in SigMeshOC/LibHandle.m
+    for (int i = 0; i < devices.count; i++) {
+        SigNodeModel *model = [[SigNodeModel alloc] init];
 
-        //1.netKeys
-        SigNetkeyModel *netkey = [SigDataSource.share.netKeys firstObject];
-        netkey.key = [LibTools convertDataToHexStr:[netKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
-        [SigDataSource.share.netKeys replaceObjectAtIndex:0 withObject:netkey];
+        NSDictionary *device = devices[i];
+        [model setAddress:[device[@"meshAddress"] unsignedShortValue]];
 
-        //2.appKeys
-        SigAppkeyModel *appkey = [SigDataSource.share.appKeys firstObject];
-        appkey.key = [LibTools convertDataToHexStr:[appKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
-        [SigDataSource.share.appKeys replaceObjectAtIndex:0 withObject:appkey];
-
-        //Attention: it will set _ivIndex to @"11223344" when mesh.json hasn't the key @"ivIndex"
-        if (!SigDataSource.share.ivIndex || SigDataSource.share.ivIndex.length == 0) {
-            SigDataSource.share.ivIndex = @"11223344";
+        SigAppkeyModel *appkeyCur = [SigDataSource.share curAppkeyModel];
+        SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
+        nodeAppkey.index = appkeyCur.index;
+        if (![model.appKeys containsObject:nodeAppkey]) {
+            [model.appKeys addObject:nodeAppkey];
         }
-        [SigDataSource.share saveLocationData];
 
-        // set devices, ref to provision_end_callback() in SigMeshOC/LibHandle.m
-        for (int i = 0; i < devices.count; i++) {
-            SigNodeModel *model = [[SigNodeModel alloc] init];
+        [model setNodeInfo:*((VC_node_info_t *)[self byteArray2Data:device[@"nodeInfo"]].bytes)];
 
-            NSDictionary *device = devices[i];
-            [model setAddress:[device[@"meshAddress"] unsignedShortValue]];
+        model.deviceKey = [LibTools convertDataToHexStr:[self byteArray2Data:device[@"dhmKey"]]];
+        model.peripheralUUID = nil;
+        model.macAddress = device[@"macAddress"];
+        model.UUID = nil;
 
-            model.nodeInfo = *((VC_node_info_t *)[self byteArray2Data:device[@"nodeInfo"]].bytes);
+//        NSLog(@"TelinkBtSig sigmodel %@", [model getDictionaryOfSigNodeModel]);
 
-            model.deviceKey = [LibTools convertDataToHexStr:[self byteArray2Data:device[@"dhmKey"]]];
-            model.peripheralUUID = nil;
-            model.macAddress = device[@"macAddress"];
-            // model.UUID = identify;
-            model.UUID = nil;
-            [SigDataSource.share saveDeviceWithDeviceModel:model];
-        }
+        [SigDataSource.share saveDeviceWithDeviceModel:model];
     }
+
+    NSLog(@"TelinkBtSig create mesh_sample.json success");
+    [SigDataSource.share saveLocationData];
+
     //check provisioner
     [SigDataSource.share checkExistLocationProvisioner];
     //init SigScanRspModel list
@@ -558,20 +543,35 @@ RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve rejecte
 }
 
 RCT_EXPORT_METHOD(autoConnect:(NSString *)networkKey) {
-    __weak typeof(self) weakSelf = self;
     NSLog(@"TelinkBtSig autoConnect");
-    [Bluetooth.share startWorkNormalWithComplete:^(NSString *uuidString) {
-        NSLog(@"TelinkBtSig deviceStatusLogin");
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:[[SigDataSource.share getCurrentConnectedNode] address]] forKey:@"connectMeshAddress"];
-        [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
 
-        [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *peripheral) {
-            NSLog(@"TelinkBtSig deviceStatusLogout");
-            [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
-        }];
-    }];
+    [Bluetooth.share setBleScanNewDeviceCallBack:nil];
+    if (Bluetooth.share.state == StateNormal) {
+        CBPeripheral *tem = [Bluetooth.share currentPeripheral];
+        if (tem && tem.state == CBPeripheralStateConnected) {
+            __weak typeof(self) weakSelf = self;
+            NSLog(@"TelinkBtSig deviceStatusLogin");
+            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+            [dict setObject:[NSNumber numberWithInt:[[SigDataSource.share getCurrentConnectedNode] address]] forKey:@"connectMeshAddress"];
+            [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
 
+            [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *peripheral) {
+                NSLog(@"TelinkBtSig deviceStatusLogout");
+                [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
+            }];
+        } else if (tem && tem.state == CBPeripheralStateConnecting) {
+            return;
+        } else {
+            NSLog(@"TelinkBtSig auto reconnect");
+            if (Bluetooth.share.manager.isScanning) {
+                [Bluetooth.share.manager stopScan];
+            }
+            [Bluetooth.share startWorkNormalWithComplete:nil];
+
+        }
+    } else {
+        [Bluetooth.share startWorkNormalWithComplete:nil];
+    }
 
 //     [[BTCentralManager shareBTCentralManager] stopScan];
 //     [self.devArray removeAllObjects];
