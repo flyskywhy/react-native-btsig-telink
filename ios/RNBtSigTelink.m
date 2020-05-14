@@ -660,6 +660,7 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
 }
 
 - (void)scanFinish {
+    [Bluetooth.share setBleScanNewDeviceCallBack:nil];  // need this otherwise keyBindSuccess if configNode to quickly just after startScan
     [Bluetooth.share setNormalState];
     [Bluetooth.share stopScan];
 }
@@ -815,9 +816,10 @@ RCT_EXPORT_METHOD(changeColor:(NSInteger)meshAddress hue:(NSInteger)hue saturati
 
 RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     if (isToClaim) {
+        [Bluetooth.share setBleScanNewDeviceCallBack:nil];  // need this otherwise keyBindSuccess difficult
         Bluetooth.share.commandHandle.responseVendorIDCallBack = nil;
-    //    [Bluetooth.share stopAutoConnect];
-    //    [Bluetooth.share cancelAllConnecttionWithComplete:nil];
+        [Bluetooth.share stopAutoConnect];
+        [Bluetooth.share cancelAllConnecttionWithComplete:nil];
         [Bluetooth.share clearCachelist];
         NSData *key = [SigDataSource.share curNetKey];
 
