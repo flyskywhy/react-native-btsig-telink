@@ -9,7 +9,7 @@
 @property (nonatomic,strong) NSString *macAddress;
 @end
 
-@interface TelinkBtSig : RCTEventEmitter <RCTBridgeModule, CBCentralManagerDelegate>
+@interface TelinkBtSig : RCTEventEmitter <RCTBridgeModule>
 @property (nonatomic,strong) NSMutableArray <deviceModel *> *allDevices;
 
 @property (nonatomic, assign) BOOL isNeedRescan;
