@@ -30,7 +30,7 @@
 #ifndef BTConst_h
 #define BTConst_h
 
-#define kTelinkSigMeshLibVersion    @"v3.1.0"
+#define kTelinkSigMeshLibVersion    @"v3.2.0"
 
 #define kLoopTimeInterval                           (0.002)
 #define kLoopWriteForBeaconDelayTime    (0.5)
@@ -184,15 +184,15 @@
 /*存储在本地的数据的key，不再存储在cache中，以为苹果设备的存储快满的时候，系统会删除cache文件夹的数据*/
 #define kSaveLocationDataKey @"mesh.json"
 
+//keyBind完成后是否publish时间model
+#define kDoPublishTimeModel YES
 
 
 //标记是否显示SDK的log
 #define kShowSDKLog YES
+
 #ifdef kShowSDKLog
-//#define TeLog(fmt, ...) NSLog((@"[文件名:%s]\n" "[函数名:%s]\n" "[行号:%d] \n" fmt), __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define TeLog(fmt, ...) XHelp.share.saveLogObject = [NSString stringWithFormat:(@"[%s Line %d] " fmt), __func__, __LINE__, ##__VA_ARGS__];\
-NSLog(@"%@",XHelp.share.saveLogObject);\
-saveLogData(XHelp.share.saveLogObject)
+#define TeLog(fmt, ...) TelinkLogWithFile((@"[%s Line %d] " fmt), __func__, __LINE__, ##__VA_ARGS__);
 #else
 #define TeLog(...)
 #endif

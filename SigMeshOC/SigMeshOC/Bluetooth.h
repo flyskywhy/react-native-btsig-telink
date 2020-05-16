@@ -32,10 +32,18 @@
 
 @interface Bluetooth : BLECallBackAPI<CBCentralManagerDelegate, CBPeripheralDelegate>
 
+
++ (instancetype)new __attribute__((unavailable("please initialize by use .share or .share()")));
+- (instancetype)init __attribute__((unavailable("please initialize by use .share or .share()")));
+
+
 + (Bluetooth *)share;
 
 #pragma  mark - Public
 - (CBPeripheral *)currentPeripheral;
+
+/// Get CBCharacteristic with CharacteristicUUID.(通过特征UUID获取设备的特征)
+- (CBCharacteristic *)getCharacteristicWithCharacteristicUUID:(NSString *)characteristicUUID ofPeripheral:(CBPeripheral *)peripheral;
 
 /// Get current Bluethooth's connect status.(当前蓝牙是否处于连接状态)
 - (BOOL)isConnected;
@@ -75,6 +83,7 @@
 
 /// Set current state to provision state(修改SDK当前工作状态为provision)
 - (void)setProvisionState;
+- (BOOL)isProvisioning;
 
 /// Set current state to OTA state(修改SDK当前工作状态为OTA)
 - (void)setOTAState;
@@ -105,7 +114,7 @@
  @param netkeyIndex netkey index
  @param unicastAddress address of remote device
  @param uuid uuid of remote device
- @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Quick是快速添加模式
+ @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Fast是快速添加模式
  @param isAuto 添加完成一个设备后，是否自动扫描添加下一个设备
  @param provisionSuccess call back when a device provision successful
  @param keyBindSuccess call back when a device keybind successful
@@ -122,7 +131,7 @@
  @param networkKey network key, which provsion need, you can see it as password of the mesh
  @param netkeyIndex netkey index
  @param peripheral device need add to mesh
- @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Quick是快速添加模式
+ @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Fast是快速添加模式
  @param provisionSuccess call back when a device provision successful
  @param keyBindSuccess call back when a device keybind successful
  @param fail call back when a device add to the mesh fail
@@ -144,11 +153,16 @@
 /// Do key bound(纯keyBind接口)
 - (void)keyBind:(u16)address appkey:(NSData *)appkey appkeyIndex:(u16)appkeyIndex netkeyIndex:(u16)netkeyIndex keyBindType:(KeyBindTpye)type keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(prvisionFailCallBack)fail;
 
+/// Do key bound(纯keyBind接口，添加重试次数)
+- (void)keyBind:(u16)address appkey:(NSData *)appkey appkeyIndex:(u16)appkeyIndex netkeyIndex:(u16)netkeyIndex keyBindType:(KeyBindTpye)type retryCount:(int)retryCount keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(prvisionFailCallBack)fail;
+
 /// Set element count of current provision device.(记录当前provision的设备的element个数)
 - (void)setElementCount:(UInt8)ele_count;
 
 /// Get address of current provision device.(获取当前provision的设备的短地址)
 - (UInt16)getCurrentProvisionAddress;
+/// Set address of current provision device.(设置当前provision的设备的短地址)
+- (void)setCurrentProvisionAddress:(UInt16)address;
 
 /// Get current key bind type.(获取当前的添加模式)
 - (KeyBindTpye)getCurrentKeyBindType;
@@ -191,10 +205,37 @@
 
 - (void)stopCheckOfflineTimerWithAddress:(NSNumber *)address;
 
+#pragma mark - private api
+- (void)checkAndSendNextCommandsInCache;
+
+#pragma mark - new api since v3.1.4
+
 ///set filter
-- (void)setFilterWithLocationAddress:(UInt16)locationAddress complete:(bleSetFilterResponseCallBack)complete fail:(bleSetFilterFailCallBack)fail;
+- (void)setFilterWithLocationAddress:(UInt16)locationAddress timeout:(NSTimeInterval)timeout complete:(bleSetFilterResponseCallBack)complete fail:(bleSetFilterFailCallBack)fail;
+- (void)cancelSetFilterWithLocationAddressTimeout;
+
 
 /// callback one time when SDK is not bust.
 - (void)commondAfterNoBusy:(bleCompleteCallBack)complete;
+
+
+/// clean cache before add device.
+- (void)cleanAddDeviceCache;
+
+
+/// send sig model ini command or send vendor model ini command.
+/// @param command config of sig model command or vendor model command. sig model struct: mesh_bulk_cmd_par_t, vendor model struct: mesh_vendor_par_ini_t. sig model config: netkeyIndex, appkeyIndex, retryCount, responseMax, address, opcode, commandData.
+/// @param responseCallback callback when SDK receive response data of this command. And this callback will remove from SDK when all responses had received or command had timeout. Attention: this callback will not callback forever when command.responseOpcode is 0.
+- (void)sendIniCommand:(IniCommandModel *)command responseCallback:(responseModelCallBack)responseCallback;
+
+
+/// clean commands cache, because SDK may has many commands in queue when app change mesh.
+- (void)cleanCommandsCache;
+
+
+/// response opcode, eg://SigOpCode_configAppKeyGet:0x0180->SigOpCode_configAppKeyList:0x0280
+/// @param sendOpcode opcode of send command.
+- (int)getResponseOpcodeWithSendOpcode:(int)sendOpcode;
+
 
 @end

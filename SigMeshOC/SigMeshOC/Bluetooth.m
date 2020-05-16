@@ -30,6 +30,7 @@
 #import "Bluetooth.h"
 #import "XHelp.h"
 #import "LibHandle.h"
+#import "OpenSSLHelper.h"
 
 @interface Bluetooth()
 //current provision node address
@@ -63,6 +64,9 @@
 @property (nonatomic,assign) BOOL isScanDelaying;
 @property (nonatomic,assign) BOOL isScanEnoughTime;//if scan node that has macAddress, handle it; if scan node that has not macAddress, delay kScanMacAddressDelay.
 
+// add since v3.2.0
+@property (nonatomic,strong) NSMutableArray <IniCommandModel *>*iniCommands;
+
 @end
 
 //记录上一次发送非OTA包的时间
@@ -86,6 +90,7 @@ static NSTimeInterval commentTime;
         shareBLE.currentAddType = KeyBindTpye_Normal;
         shareBLE.isAutoAddDevice = NO;
         shareBLE.isInitFinish = NO;
+        shareBLE.iniCommands = [[NSMutableArray alloc] init];
         commentTime = 0;
 
         [shareBLE createThread];
@@ -111,6 +116,7 @@ static NSTimeInterval commentTime;
 
 #pragma mark - CBCentralManagerDelegate
 - (void)centralManagerDidUpdateState:(CBCentralManager *)central{
+    TeLog(@"当前手机蓝牙状态为%@",[self getStateString:central]);
     if (self.manager.state == CBCentralManagerStatePoweredOn) {
         if (_isInitFinish) {
             [self startAutoConnect];
@@ -169,6 +175,12 @@ static NSTimeInterval commentTime;
             if (!isExist) {
                 return;
             }
+            if (scanRspModel.address == 0) {
+                SigEncryptedModel *encryptedModel = [SigDataSource.share getSigEncryptedModelWithPeripheralUUID:peripheral.identifier.UUIDString];
+                if (encryptedModel && encryptedModel.address) {
+                    scanRspModel.address = encryptedModel.address;
+                }
+            }
         }
         NSOperationQueue *oprationQueue = [[NSOperationQueue alloc] init];
         [oprationQueue addOperationWithBlock:^{
@@ -178,7 +190,7 @@ static NSTimeInterval commentTime;
 
         [self.store saveToLocal:peripheral];
         if (provisionAble) {
-            kEndTimer(_provisionScanTimer);
+            kEndTimer(self.provisionScanTimer);
             if (self.bleScanNewDeviceCallBack) {
                 self.bleScanNewDeviceCallBack(peripheral, YES);
             }
@@ -190,10 +202,11 @@ static NSTimeInterval commentTime;
                     }
                 }else if (self.state == StateNormal){
                     [self.store addRSSIWithPeripheral:peripheral RSSI:RSSI.intValue];
-                    if (RSSI.intValue > -60) {
+                    if (RSSI.intValue > -50) {
+                        [self rssiHightest];
+                    } else {
                         dispatch_async(dispatch_get_main_queue(), ^{
-                            [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(rssiHightest) object:nil];
-                            [self rssiHightest];
+                            [self performSelector:@selector(rssiHightest) withObject:nil afterDelay:kScanForHightestRSSIInterval];
                         });
                     }
                 }
@@ -251,6 +264,7 @@ static NSTimeInterval commentTime;
             self.store.PROXY_InCharacteristic = c;
         }else if ([c.UUID.UUIDString isEqualToString:kOnlineStatusCharacteristicsID]){
             self.store.OnlineStatusCharacteristic = c;
+            TeLog(@"当前读取服务发现OnlineStatusCharacteristic！");
         }else if ([c.UUID.UUIDString isEqualToString:kMeshOTA_CharacteristicsID]){
             self.store.MeshOTACharacteristic = c;
         }
@@ -288,7 +302,11 @@ static NSTimeInterval commentTime;
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error{
     if ([characteristic.UUID.UUIDString isEqualToString:kPROXY_Out_CharacteristicsID] || [characteristic.UUID.UUIDString isEqualToString:kPBGATT_Out_CharacteristicsID]) {
-        TeLog(@"app didUpdateValueFor:%@",characteristic.value);
+        if ([characteristic.UUID.UUIDString isEqualToString:kPROXY_Out_CharacteristicsID]) {
+            TeLog(@"<--- from:PROXY, length:%d",characteristic.value.length);
+        } else {
+            TeLog(@"<--- from:GATT, length:%d, value:%@",characteristic.value.length,[LibTools convertDataToHexStr:characteristic.value]);
+        }
         dealNotifyData(characteristic.value);
     }
     if ([characteristic.UUID.UUIDString isEqualToString:kOTA_CharacteristicsID]) {
@@ -361,6 +379,33 @@ static NSTimeInterval commentTime;
 }
 
 #pragma mark - API Private
+- (NSString *)getStateString:(CBCentralManager *)central {
+    NSString *tem = @"";
+    switch (central.state) {
+        case CBManagerStateUnknown:
+            tem = @"CBManagerStateUnknown";
+            break;
+        case CBManagerStateResetting:
+            tem = @"CBManagerStateResetting";
+            break;
+        case CBManagerStateUnsupported:
+            tem = @"CBManagerStateUnsupported";
+            break;
+        case CBManagerStateUnauthorized:
+            tem = @"CBManagerStateUnauthorized";
+            break;
+        case CBManagerStatePoweredOff:
+            tem = @"CBManagerStatePoweredOff";
+            break;
+        case CBManagerStatePoweredOn:
+            tem = @"CBManagerStatePoweredOn";
+            break;
+        default:
+            break;
+    }
+    return tem;;
+}
+
 - (void)disconnectOrConnectFailDo:(CBPeripheral *)peripheral{
     [self.store ressetParameters];
     if (self.bleDisconnectOrConnectFailCallBack) {
@@ -382,7 +427,7 @@ static NSTimeInterval commentTime;
     //change since v2.8.2
     __block int responseCount = 0;
     __weak typeof(self) weakSelf = self;
-    [self setFilterWithLocationAddress:SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress complete:^{
+    [self setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address timeout:kSetFilterTimeout complete:^{
         responseCount ++;
         if (responseCount == kSetFilterPacketCount) {
             [weakSelf cancelSetFilterWithLocationAddressTimeout];
@@ -391,7 +436,6 @@ static NSTimeInterval commentTime;
             if (SigDataSource.share.hasNodeExistTimeModelID) {
                 [weakSelf.commandHandle statusNowTime];
             }
-            [weakSelf cancelSetFilterWithLocationAddressTimeout];
             [weakSelf delayWriteForProvision];
             weakSelf.setFilterResponseCallBack = nil;
         }
@@ -416,6 +460,9 @@ static NSTimeInterval commentTime;
 }
 
 - (void)rssiHightest{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(rssiHightest) object:nil];
+    });
     [self stopScan];
     if (self.bleScanNewDeviceCallBack) {
         CBPeripheral *peripheral = [self.store hightestRSSI];
@@ -429,7 +476,7 @@ static NSTimeInterval commentTime;
 
 - (void)startAutoConnect {
     [self stopAutoConnect];
-    if (SigDataSource.share.nodes.count > 1) {
+    if (SigDataSource.share.curNodes.count > 0) {
         self.autoConnectScanTimer = [NSTimer scheduledTimerWithTimeInterval:kScanForAutoConnectInterval target:self selector:@selector(scanForAutoConnect) userInfo:nil repeats:YES];
         [[NSRunLoop currentRunLoop] addTimer:self.autoConnectScanTimer forMode:NSRunLoopCommonModes];
         [self.autoConnectScanTimer fire];
@@ -500,6 +547,23 @@ static NSTimeInterval commentTime;
     return self.store.peripheral;
 }
 
+/// Get CBCharacteristic with CharacteristicUUID.(通过特征UUID获取设备的特征)
+- (CBCharacteristic *)getCharacteristicWithCharacteristicUUID:(NSString *)characteristicUUID ofPeripheral:(CBPeripheral *)peripheral {
+    CBCharacteristic *c = nil;
+    for (CBService *s in peripheral.services) {
+        for (CBCharacteristic *tem in s.characteristics) {
+            if ([tem.UUID.UUIDString isEqualToString:characteristicUUID]) {
+                c = tem;
+                break;
+            }
+        }
+        if (c != nil) {
+            break;
+        }
+    }
+    return c;
+}
+
 /// Set element count of current provision device.(记录当前provision的设备的element个数)
 - (void)setElementCount:(UInt8)ele_count{
     self.currentElementCount = ele_count;
@@ -508,6 +572,11 @@ static NSTimeInterval commentTime;
 /// Get address of current provision device.(获取当前provision的设备的短地址)
 - (UInt16)getCurrentProvisionAddress{
     return _currentProvisionIndex;
+}
+
+/// Set address of current provision device.(设置当前provision的设备的短地址)
+- (void)setCurrentProvisionAddress:(UInt16)address {
+    _currentProvisionIndex = address;
 }
 
 /// Get current key bind type.(获取当前的添加模式)
@@ -555,6 +624,7 @@ static NSTimeInterval commentTime;
                 //response of access_cmd_onoff_get()
             case OpcodeOnOffStatusResponse:
             {
+                TeLog(@"OpcodeOnOffStatusResponse,address=0x%x,pointState=%d",m.address,m.pointState);
                 tempResponseModel.currentState = m.currentState;
                 tempResponseModel.pointState = m.pointState;
                 if (self.commandHandle.switchOnOffCallBack) {
@@ -568,6 +638,10 @@ static NSTimeInterval commentTime;
                     dispatch_async(dispatch_get_main_queue(), ^{
                         self.commandHandle.getOnlineStatusCallBack(tempResponseModel);
                     });
+                }
+                SigNodeModel *device = [SigDataSource.share getNodeWithAddress:m.address];
+                if (device) {
+                    [self startCheckOfflineTimerWithAddress:@(device.address)];
                 }
             }
                 break;
@@ -782,13 +856,29 @@ static NSTimeInterval commentTime;
             }
                 break;
             default:
-                NSLog(@"that response data isn't anasisly，OPCode:%d",tempResponseModel.opcode);
-                saveLogData([NSString stringWithFormat:@"that response data isn't anasisly，OPCode:%d",tempResponseModel.opcode]);
+                TeLog(@"%@",[NSString stringWithFormat:@"that response data isn't anasisly，OPCode:%d",tempResponseModel.opcode]);
                 break;
         }
         //Attention: all responseModel need update to SigDataSource. eg: group onoff response data will update to SigDataSource in the following code.
         if (!hasUpdateResponse) {
             [[SigDataSource share] updateResponseModelWithResponse:tempResponseModel];
+        }
+        if (self.iniCommands && self.iniCommands.count > 0) {
+            IniCommandModel *command = self.iniCommands.firstObject;
+            int responseOpcode = 0;
+            if (command.vendorId == 0) {
+                //sig model
+                responseOpcode = [self getResponseOpcodeWithSendOpcode:command.opcode];
+            } else {
+                //vendor model
+                responseOpcode = command.responseOpcode;
+            }
+            if (responseOpcode == tempResponseModel.opcode) {
+                command.hasReceiveResponse = YES;
+                if (command.responseCallBack) {
+                    command.responseCallBack(tempResponseModel);
+                }
+            }
         }
      }];
 }
@@ -890,19 +980,21 @@ static NSTimeInterval commentTime;
 
     if (self.addDevice_prvisionSuccessCallBack != nil && self.addDevice_keyBindSuccessCallBack != nil) {
         //add device process
-        if (self.isAutoAddDevice) {
-            [self scanNextDeviceForProvision];
-        } else {
-            if (self.prvisionFinishCallBack) {
-                self.prvisionFinishCallBack();
-                self.currentAddType = KeyBindTpye_Normal;
+        // delay 200ms for proxy packet
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (weakSelf.isAutoAddDevice) {
+                [weakSelf scanNextDeviceForProvision];
+            } else {
+                if (weakSelf.prvisionFinishCallBack) {
+                    weakSelf.prvisionFinishCallBack();
+                    weakSelf.currentAddType = KeyBindTpye_Normal;
+                }
             }
-            //只添加一个，不需要断开
-//            [self scanForProvisionDeviceTimeOut];
-        }
+        });
     } else {
         //reKeyBind process
-        [self cancelConnection:self.store.peripheral complete:nil];
+//        [self cancelConnection:self.store.peripheral complete:nil];
         [self cleanReKeyBindCallback];
     }
 }
@@ -926,8 +1018,10 @@ static NSTimeInterval commentTime;
 
 - (void)scanForProvisionDeviceTimeOut{
     TeLog(@"clean block");
-    [self stopScan];
-    [self cancelAllConnecttionWithComplete:nil];
+    if (!self.isRemoteAdd) {
+        [self stopScan];
+        [self cancelAllConnecttionWithComplete:nil];
+    }
 
     self.state = StateNormal;
     if (self.prvisionFinishCallBack) {
@@ -974,8 +1068,6 @@ static NSTimeInterval commentTime;
         if (device.hasPublishFunction && device.hasOpenPublish) {
             TeLog(@"setDeviceOffline:0x%02X",adr);
             device.state = DeviceStateOutOfLine;
-            NSString *str = [NSString stringWithFormat:@"======================device offline:0x%02X======================",adr];
-            saveLogData(str);
             if (self.commandHandle.checkOfflineCallBack) {
                 self.commandHandle.checkOfflineCallBack(@(adr));
             }
@@ -1003,20 +1095,25 @@ static NSTimeInterval commentTime;
 
 #pragma mark - API Public
 - (void)startScan{
-    _isScanEnoughTime = NO;
-    _isScanDelaying = NO;
-    if (self.state != normal) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(rssiHightest) object:nil];
-        });
-    }
-    if (self.manager.state == CBCentralManagerStateUnknown) {
-        TeLog(@"startScan afterDelay:0.1");
-        [self performSelector:@selector(startScan) withObject:nil afterDelay:0.1];
-    }else if (self.manager.state == CBCentralManagerStatePoweredOn){
-        TeLog(@"scanForPeripheralsWithServices");
-        [self.manager scanForPeripheralsWithServices:@[[CBUUID UUIDWithString:kPBGATTService],[CBUUID UUIDWithString:kPROXYService]] options:@{CBCentralManagerScanOptionAllowDuplicatesKey:@YES}];
-    }
+    __weak typeof(self) weakSelf = self;
+    [self cancelAllConnecttionWithComplete:^{
+        weakSelf.isScanEnoughTime = NO;
+        weakSelf.isScanDelaying = NO;
+        if (weakSelf.state != normal) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [NSObject cancelPreviousPerformRequestsWithTarget:weakSelf selector:@selector(rssiHightest) object:nil];
+            });
+        }
+        if (weakSelf.manager.state == CBCentralManagerStateUnknown) {
+            TeLog(@"startScan afterDelay:0.1");
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [weakSelf performSelector:@selector(startScan) withObject:nil afterDelay:0.1];
+            });
+        }else if (weakSelf.manager.state == CBCentralManagerStatePoweredOn){
+            TeLog(@"scanForPeripheralsWithServices");
+            [weakSelf.manager scanForPeripheralsWithServices:@[[CBUUID UUIDWithString:kPBGATTService],[CBUUID UUIDWithString:kPROXYService]] options:@{CBCentralManagerScanOptionAllowDuplicatesKey:@YES}];
+        }
+    }];
 }
 
 - (void)stopScan{
@@ -1032,8 +1129,8 @@ static NSTimeInterval commentTime;
 }
 
 - (BOOL)isConnected{
-    if (self.store.peripheral) {
-        return self.store.peripheral.state == CBPeripheralStateConnected ? YES : NO;
+    if (self.store.peripheral && self.store.peripheral.state == CBPeripheralStateConnected && [self getCharacteristicWithCharacteristicUUID:kPROXY_Out_CharacteristicsID ofPeripheral:self.store.peripheral] != nil) {
+        return YES;
     }
     return NO;
 }
@@ -1136,28 +1233,35 @@ static NSTimeInterval commentTime;
 
 - (void)cancelAllConnecttionWithComplete:(bleCancelConnectCallBack)complete{
 //    TeLog(@"");
-    for (CBPeripheral *p in self.store.scanedPeripherals) {
-        dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-        [self cancelConnection:p complete:^{
-            dispatch_semaphore_signal(semaphore);
-        }];
-        //Most provide 4 seconds to disconnect bluetooth connection
-        dispatch_semaphore_wait(semaphore, 4);
-    }
-    if (self.store.peripheral) {
-        __weak typeof(self) weakSelf = self;
-        [self cancelConnection:self.store.peripheral complete:^{
-            [weakSelf.store ressetParameters];
-            weakSelf.store.peripheral = nil;
+    __weak typeof(self) weakSelf = self;
+    NSOperationQueue *oprationQueue = [[NSOperationQueue alloc] init];
+    [oprationQueue addOperationWithBlock:^{
+        //这个block语句块在子线程中执行
+        NSLog(@"oprationQueue");
+        for (CBPeripheral *p in weakSelf.store.scanedPeripherals) {
+            if (p.state == CBPeripheralStateConnected || p.state == CBPeripheralStateConnecting) {
+                dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+                [weakSelf cancelConnection:p complete:^{
+                    dispatch_semaphore_signal(semaphore);
+                }];
+                //Most provide 4 seconds to disconnect bluetooth connection
+                dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 4.0));
+            }
+        }
+        if (weakSelf.store.peripheral) {
+            [weakSelf cancelConnection:weakSelf.store.peripheral complete:^{
+                [weakSelf.store ressetParameters];
+                weakSelf.store.peripheral = nil;
+                if (complete) {
+                    complete();
+                }
+            }];
+        }else{
             if (complete) {
                 complete();
             }
-        }];
-    }else{
-        if (complete) {
-            complete();
         }
-    }
+    }];
 }
 
 - (CBPeripheral *)getPeripheralWithUUID:(NSString *)uuidString{
@@ -1199,14 +1303,7 @@ static NSTimeInterval commentTime;
             self.workWithPeripheralCallBack(self.store.peripheral.identifier.UUIDString);
         }
     } else {
-        __weak typeof(self) weakSelf = self;
-        [self cancelAllConnecttionWithComplete:^{
-            [weakSelf startScan];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [NSObject cancelPreviousPerformRequestsWithTarget:weakSelf selector:@selector(rssiHightest) object:nil];
-                [weakSelf performSelector:@selector(rssiHightest) withObject:nil afterDelay:kScanForHightestRSSIInterval];
-            });
-        }];
+        [self startScan];
     }
 }
 
@@ -1218,7 +1315,7 @@ static NSTimeInterval commentTime;
  @param netkeyIndex netkey index
  @param unicastAddress address of remote device
  @param uuid uuid of remote device
- @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Quick是快速添加模式
+ @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Fast是快速添加模式
  @param isAuto 添加完成一个设备后，是否自动扫描添加下一个设备
  @param provisionSuccess call back when a device provision successful
  @param keyBindSuccess call back when a device keybind successful
@@ -1226,6 +1323,7 @@ static NSTimeInterval commentTime;
  @param finish finish add the available devices list to the mesh
  */
 - (void)startAddDeviceWithNextAddress:(UInt16)address networkKey:(NSData *)networkKey netkeyIndex:(UInt16)netkeyIndex unicastAddress:(UInt16)unicastAddress uuid:(NSData *)uuid keyBindType:(KeyBindTpye)type isAutoAddNextDevice:(BOOL)isAuto provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(prvisionFailCallBack)fail finish:(prvisionFinishCallBack)finish{
+    self.commandHandle.isSingleProvision = NO;
     self.unicastAddress = unicastAddress;
     self.uuid = uuid;
     self.state = StateAddDevice_provision;
@@ -1244,7 +1342,7 @@ static NSTimeInterval commentTime;
     [self blockState];
     if (uuid == nil) {
         //normal add
-        if (self.isConnected) {
+        if (self.store.peripheral && self.store.peripheral.state == CBPeripheralStateConnected) {
             [self provisionAction];
             TeLog(@"do provisioning");
         } else {
@@ -1268,13 +1366,14 @@ static NSTimeInterval commentTime;
  @param networkKey network key, which provsion need, you can see it as password of the mesh
  @param netkeyIndex netkey index
  @param peripheral device need add to mesh
- @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Quick是快速添加模式
+ @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Fast是快速添加模式
  @param provisionSuccess call back when a device provision successful
  @param keyBindSuccess call back when a device keybind successful
  @param fail call back when a device add to the mesh fail
  @param finish finish add the available devices list to the mesh
  */
 - (void)startAddDeviceWithNextAddress:(UInt16)address networkKey:(NSData *)networkKey netkeyIndex:(UInt16)netkeyIndex peripheral:(CBPeripheral *)peripheral keyBindType:(KeyBindTpye)type provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(prvisionFailCallBack)fail finish:(prvisionFinishCallBack)finish{
+    self.commandHandle.isSingleProvision = NO;
     self.state = StateAddDevice_provision;
     self.currentAddType = type;
     self.isAutoAddDevice = NO;
@@ -1313,14 +1412,37 @@ static NSTimeInterval commentTime;
     if (type == KeyBindTpye_Normal) {
         //normal keyBind
         doKeyBind(address,appkey,appkeyIndex,netkeyIndex,0);
-    }else if (type == KeyBindTpye_Quick) {
+    }else if (type == KeyBindTpye_Fast) {
+        //fast bind
+        doKeyBind(address,appkey,appkeyIndex,netkeyIndex,1);
+    }
+}
+
+/// Do key bound(纯keyBind接口，添加重试次数)
+- (void)keyBind:(u16)address appkey:(NSData *)appkey appkeyIndex:(u16)appkeyIndex netkeyIndex:(u16)netkeyIndex keyBindType:(KeyBindTpye)type retryCount:(int)retryCount keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(prvisionFailCallBack)fail{
+    _currentProvisionIndex = address;
+    self.state = StateAddDevice_keyBind;
+    self.currentAddType = type;
+    self.isAutoAddDevice = NO;
+
+    self.addDevice_keyBindSuccessCallBack = keyBindSuccess;
+    self.prvisionFailCallBack = fail;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(reKeyBindTimeout) object:nil];
+        [self performSelector:@selector(reKeyBindTimeout) withObject:nil afterDelay:kReKeyBindTimeout];
+    });
+    self.connectWithUUIDCount = retryCount;
+    if (type == KeyBindTpye_Normal) {
+        //normal keyBind
+        doKeyBind(address,appkey,appkeyIndex,netkeyIndex,0);
+    }else if (type == KeyBindTpye_Fast) {
         //fast bind
         doKeyBind(address,appkey,appkeyIndex,netkeyIndex,1);
     }
 }
 
 - (void)reKeyBindTimeout{
-    if (self.prvisionFailCallBack) {
+    if (self.prvisionFailCallBack && self.currentPeripheral) {
         self.prvisionFailCallBack(self.currentPeripheral.identifier.UUIDString);
     }
     [self cleanReKeyBindCallback];
@@ -1402,6 +1524,11 @@ static NSTimeInterval commentTime;
     self.state = StateAddDevice_provision;
 }
 
+- (BOOL)isProvisioning {
+    TeLog(@"");
+    return self.state == StateAddDevice_provision;
+}
+
 - (void)setKeyBindState{
     TeLog(@"");
     self.connectWithUUIDCount = 3;
@@ -1424,7 +1551,11 @@ static NSTimeInterval commentTime;
     
     //Attention: first, set connectWithUUIDCount to 3; second, set state to StateAddDevice_keyBind; third, disconnect peripheral.
     [self setKeyBindState];
-    [self cancelConnection:peripheral complete:nil];
+    if (peripheral && peripheral.state == CBPeripheralStateConnected && [self getCharacteristicWithCharacteristicUUID:kPROXY_Out_CharacteristicsID ofPeripheral:peripheral] != nil) {
+        [self delayForSetFilterBeforKeyBind];
+    } else {
+        [self cancelConnection:peripheral complete:nil];
+    }
 }
 
 ///delay 500ms -> set_filter_init -> delay 500ms -> keyBind
@@ -1451,7 +1582,7 @@ static NSTimeInterval commentTime;
         //change since v2.8.2
         __block int responseCount = 0;
         __weak typeof(self) weakSelf = self;
-        [self setFilterWithLocationAddress:SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress complete:^{
+        [self setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address timeout:kSetFilterTimeout complete:^{
             responseCount ++;
             if (responseCount == kSetFilterPacketCount) {
                 set_pair_login_ok(1);
@@ -1480,7 +1611,7 @@ static NSTimeInterval commentTime;
 - (void)keybindAction{
     if (self.currentAddType == KeyBindTpye_Normal) {
         doKeyBind(self.currentProvisionIndex, SigDataSource.share.curAppKey,SigDataSource.share.curAppkeyModel.index,SigDataSource.share.curNetkeyModel.index,0);
-    }else if (self.currentAddType == KeyBindTpye_Quick) {
+    }else if (self.currentAddType == KeyBindTpye_Fast) {
         SigScanRspModel *scanModel = [SigDataSource.share getScanRspModelWithUUID:self.currentPeripheral.identifier.UUIDString];
         DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanModel.CID PID:scanModel.PID];
         if (scanModel && deviceType) {
@@ -1500,9 +1631,24 @@ static NSTimeInterval commentTime;
 }
 
 - (void)anasislyOnlineStatueDataFromUUID:(NSData *)data{
-    u8 *byte = (u8 *)data.bytes;
-    online_st_gatt_dec(byte, data.length);
+    //使用lib提供的方法进行解密
+//    NSLog(@"onlineStatus解密前=%@",[LibTools convertDataToHexStr:data]);
+//    u8 *byte = (u8 *)data.bytes;
+//    online_st_gatt_dec(byte, data.length);
+//    NSLog(@"onlineStatus解密后=%@",[LibTools convertDataToHexStr:[NSData dataWithBytes:byte length:data.length]]);
     
+    //使用OC提供的方法进行解密
+    NSLog(@"onlineStatus解密前=%@",[LibTools convertDataToHexStr:data]);
+    NSData *beaconKey = SigDataSource.share.curNetkeyModel.keys.beaconKey;
+    UInt8 *beaconKeyByte = (UInt8 *)beaconKey.bytes;
+    UInt8 *byte = (UInt8 *)data.bytes;
+    UInt8 allLen = data.length;
+    UInt8 ivLen = 4;
+    UInt8 micLen = 2;
+    UInt8 dataLen = allLen - ivLen - micLen;
+    [OpenSSLHelper.share aesAttDecryptionPacketOnlineStatusWithNetworkBeaconKey:beaconKeyByte iv:byte ivLen:ivLen mic:byte + ivLen + dataLen micLen:micLen ps:byte + ivLen psLen:dataLen];
+    NSLog(@"onlineStatus解密后=%@",[LibTools convertDataToHexStr:[NSData dataWithBytes:byte length:data.length]]);
+
     UInt8 opcodeInt=0,statusDataLength=6,statusCount=0;
     memcpy(&opcodeInt, byte, 1);
     memcpy(&statusDataLength, byte + 1, 1);
@@ -1557,14 +1703,14 @@ static NSTimeInterval commentTime;
 }
 
 ///set filter
-- (void)setFilterWithLocationAddress:(UInt16)locationAddress complete:(bleSetFilterResponseCallBack)complete fail:(bleSetFilterFailCallBack)fail {
+- (void)setFilterWithLocationAddress:(UInt16)locationAddress timeout:(NSTimeInterval)timeout complete:(bleSetFilterResponseCallBack)complete fail:(bleSetFilterFailCallBack)fail {
     TeLog(@"");
     self.setFilterResponseCallBack = complete;
     self.setFilterFailCallBack = fail;
     mesh_proxy_set_filter_init((u16)locationAddress);
     dispatch_async(dispatch_get_main_queue(), ^{
         [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(setFilterWithLocationAddressTimeout) object:nil];
-        [self performSelector:@selector(setFilterWithLocationAddressTimeout) withObject:nil afterDelay:kSetFilterTimeout];
+        [self performSelector:@selector(setFilterWithLocationAddressTimeout) withObject:nil afterDelay:timeout];
     });
 }
 
@@ -1605,6 +1751,415 @@ static NSTimeInterval commentTime;
             self.noBusyCallBack = nil;
         }
     }
+}
+
+/// clean cache before add device.
+- (void)cleanAddDeviceCache {
+    self.commandHandle.isSingleProvision = NO;
+    self.commandHandle.singlePrvisionSuccessCallBack = nil;
+    self.commandHandle.singlePrvisionFailCallBack = nil;
+    self.commandHandle.singleKeyBindSuccessCallBack = nil;
+    self.commandHandle.singleKeyBindFailCallBack = nil;
+    self.commandHandle.staticOOBData = nil;
+    self.commandHandle.fastKeybindProductID = 0;
+    self.commandHandle.fastKeybindCpsData = nil;
+    self.isAutoAddDevice = NO;
+    kEndTimer(self.provisionScanTimer);
+    self.addDevice_prvisionSuccessCallBack = nil;
+    self.addDevice_keyBindSuccessCallBack = nil;
+    self.prvisionFailCallBack = nil;
+    self.prvisionFinishCallBack = nil;
+}
+
+/// send sig model ini command or send vendor model ini command.
+/// @param command config of sig model command or vendor model command. sig model struct: mesh_bulk_cmd_par_t, vendor model struct: mesh_vendor_par_ini_t. sig model config: netkeyIndex, appkeyIndex, retryCount, responseMax, address, opcode, commandData.
+/// @param responseCallback callback when SDK receive response data of this command. And this callback will remove from SDK when all responses had received or command had timeout. Attention: this callback will not callback forever when command.responseOpcode is 0.
+- (void)sendIniCommand:(IniCommandModel *)command responseCallback:(responseModelCallBack)responseCallback {
+    //先清除responseMax为零的缓存指令。
+    if (self.iniCommands && self.iniCommands.count > 0) {
+        NSArray *array = [NSArray arrayWithArray:self.iniCommands];
+        for (IniCommandModel *model in array) {
+            if (model.responseMax == 0 && (model.responseOpcode != 0 || [self getResponseOpcodeWithSendOpcode:model.opcode] != 0)) {
+                [self.iniCommands removeObject:model];
+            }
+        }
+    }
+    if (![self.iniCommands containsObject:command]) {
+//        if ((command.vendorId != 0 && command.responseOpcode != 0) || command.responseMax > 0 || (command.vendorId == 0 && [self getResponseOpcodeWithSendOpcode:command.opcode] != 0)) {
+            command.responseCallBack = responseCallback;
+            [self.iniCommands addObject:command];
+//        }
+        if (self.iniCommands.count <= 2) {
+            __weak typeof(self) weakSelf = self;
+            [self commondAfterNoBusy:^{
+                [weakSelf sendCommand:command];
+                if (command.responseMax == 0 && ((command.responseOpcode == 0 && command.vendorId != 0) || ([weakSelf getResponseOpcodeWithSendOpcode:command.opcode] == 0 && command.vendorId == 0))) {
+                    [weakSelf.iniCommands removeObject:command];
+                    [weakSelf checkAndSendNextCommandsInCache];
+                }
+            }];
+        }
+    }
+}
+
+/// clean commands cache, because SDK may has many commands in queue when app change mesh.
+- (void)cleanCommandsCache {
+    [self.iniCommands removeAllObjects];
+}
+
+- (void)checkAndSendNextCommandsInCache {
+    if (self.iniCommands && self.iniCommands.count > 0) {
+        IniCommandModel *lastCom = self.iniCommands.firstObject;
+        if (lastCom.responseMax != 0) {
+            [self.iniCommands removeObject:lastCom];
+            if (lastCom && !lastCom.hasReceiveResponse && lastCom.responseCallBack) {
+                lastCom.responseCallBack(nil);
+            }
+        }
+        
+        if (self.iniCommands.count > 0) {
+            IniCommandModel *command = nil;
+            for (IniCommandModel *tem in self.iniCommands) {
+                if (!tem.hasReceiveResponse && (tem.responseMax != 0 || (tem.responseMax == 0 && ((tem.responseOpcode == 0 && tem.vendorId != 0) || ([self getResponseOpcodeWithSendOpcode:tem.opcode] == 0 && tem.vendorId == 0))))) {
+                    command = tem;
+                    break;
+                }
+            }
+            if (command) {
+                __weak typeof(self) weakSelf = self;
+                [self commondAfterNoBusy:^{
+                    [weakSelf sendCommand:command];
+                    if (command.responseMax == 0 && ((command.responseOpcode == 0 && command.vendorId != 0) || ([weakSelf getResponseOpcodeWithSendOpcode:command.opcode] == 0 && command.vendorId == 0))) {
+                        [weakSelf.iniCommands removeObject:command];
+                        [weakSelf checkAndSendNextCommandsInCache];
+                    }
+                }];
+            }
+        }
+    }
+}
+
+- (void)sendCommand:(IniCommandModel *)command {
+    NSMutableData *mData = [NSMutableData data];
+    NSData *data = [LibTools nsstringToHex:@"a3ff"];// flag ini from app.
+    [mData appendData:data];
+    if (command.vendorId == 0) {
+        //sig model ini command
+        mesh_bulk_cmd_par_t com = {0,0,0,0,0,0,0};
+        com.nk_idx = command.netkeyIndex;
+        com.ak_idx = command.appkeyIndex;
+        com.retry_cnt = command.retryCount;
+        com.rsp_max = command.responseMax;
+        com.adr_dst = command.address;
+        com.op = command.opcode & 0xFF;
+        UInt8 heightOpcode = (command.opcode >> 8) & 0xFF;
+        NSMutableData *temData = [NSMutableData dataWithBytes:&heightOpcode length:1];
+        [temData appendData:command.commandData];
+        Byte *par = (Byte *)temData.bytes;
+        memcpy(com.par, par, temData.length);
+        data = [NSData dataWithBytes:&com length:8+1+temData.length];
+    } else {
+        //vendor model ini command
+        mesh_bulk_cmd_par_t com = {0,0,0,0,0,0,0};
+        com.nk_idx = command.netkeyIndex;
+        com.ak_idx = command.appkeyIndex;
+        com.retry_cnt = command.retryCount;
+        com.rsp_max = command.responseMax;
+        com.adr_dst = command.address;
+
+        mesh_vendor_par_ini_t vendorCom = {0,0,0,0,0};
+        vendorCom.op = command.opcode & 0xFF;
+        vendorCom.vendor_id = command.vendorId;
+        vendorCom.op_rsp = command.responseOpcode;
+        if (command.needTid) {
+            vendorCom.tid_pos = command.commandData.length + 1;
+            UInt8 uint8Tid = command.tid;
+            NSMutableData *temData = [NSMutableData dataWithData:command.commandData];
+            [temData appendData:[NSData dataWithBytes:&uint8Tid length:1]];
+            Byte *par = (Byte *)temData.bytes;
+            memcpy(vendorCom.par, par, temData.length);
+            memcpy(&com.op, &vendorCom.op, 5+temData.length);
+            data = [NSData dataWithBytes:&com length:8+5+temData.length];
+        } else {
+            vendorCom.tid_pos = 0;
+            Byte *par = (Byte *)command.commandData.bytes;
+            memcpy(vendorCom.par, par, command.commandData.length);
+            memcpy(&com.op, &vendorCom.op, 5+command.commandData.length);
+            data = [NSData dataWithBytes:&com length:8+5+command.commandData.length];
+        }
+    }
+    [mData appendData:data];
+    Byte *byte = (Byte *)mData.bytes;
+    u32 length = (u32)mData.length;
+    SendOpByINI(byte, length);
+}
+
+//SigOpCode_configAppKeyGet:0x0180->SigOpCode_configAppKeyList:0x0280
+- (int)getResponseOpcodeWithSendOpcode:(int)sendOpcode {
+    UInt16 op = ((sendOpcode & 0xFF)<<8)|((sendOpcode>>8)&0xFF);
+    int responseOpcode = 0;
+    switch (op) {
+        case SigOpCode_configAppKeyAdd:
+        case SigOpCode_configAppKeyUpdate:
+        case SigOpCode_configAppKeyDelete:
+            responseOpcode = SigOpCode_configAppKeyStatus;
+            break;
+        case SigOpCode_configAppKeyGet:
+            responseOpcode = SigOpCode_configAppKeyList;
+            break;
+        case SigOpCode_configBeaconGet:
+        case SigOpCode_configBeaconSet:
+            responseOpcode = SigOpCode_configBeaconStatus;
+            break;
+        case SigOpCode_configCompositionDataGet:
+            responseOpcode = SigOpCode_configCompositionDataStatus;
+            break;
+        case SigOpCode_configDefaultTtlGet:
+        case SigOpCode_configDefaultTtlSet:
+            responseOpcode = SigOpCode_configDefaultTtlStatus;
+            break;
+        case SigOpCode_configFriendGet:
+        case SigOpCode_configFriendSet:
+            responseOpcode = SigOpCode_configFriendStatus;
+            break;
+        case SigOpCode_configGATTProxyGet:
+        case SigOpCode_configGATTProxySet:
+            responseOpcode = SigOpCode_configGATTProxyStatus;
+            break;
+        case SigOpCode_configModelPublicationGet:
+        case SigOpCode_configModelPublicationSet:
+        case SigOpCode_configModelPublicationVirtualAddressSet:
+            responseOpcode = SigOpCode_configModelPublicationStatus;
+            break;
+        case SigOpCode_configModelSubscriptionAdd:
+        case SigOpCode_configModelSubscriptionDelete:
+        case SigOpCode_configModelSubscriptionDeleteAll:
+        case SigOpCode_configModelSubscriptionOverwrite:
+        case SigOpCode_configModelSubscriptionVirtualAddressAdd:
+        case SigOpCode_configModelSubscriptionVirtualAddressDelete:
+        case SigOpCode_configModelSubscriptionVirtualAddressOverwrite:
+            responseOpcode = SigOpCode_configModelSubscriptionStatus;
+            break;
+        case SigOpCode_configNetworkTransmitGet:
+        case SigOpCode_configNetworkTransmitSet:
+            responseOpcode = SigOpCode_configNetworkTransmitStatus;
+            break;
+        case SigOpCode_configRelayGet:
+        case SigOpCode_configRelaySet:
+            responseOpcode = SigOpCode_configRelayStatus;
+            break;
+        case SigOpCode_configSIGModelSubscriptionGet:
+            responseOpcode = SigOpCode_configSIGModelSubscriptionList;
+            break;
+        case SigOpCode_configVendorModelSubscriptionGet:
+            responseOpcode = SigOpCode_configVendorModelSubscriptionList;
+            break;
+        case SigOpCode_configModelAppBind:
+        case SigOpCode_configModelAppUnbind:
+            responseOpcode = SigOpCode_configModelAppStatus;
+            break;
+        case SigOpCode_configNetKeyGet:
+            responseOpcode = SigOpCode_configNetKeyList;
+            break;
+        case SigOpCode_configNetKeyAdd:
+        case SigOpCode_configNetKeyDelete:
+        case SigOpCode_configNetKeyUpdate:
+            responseOpcode = SigOpCode_configNetKeyStatus;
+            break;
+        case SigOpCode_configNodeReset:
+            responseOpcode = SigOpCode_configNodeResetStatus;
+            break;
+        case SigOpCode_configSIGModelAppGet:
+            responseOpcode = SigOpCode_configSIGModelAppList;
+            break;
+        case SigOpCode_configVendorModelAppGet:
+            responseOpcode = SigOpCode_configVendorModelAppList;
+            break;
+        case SigOpCode_genericOnOffGet:
+        case SigOpCode_genericOnOffSet:
+            responseOpcode = SigOpCode_genericOnOffStatus;
+            break;
+        case SigOpCode_genericLevelGet:
+        case SigOpCode_genericLevelSet:
+        case SigOpCode_genericMoveSet:
+        case SigOpCode_genericDeltaSet:
+            responseOpcode = SigOpCode_genericLevelStatus;
+            break;
+        case SigOpCode_genericDefaultTransitionTimeGet:
+        case SigOpCode_genericDefaultTransitionTimeSet:
+            responseOpcode = SigOpCode_genericDefaultTransitionTimeStatus;
+            break;
+        case SigOpCode_genericOnPowerUpGet:
+        case SigOpCode_genericOnPowerUpSet:
+            responseOpcode = SigOpCode_genericOnPowerUpStatus;
+            break;
+        case SigOpCode_genericPowerLevelGet:
+        case SigOpCode_genericPowerLevelSet:
+            responseOpcode = SigOpCode_genericPowerLevelStatus;
+            break;
+        case SigOpCode_genericPowerLastGet:
+            responseOpcode = SigOpCode_genericPowerLastStatus;
+            break;
+        case SigOpCode_genericPowerDefaultGet:
+        case SigOpCode_genericPowerDefaultSet:
+            responseOpcode = SigOpCode_genericPowerDefaultStatus;
+            break;
+        case SigOpCode_genericPowerRangeGet:
+        case SigOpCode_genericPowerRangeSet:
+            responseOpcode = SigOpCode_genericPowerRangeStatus;
+            break;
+        case SigOpCode_genericBatteryGet:
+            responseOpcode = SigOpCode_genericBatteryStatus;
+            break;
+        case SigOpCode_sensorDescriptorGet:
+            responseOpcode = SigOpCode_sensorDescriptorStatus;
+            break;
+        case SigOpCode_sensorGet:
+            responseOpcode = SigOpCode_sensorStatus;
+            break;
+        case SigOpCode_sensorColumnGet:
+            responseOpcode = SigOpCode_sensorColumnStatus;
+            break;
+        case SigOpCode_sensorSeriesGet:
+            responseOpcode = SigOpCode_sensorSeriesStatus;
+            break;
+        case SigOpCode_sensorCadenceGet:
+        case SigOpCode_sensorCadenceSet:
+            responseOpcode = SigOpCode_sensorCadenceStatus;
+            break;
+        case SigOpCode_sensorSettingsGet:
+            responseOpcode = SigOpCode_sensorSettingsStatus;
+            break;
+        case SigOpCode_sensorSettingGet:
+        case SigOpCode_sensorSettingSet:
+            responseOpcode = SigOpCode_sensorSettingStatus;
+            break;
+        case SigOpCode_timeGet:
+        case SigOpCode_timeSet:
+            responseOpcode = SigOpCode_timeStatus;
+            break;
+        case SigOpCode_timeRoleGet:
+        case SigOpCode_timeRoleSet:
+            responseOpcode = SigOpCode_timeRoleStatus;
+            break;
+        case SigOpCode_timeZoneGet:
+        case SigOpCode_timeZoneSet:
+            responseOpcode = SigOpCode_timeZoneStatus;
+            break;
+        case SigOpCode_TAI_UTC_DeltaGet:
+        case SigOpCode_TAI_UTC_DeltaSet:
+            responseOpcode = SigOpCode_TAI_UTC_DeltaStatus;
+            break;
+        case SigOpCode_sceneGet:
+        case SigOpCode_sceneRecall:
+            responseOpcode = SigOpCode_sceneStatus;
+            break;
+        case SigOpCode_sceneStore:
+        case SigOpCode_sceneDelete:
+        case SigOpCode_sceneRegisterGet:
+            responseOpcode = SigOpCode_sceneRegisterStatus;
+            break;
+        case SigOpCode_schedulerActionGet:
+        case SigOpCode_schedulerActionSet:
+            responseOpcode = SigOpCode_schedulerActionStatus;
+            break;
+        case SigOpCode_schedulerGet:
+            responseOpcode = SigOpCode_schedulerStatus;
+            break;
+        case SigOpCode_lightLightnessGet:
+        case SigOpCode_lightLightnessSet:
+            responseOpcode = SigOpCode_lightLightnessStatus;
+            break;
+        case SigOpCode_lightLightnessLinearGet:
+        case SigOpCode_lightLightnessLinearSet:
+            responseOpcode = SigOpCode_lightLightnessLinearStatus;
+            break;
+        case SigOpCode_lightLightnessLastGet:
+            responseOpcode = SigOpCode_lightLightnessLastStatus;
+            break;
+        case SigOpCode_lightLightnessDefaultGet:
+        case SigOpCode_lightLightnessDefaultSet:
+            responseOpcode = SigOpCode_lightLightnessDefaultStatus;
+            break;
+        case SigOpCode_lightLightnessRangeGet:
+        case SigOpCode_lightLightnessRangeSet:
+            responseOpcode = SigOpCode_lightLightnessRangeStatus;
+            break;
+        case SigOpCode_lightCTLGet:
+        case SigOpCode_lightCTLSet:
+            responseOpcode = SigOpCode_lightCTLStatus;
+            break;
+        case SigOpCode_lightCTLTemperatureGet:
+        case SigOpCode_lightCTLTemperatureSet:
+            responseOpcode = SigOpCode_lightCTLTemperatureStatus;
+            break;
+        case SigOpCode_lightCTLTemperatureRangeGet:
+        case SigOpCode_lightCTLTemperatureRangeSet:
+            responseOpcode = SigOpCode_lightCTLTemperatureRangeStatus;
+            break;
+        case SigOpCode_lightCTLDefaultGet:
+        case SigOpCode_lightCTLDefaultSet:
+            responseOpcode = SigOpCode_lightCTLDefaultStatus;
+            break;
+        case SigOpCode_lightHSLGet:
+        case SigOpCode_lightHSLSet:
+            responseOpcode = SigOpCode_lightHSLStatus;
+            break;
+        case SigOpCode_lightHSLHueGet:
+        case SigOpCode_lightHSLHueSet:
+            responseOpcode = SigOpCode_lightHSLHueStatus;
+            break;
+        case SigOpCode_lightHSLSaturationGet:
+        case SigOpCode_lightHSLSaturationSet:
+            responseOpcode = SigOpCode_lightHSLSaturationStatus;
+            break;
+        case SigOpCode_lightHSLTargetGet:
+            responseOpcode = SigOpCode_lightHSLTargetStatus;
+            break;
+        case SigOpCode_lightHSLDefaultGet:
+        case SigOpCode_lightHSLDefaultSet:
+            responseOpcode = SigOpCode_lightHSLDefaultStatus;
+            break;
+        case SigOpCode_lightHSLRangeGet:
+        case SigOpCode_lightHSLRangeSet:
+            responseOpcode = SigOpCode_lightHSLRangeStatus;
+            break;
+        case SigOpCode_lightXyLGet:
+        case SigOpCode_lightXyLSet:
+            responseOpcode = SigOpCode_lightXyLStatus;
+            break;
+        case SigOpCode_lightXyLTargetGet:
+            responseOpcode = SigOpCode_lightXyLTargetStatus;
+            break;
+        case SigOpCode_lightXyLDefaultGet:
+        case SigOpCode_lightXyLDefaultSet:
+            responseOpcode = SigOpCode_lightXyLDefaultStatus;
+            break;
+        case SigOpCode_lightXyLRangeGet:
+        case SigOpCode_lightXyLRangeSet:
+            responseOpcode = SigOpCode_lightXyLRangeStatus;
+            break;
+        case SigOpCode_LightLCModeGet:
+        case SigOpCode_LightLCModeSet:
+            responseOpcode = SigOpCode_LightLCModeStatus;
+            break;
+        case SigOpCode_LightLCOMGet:
+        case SigOpCode_LightLCOMSet:
+            responseOpcode = SigOpCode_LightLCOMStatus;
+            break;
+        case SigOpCode_LightLCLightOnOffGet:
+        case SigOpCode_LightLCLightOnOffSet:
+            responseOpcode = SigOpCode_LightLCLightOnOffStatus;
+            break;
+        case SigOpCode_LightLCPropertyGet:
+        case SigOpCode_LightLCPropertySet:
+            responseOpcode = SigOpCode_LightLCPropertyStatus;
+            break;
+        default:
+            TeLog(@"Warning:undefault sendOpcode:0x%x",sendOpcode);
+            break;
+    }
+    return ((responseOpcode & 0xFF)<<8)|((responseOpcode>>8)&0xFF);
 }
 
 @end

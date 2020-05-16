@@ -31,16 +31,33 @@ extern "C" {
 #define PCBA_8258_DONGLE_48PIN          1
 #define PCBA_8258_C1T139A30_V1_0        2
 #define PCBA_8258_C1T139A30_V1_2        3
+#define PCBA_8258_C1T140A3_V1_1         4   // 32pin
+
+#if (MESH_USER_DEFINE_MODE == MESH_IRONMAN_MENLO_ENABLE)
+#define PCBA_8258_SEL			PCBA_8258_C1T140A3_V1_1  // PCBA_8258_DONGLE_48PIN   //
+#else
 #define PCBA_8258_SEL			PCBA_8258_DONGLE_48PIN
+#endif
 
 
 #define _USER_CONFIG_DEFINED_	1	// must define this macro to make others known
 #define	__LOG_RT_ENABLE__		0
 //#define	__DEBUG_PRINT__			0
 
+#if (MESH_USER_DEFINE_MODE == MESH_IRONMAN_MENLO_ENABLE)
+#define FLASH_1M_ENABLE         1
+#elif DUAL_VENDOR_EN
 #define FLASH_1M_ENABLE         0
+#else
+#define FLASH_1M_ENABLE         0
+#endif
+
 #if FLASH_1M_ENABLE
+#if (MESH_USER_DEFINE_MODE == MESH_IRONMAN_MENLO_ENABLE)
+#define PINGPONG_OTA_DISABLE    1 // it can disable only when 1M flash.
+#else
 #define PINGPONG_OTA_DISABLE    0 // it can disable only when 1M flash.
+#endif
 #if	PINGPONG_OTA_DISABLE
 #define SWITCH_FW_ENABLE		0 // set to 0, just for particular customer 
 #endif
@@ -75,9 +92,13 @@ extern "C" {
 #define UART_RX_PIN		UART_RX_PB0
 #endif
 
-#define HCI_LOG_FW_EN   0
+#define HCI_LOG_FW_EN   1
 #if HCI_LOG_FW_EN
+	#if (MESH_USER_DEFINE_MODE == MESH_IRONMAN_MENLO_ENABLE)
+#define DEBUG_INFO_TX_PIN           		(PCBA_8258_SEL == PCBA_8258_C1T140A3_V1_1 ? GPIO_PB6 : GPIO_PD7)
+	#else
 #define DEBUG_INFO_TX_PIN           		GPIO_PB2
+	#endif
 #define PRINT_DEBUG_INFO                    1
 #endif
 
@@ -89,7 +110,11 @@ extern "C" {
 
 #define ONLINE_STATUS_EN        0
 
+#if (MESH_USER_DEFINE_MODE == MESH_IRONMAN_MENLO_ENABLE)
+#define DUAL_MODE_ADAPT_EN 			1   // dual mode as master with Zigbee
+#else
 #define DUAL_MODE_ADAPT_EN 			0   // dual mode as master with Zigbee
+#endif
 #if (0 == DUAL_MODE_ADAPT_EN)
 #define DUAL_MODE_WITH_TLK_MESH_EN  0   // dual mode as slave with Telink mesh
 #endif
@@ -144,6 +169,10 @@ extern "C" {
 //
 
 //----------------------- GPIO for UI --------------------------------
+#if ((0 == PM_DEEPSLEEP_RETENTION_ENABLE) && DUAL_VENDOR_EN)
+#define SLEEP_FUNCTION_DISABLE          1
+#endif
+
 //---------------  Button 
 #if (PCBA_8258_SEL == PCBA_8258_DONGLE_48PIN)
 #define PULL_WAKEUP_SRC_PD6     PM_PIN_PULLUP_1M	//btn
@@ -152,6 +181,13 @@ extern "C" {
 #define PD5_INPUT_ENABLE		1
 #define	SW1_GPIO				GPIO_PD6
 #define	SW2_GPIO				GPIO_PD5
+#elif (PCBA_8258_SEL == PCBA_8258_C1T140A3_V1_1)
+#define PULL_WAKEUP_SRC_PD7     PM_PIN_PULLUP_1M	//btn
+#define PULL_WAKEUP_SRC_PA1     PM_PIN_PULLUP_1M	//btn
+#define PD7_INPUT_ENABLE		1
+#define PA1_INPUT_ENABLE		1
+#define	SW1_GPIO				GPIO_PD7
+#define	SW2_GPIO				GPIO_PA1
 #elif(PCBA_8258_SEL == PCBA_8258_C1T139A30_V1_2)
 #define PULL_WAKEUP_SRC_PB2     PM_PIN_PULLUP_1M	//btn
 #define PULL_WAKEUP_SRC_PB3     PM_PIN_PULLUP_1M	//btn
@@ -183,6 +219,11 @@ extern "C" {
 #define PWM_G       GPIO_PWM0A2		//green
 #define PWM_B       GPIO_PWM3B0		//blue
 #define PWM_W       GPIO_PWM4B1		//white
+#elif(PCBA_8258_SEL == PCBA_8258_C1T140A3_V1_1)
+#define PWM_R       GPIO_PWM2ND4    //red
+#define PWM_G       GPIO_PWM0NA0    //green
+#define PWM_B       GPIO_PWM1ND3    //blue
+#define PWM_W       GPIO_PWM3D2		//yellow as white
 #elif(PCBA_8258_SEL == PCBA_8258_C1T139A30_V1_0)   // PCBA_8258_DEVELOPMENT_BOARD
 #define PWM_R       GPIO_PWM1ND3	//red
 #define PWM_G       GPIO_PWM2ND4	//green
@@ -225,7 +266,9 @@ extern "C" {
 #define	USE_SYS_TICK_PER_US
 #define CLOCK_SYS_TYPE  		CLOCK_TYPE_PLL	//  one of the following:  CLOCK_TYPE_PLL, CLOCK_TYPE_OSC, CLOCK_TYPE_PAD, CLOCK_TYPE_ADC
 
-#if (MI_API_ENABLE)
+#if (MESH_USER_DEFINE_MODE == MESH_IRONMAN_MENLO_ENABLE)
+#define CLOCK_SYS_CLOCK_HZ  	32000000
+#elif (MI_API_ENABLE)
 #define CLOCK_SYS_CLOCK_HZ  	48000000
 #else
 #define CLOCK_SYS_CLOCK_HZ  	16000000

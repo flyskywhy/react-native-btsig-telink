@@ -1,5 +1,5 @@
 /********************************************************************************************************
- * @file     LibHandle.m 
+ * @file     LibHandle.m
  *
  * @brief    for TLSR chips
  *
@@ -8,16 +8,16 @@
  *
  * @par      Copyright (c) 2010, Telink Semiconductor (Shanghai) Co., Ltd.
  *           All rights reserved.
- *           
- *			 The information contained herein is confidential and proprietary property of Telink 
- * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms 
- *			 of Commercial License Agreement between Telink Semiconductor (Shanghai) 
- *			 Co., Ltd. and the licensee in separate contract or the terms described here-in. 
+ *
+ *			 The information contained herein is confidential and proprietary property of Telink
+ * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms
+ *			 of Commercial License Agreement between Telink Semiconductor (Shanghai)
+ *			 Co., Ltd. and the licensee in separate contract or the terms described here-in.
  *           This heading MUST NOT be removed from this file.
  *
- * 			 Licensees are granted free, non-transferable use of the information in this 
- *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided. 
- *           
+ * 			 Licensees are granted free, non-transferable use of the information in this
+ *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided.
+ *
  *******************************************************************************************************/
 //
 //  LibHandle.m
@@ -45,6 +45,43 @@ NSString *const CommandIsBusyKey = @"IsBusy";
         _rspData = [[NSData alloc] init];
         _clientSubGroups = [[NSMutableArray alloc] init];
         _serverSubGroups = [[NSMutableArray alloc] init];
+    }
+    return self;
+}
+
+- (instancetype)initWithResponseData:(NSData *)data{
+    if (self = [super init]) {
+        _rspData = data;
+        Byte *pu = (Byte *)[data bytes];
+        unsigned int temp = 0;
+
+        if (_rspData.length >= 1) {
+            memcpy(&temp, pu, 1);
+            _type = temp;
+        }
+        if (_rspData.length >= 2) {
+            temp = 0;
+            memcpy(&temp, pu+1, 1);
+            _length = temp;
+        }
+        if (_rspData.length >= 4) {
+            temp = 0;
+            memcpy(&temp, pu+2, 2);
+            _address = temp;
+        }
+        if (_rspData.length >= 6) {
+            temp = 0;
+            memcpy(&temp, pu+4, 2);
+            _rspAddress = temp;
+        }
+        if (_rspData.length >= 7) {
+            temp = rf_link_get_op_by_ac(pu+6);
+            _opcode = temp;
+        }
+        u32 size_op = SIZE_OF_OP(temp);
+        if (_rspData.length > 6+size_op) {
+            _customData = [data subdataWithRange:NSMakeRange(6+size_op, _rspData.length-(6+size_op))];
+        }
     }
     return self;
 }
@@ -150,13 +187,13 @@ extern void provision_end_callback(u8 reason) {
     if (reason == PROV_NORMAL_RET) {
         UInt16 address = [Bluetooth.share getCurrentProvisionAddress];
         NSString *identify = Bluetooth.share.currentPeripheral.identifier.UUIDString;
-        
+
         u8 ele_count = 0;
         gatt_get_node_ele_cnt(address, &ele_count);
         [Bluetooth.share setElementCount:ele_count];
         TeLog(@"gatt_get_node_ele_cnt = %d",ele_count);
         [SigDataSource.share saveLocationProvisionAddress:address+ele_count-1];
-        
+
         u8 deviceKey[16] = {};
         json_get_dev_key_info((u8 *)&deviceKey);
         NSData *devKeyData = [NSData dataWithBytes:&deviceKey length:sizeof(gatt_dev_key)];
@@ -167,7 +204,7 @@ extern void provision_end_callback(u8 reason) {
             scanModel.address = address;
             [SigDataSource.share updateScanRspModelToDataSource:scanModel];
         }
-        
+
         SigNodeModel *model = [[SigNodeModel alloc] init];
         [model setAddress:address];
         VC_node_info_t info = model.nodeInfo;
@@ -179,37 +216,136 @@ extern void provision_end_callback(u8 reason) {
             info.cps.page0_head.cid = scanModel.CID;
             info.cps.page0_head.pid = scanModel.PID;
             model.macAddress = scanModel.macAddress;
+            model.UUID = identify;
         }
         model.nodeInfo = info;
-        model.UUID = identify;
+//        model.UUID = identify;
         [SigDataSource.share saveDeviceWithDeviceModel:model];
-        
-        //First setp of add device -provision success, SDK need create nodeModel in the above, then do the second setp of add device -key bound.
-        if (Bluetooth.share.isRemoteAdd) {
-            //SDK needn't disconnect node when app add device in remote add.
-            [Bluetooth.share addDevice_provisionResultBack:YES];
-            [Bluetooth.share setKeyBindState];
-            [Bluetooth.share delayForSetFilterBeforKeyBind];
+
+        if (Bluetooth.share.commandHandle.isSingleProvision) {
+            if (Bluetooth.share.commandHandle.singlePrvisionSuccessCallBack) {
+                Bluetooth.share.commandHandle.singlePrvisionSuccessCallBack(identify,address);
+            }
         } else {
-            if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Normal) {
-                [Bluetooth.share keyBindAfterProvisionSuccess];
-            } else if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Quick) {
-                DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanModel.CID PID:scanModel.PID];
-                if (scanModel && deviceType) {
-                    [Bluetooth.share addDevice_provisionResultBack:YES];
-                    [Bluetooth.share setKeyBindState];
-                    [Bluetooth.share delayForSetFilterBeforKeyBind];
-                }else{
-                    TeLog(@"waring: this node isn't support fast_bind model, auto do key bound in normal model.");
+            //First setp of add device -provision success, SDK need create nodeModel in the above, then do the second setp of add device -key bound.
+            if (Bluetooth.share.isRemoteAdd) {
+                //SDK needn't disconnect node when app add device in remote add.
+                [Bluetooth.share addDevice_provisionResultBack:YES];
+                [Bluetooth.share setKeyBindState];
+                [Bluetooth.share delayForSetFilterBeforKeyBind];
+            } else {
+                if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Normal) {
                     [Bluetooth.share keyBindAfterProvisionSuccess];
+                } else if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Fast) {
+                    DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanModel.CID PID:scanModel.PID];
+                    if (scanModel && deviceType) {
+                        [Bluetooth.share addDevice_provisionResultBack:YES];
+                        [Bluetooth.share setKeyBindState];
+                        [Bluetooth.share delayForSetFilterBeforKeyBind];
+                    }else{
+                        TeLog(@"waring: this node isn't support fast_bind model, auto do key bound in normal model.");
+                        [Bluetooth.share keyBindAfterProvisionSuccess];
+                    }
                 }
             }
         }
     } else if(reason == PROV_TIMEOUT_RET || reason == PROV_COMFIRM_ERR || reason == PROV_FAIL_CMD_ERR){
         //provision fail or timeout
         TeLog(@"provision timeout");
-        [Bluetooth.share addDevice_provisionResultBack:NO];
+        if (Bluetooth.share.commandHandle.isSingleProvision) {
+            if (Bluetooth.share.commandHandle.singlePrvisionFailCallBack) {
+                NSError *err = [NSError errorWithDomain:[NSString stringWithFormat:@"provision fail, reason=%d.",reason] code:reason userInfo:nil];
+                Bluetooth.share.commandHandle.singlePrvisionFailCallBack(err);
+            }
+        }else{
+            [Bluetooth.share addDevice_provisionResultBack:NO];
+        }
     }
+}
+
+extern int App_key_bind_end_callback(u8 event) {
+    TeLog(@"App_key_bind_end_callback ->event:%d\n",event);
+    if (Bluetooth.share.commandHandle.fastProvisionAddDeviceFinishCallBack) {
+        TeLog(@"should call back fast provision finish.\n");
+        Bluetooth.share.commandHandle.fastProvisionAddDeviceFinishCallBack();
+        Bluetooth.share.commandHandle.fastProvisionAddDeviceFinishCallBack = nil;
+        return 0;
+    }
+    if (event == MESH_APP_KEY_BIND_EVENT_SUC) {
+        UInt16 address = [Bluetooth.share getCurrentProvisionAddress];
+        SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
+
+        VC_node_info_t node_info;
+        if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Normal) {
+            json_get_node_cps_info(address, &node_info);
+        } else if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Fast) {
+            DeviceTypeModel *deviceType = nil;
+            if (Bluetooth.share.commandHandle.fastKeybindProductID != 0 && Bluetooth.share.commandHandle.fastKeybindCpsData != nil) {
+                TeLog(@"init cpsData from config.cpsdata.");
+                deviceType = [[DeviceTypeModel alloc] initWithCID:kCompanyID PID:Bluetooth.share.commandHandle.fastKeybindProductID];
+                [deviceType setDefultNodeInfoData:Bluetooth.share.commandHandle.fastKeybindCpsData];
+            } else {
+                deviceType = [SigDataSource.share getNodeInfoWithCID:model.nodeInfo.cps.page0_head.cid PID:model.nodeInfo.cps.page0_head.pid];
+            }
+            if (deviceType) {
+                VC_node_info_t tem = deviceType.defultNodeInfo;
+                VC_node_info_t oldNode = model.nodeInfo;
+                memcpy(&tem, &oldNode, 22);
+                node_info = tem;
+            }else{
+                TeLog(@"waring: this node isn't support fast_bind model, auto do key bound in normal model, and key bound successful.");
+                json_get_node_cps_info(address, &node_info);
+            }
+        }else{
+            json_get_node_cps_info(address, &node_info);
+        }
+
+        SigAppkeyModel *appkey = [SigDataSource.share curAppkeyModel];
+        SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
+        nodeAppkey.index = appkey.index;
+        if (![model.appKeys containsObject:nodeAppkey]) {
+            [model.appKeys addObject:nodeAppkey];
+        }
+        model.nodeInfo = node_info;
+        [SigDataSource.share saveLocationData];
+
+        //publish time model after keyBind success.（add since v3.1.0）
+        UInt32 option = SIG_MD_TIME_S;
+        NSArray *elementAddresses = [model getAddressesWithModelID:@(option)];
+        if (elementAddresses.count > 0 && kDoPublishTimeModel) {
+            TeLog(@"SDK need publish time");
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                UInt16 eleAdr = [elementAddresses.firstObject intValue];
+                //周期，20秒上报一次。
+                mesh_pub_period_t period;
+                period.steps = kTimePublishInterval;//Range：0x01-0x3F
+                period.res = 1;
+                [Bluetooth.share.commandHandle editPublishListWithExecuteCommand:YES publishAddress:kAllDo_SIGParameters nodeAddress:model.address eleAddress:eleAdr option:option period:period Completation:^(ResponseModel *m) {
+                    TeLog(@"publish time callback");
+                    PublishResponseModel *pubModel = [[PublishResponseModel alloc] initWithResponseData:m.rspData];
+                    if (pubModel.elementAddress == eleAdr) {
+                        if (pubModel.status == 0 && pubModel.publishAddress == kAllDo_SIGParameters) {
+                            TeLog(@"publish time success");
+                        }else{
+                            TeLog(@"publish time status=%d,pubModel.publishAddress=%d",pubModel.status,pubModel.publishAddress);
+                        }
+                        [Bluetooth.share addDevice_keyBindResultBack:YES];
+                    }
+                }];
+            });
+        }else{
+            TeLog(@"SDK needn't publish time");
+            [Bluetooth.share addDevice_keyBindResultBack:YES];
+        }
+    } else {
+        [Bluetooth.share addDevice_keyBindResultBack:NO];
+    }
+    if (SigDataSource.share.time > 0) {
+        NSString *str = [NSString stringWithFormat:@"====================provision+keybind time:%f====================",[[NSDate date] timeIntervalSince1970]-SigDataSource.share.time];
+        TeLog(@"%@",str);
+        SigDataSource.share.time = 0;
+    }
+    return 0;
 }
 
 /// new callback, this api will callback when ivi_index update.
@@ -241,12 +377,12 @@ int gatt_write_transaction_callback(u8 *p, u16 len, u8 msg_type) {
     if (MSG_PROVISION_PDU == msg_type) {
         handle = PROVISION_WRITE_HANDLER;
     }
-    
+
     total_len = len;
     pb_gatt_proxy_str *p_notify = (pb_gatt_proxy_str *) (tmp);
     //    provision_flow_Log(0,p,len);
     //can send in one packet
-    
+
     if (len == 0) {
         return 0;
     }
@@ -292,14 +428,10 @@ int gatt_write_transaction_callback(u8 *p, u16 len, u8 msg_type) {
 
 /// doKeyBind add new parameter isFastBind, 0 means default key bound, 1 means fast bound.
 void doKeyBind(u16 address, NSData *appKey, u16 appkeyIndex ,u16 netkeyIndex ,u8 isFastBind) {
-    //    refreshKeyBindModelID();
-    NSString *str = [NSString stringWithFormat:@"doKeyBind,address:%d,isFastBind=%d",address,isFastBind];
-    saveLogData(str);
-    
     NSData *data = appKey;
-    TeLog(@"doKeyBind,address:%d,getAppkey:%@,isFastBind=%d",address,data,isFastBind);
+    TeLog(@"doKeyBind,address:%d,appkey:%@,isFastBind=%d",address,data,isFastBind);
     if (data.length == 0) {
-        TeLog(@"ERROE : doKeyBind getAppkey:%@",data);
+        TeLog(@"ERROE : doKeyBind appkey:%@",data);
     }
     u8 *key = (u8 *)[data bytes];
     u16 add = 0;
@@ -315,12 +447,12 @@ extern void flash_write_page(u32 addr, u32 len, const u8 *buf) {
 
 // flash operation part
 extern void flash_read_page(u32 addr, u32 len, u8 *buf) {
-    
+
 }
 
 /**
  report tx_reliable
- 
+
  @param op opcode
  @param rsp_max request count
  @param rsp_cnt reponse count
@@ -338,6 +470,7 @@ void mesh_tx_reliable_stop_report(u16 op, u16 adr_dst,u32 rsp_max, u32 rsp_cnt) 
             Bluetooth.share.noBusyCallBack();
             Bluetooth.share.noBusyCallBack = nil;
         }
+        [Bluetooth.share checkAndSendNextCommandsInCache];
     });
 }
 
@@ -360,14 +493,13 @@ int OnAppendLog_vs(unsigned char *pu, int len) {
     if (len == 0) {
         return 0;
     }
-    
+
     u8 type = pu[0] & 0x7F;
     if (pu[0]==MESH_TX_CMD_RUN_STATUS) {
         TeLog(@"data send fail，fail packet ini data is: %@",[NSData dataWithBytes:pu length:len]);
     }else if(pu[0]==DONGLE_REPORT_SPP_DATA){
-        
         anasislyDongleReportSPPData(provision_dispatch_direct(pu+1,len-1,proxy_buf,&proxy_len));
-        
+
     }else if (MESH_CMD_RSP == type){
         //2019年05月27日14:42:03，new change since v2.8.2
         NSMutableData *temData = [NSMutableData dataWithBytes:pu length:len];
@@ -379,11 +511,11 @@ int OnAppendLog_vs(unsigned char *pu, int len) {
 
 void anasislyDongleReportSPPData(u8 ret_type) {
     if(ret_type == MSG_PROVISION_PDU){
-        
+
         gatt_rcv_pro_pkt_dispatch(proxy_buf,(u8)proxy_len);
-        
+
     }else if (ret_type == MSG_NETWORK_PDU){
-        
+
         u8 bear[400];
         mesh_construct_adv_bear_with_nw(bear, proxy_buf, (u8)proxy_len);
         app_event_handler_adv(bear+1, ADV_FROM_GATT, 0);
@@ -418,22 +550,22 @@ void anasislyResponseData(NSData *responseData) {
     Byte *pu = (Byte *)[responseData bytes];
     ResponseModel *model = [[ResponseModel alloc] init];
     model.rspData = [NSData dataWithData:responseData];
-    
+
     unsigned int temp = 0;
     memcpy(&temp, pu + 2+1, 2);
     model.address = temp;
-    
+
     memcpy(&temp, pu+4+1, 2);
     model.rspAddress = temp;
-    
+
     if (model.address == model.rspAddress) return;
-    
+
     //2019年05月27日14:42:03，new change since v2.8.2
     temp = rf_link_get_op_by_ac(pu+6+1);
-    
+
     model.opcode = temp;
     Opcode op = model.opcode;
-    
+
 #if MD_MESH_OTA_EN // VC_DISTRIBUTOR_UPDATE_CLIENT_EN
     u32 size_op = SIZE_OF_OP(temp);
     if(mesh_ota_master_rx((mesh_rc_rsp_t *)(pu+1), temp, size_op)){
@@ -466,7 +598,7 @@ void anasislyResponseData(NSData *responseData) {
             NSString *tip = @"";
             temp = 0;
             memcpy(&temp, pu + 11+1, 2);
-            
+
             int groupsCount = ((int)(responseData.length) - 13-1) / 2;
             if (temp == SIG_MD_G_ONOFF_C) {
                 model.isClient = YES;
@@ -491,11 +623,11 @@ void anasislyResponseData(NSData *responseData) {
         }   break;
         case OpcodePublishAddressResponse:
         {
-            
+
         }   break;
         case OpcodeEditSubListResponse:
         {
-            
+
         }   break;
         case OpcodeBrightnessGetResponse:
         {
@@ -540,23 +672,23 @@ void anasislyResponseData(NSData *responseData) {
         case OpcodeSetTimeResponse:
         {
             //response of set time
-            
+
         }  break;
         case OpcodeSceneRegisterStatusResponse:
         {
             //response of save scene
             //response of delete scene
-            
+
         }  break;
         case OpcodeRecallSceneResponse:
         {
             //response of recall scene
-            
+
         }  break;
         case OpcodeSetSchedulerResponse:
         {
             //response of set scheduler
-            
+
         }  break;
         case OpcodeHSLNotifyResponse:
         {
@@ -597,24 +729,29 @@ void anasislyResponseData(NSData *responseData) {
         }   break;
         case OpcodeSetUUIDResponse:
         {
-            
+
         }   break;
         case OpcodeGetSchedulerStatusResponse:
         {
-            
+
         }   break;
         case OpcodeGetFwInfoResponse:
         {
-            
+
         }   break;
         default:    {
             TeLog(@"unrecongnized opcode %@", model.rspData);
+//#warning 2019年12月27日11:21:21，带优化回包逻辑。
             [Bluetooth.share responseBackOfVendorID:model];
-            return;
+//            return;
         };
     }
-    
+
     [Bluetooth.share responseBack:model];
+
+    if (Bluetooth.share.commandHandle.responseAllDataCallBack) {
+        Bluetooth.share.commandHandle.responseAllDataCallBack(model);
+    }
 }
 
 extern unsigned int clock_time_vc_hw() {
@@ -649,7 +786,7 @@ void provision(NSData *netkeydata, uint16_t address,u16 netkeyIndex) {
     memset(provsionInfo.prov_key_index, 0, 2);
     memcpy(provsionInfo.prov_key_index, &netkeyIndex, 2);
     memcpy(provsionInfo.prov_unicast_address, &address, 2);
-    
+
     set_provision_key_data(provsionInfo.prov_newkey, provsionInfo.prov_key_index, provsionInfo.flag, provsionInfo.prov_iv_index, provsionInfo.prov_unicast_address);
     start_provision_invite();
 }
@@ -661,11 +798,11 @@ u8 set_provision_key_data(Byte *prov_newkey, Byte *prov_key_index, Byte prov_ivi
     u8 tmp_dat[25];
     memcpy(tmp_dat,prov_newkey,16);
     memcpy(tmp_dat+16,prov_key_index,2);
-    
+
     tmp_dat[18] = prov_ivi_update_flag;
     memcpy(tmp_dat+19,prov_iv_index,4);
     memcpy(tmp_dat+23,prov_unicast_address,2);
-    
+
     set_app_key_pro_data(tmp_dat,25);
     return 1;
 }
@@ -676,12 +813,12 @@ u32 new_fw_read(u8 *data_out, u32 max_len) {
     NSData *otaData = MeshOTAManager.share.otaData;
     u8 *byte = (u8 *)otaData.bytes;
     file_size = (u32)otaData.length;
-    
+
     if((file_size > max_len) || (file_size < 48)){
         //AfxMessageBox("new firmware size is too big");
         return 0;
     }
-    
+
     memcpy(data_out,byte,file_size);
     return file_size;
 }
@@ -698,11 +835,11 @@ void sendData(NSData *data, int index) {
     int countIndex = index;
     Byte *tempBytes = (Byte *)[data bytes];
     Byte resultBytes[20];
-    
+
     memset(resultBytes, 0xff, 20);
     memcpy(resultBytes, &countIndex, 2);
     memcpy(resultBytes+2, tempBytes, data.length);
-    uint16_t crc = crc16(resultBytes, isEnd ? 2 : 18);
+    uint16_t crc = libHandleCRC16(resultBytes, isEnd ? 2 : 18);
     memcpy(isEnd ? (resultBytes + 2) : (resultBytes+18), &crc, 2);
     NSData *writeData = [NSData dataWithBytes:resultBytes length:isEnd ? 4 : 20];
     [Bluetooth.share writeOTAData:writeData];
@@ -715,7 +852,7 @@ void sendOTAEndData(NSData *data, int index){
     int negationIndex = ~index;
     Byte *tempBytes = (Byte *)[data bytes];
     Byte resultBytes[6];
-    
+
     memset(resultBytes, 0xff, 6);
     memcpy(resultBytes, tempBytes, data.length);
     memcpy(resultBytes+2, &index, 2);
@@ -739,19 +876,19 @@ void sendStartOTA(){
     [Bluetooth.share writeOTAData:writeData];
 }
 
-// extern unsigned short crc16 (unsigned char *pD, int len) {
-//     static unsigned short poly[2]={0, 0xa001};
-//     unsigned short crc = 0xffff;
-//     int i,j;
-//     for(j=len; j>0; j--) {
-//         unsigned char ds = *pD++;
-//         for(i=0; i<8; i++) {
-//             crc = (crc >> 1) ^ poly[(crc ^ ds ) & 1];
-//             ds = ds >> 1;
-//         }
-//     }
-//     return crc;
-// }
+extern unsigned short libHandleCRC16 (unsigned char *pD, int len) {
+    static unsigned short poly[2]={0, 0xa001};
+    unsigned short crc = 0xffff;
+    int i,j;
+    for(j=len; j>0; j--) {
+        unsigned char ds = *pD++;
+        for(i=0; i<8; i++) {
+            crc = (crc >> 1) ^ poly[(crc ^ ds ) & 1];
+            ds = ds >> 1;
+        }
+    }
+    return crc;
+}
 
 #pragma mark- Self customizer
 NSArray * changeObjToByte(NSString *string) {
@@ -817,10 +954,9 @@ int LogMsgModuleDlg_and_buf(u8 *pbuf,int len,char *log_str,char *format, va_list
     Byte str[4069];
     unsigned int len_buf;
     len_buf = Bin2Text(str, pbuf, len);
-    
+
     buff[buf_idx]=':';
     memcpy(buff+buf_idx+1,str,len_buf);
-    //    g_module_dlg->LogMsg("%s\r\n", buff);
     TeLog(@"%s\r\n", buff);
     return 0;
 }
@@ -831,19 +967,19 @@ int Bin2Text (Byte *lpD, Byte *lpS, int n)
     int m = n;
     int d = 0;
     if (m>MAXBSIZE) m = MAXBSIZE;
-    
+
     for (i=0; i<m; i++) {
-        
+
         lpD[d++] = arrb2t [(lpS[i]>>4) & 15];
         lpD[d++] = arrb2t [lpS[i] & 15];
         lpD[d++] = ' ';
-        
+
         if ((i&15)==7) lpD[d++] = ' ';
         else if ((i&15)==15) {
             lpD[d++] = '\r';
             lpD[d++] = '\n';
         }
-        
+
     }
     //lpD[d++] = '\r';
     //lpD[d++] = '\n';
@@ -857,82 +993,6 @@ extern void mesh_proxy_master_terminate_cmd() {
     [Bluetooth.share cancelConnection:Bluetooth.share.currentPeripheral complete:nil];
 }
 
-extern int App_key_bind_end_callback(u8 event) {
-    TeLog(@"App_key_bind_end_callback ->event:%d\n",event);
-    if (Bluetooth.share.commandHandle.fastProvisionAddDeviceFinishCallBack) {
-        TeLog(@"should call back fast provision finish.\n");
-        Bluetooth.share.commandHandle.fastProvisionAddDeviceFinishCallBack();
-        Bluetooth.share.commandHandle.fastProvisionAddDeviceFinishCallBack = nil;
-        return 0;
-    }
-    if (event == MESH_APP_KEY_BIND_EVENT_SUC) {
-        UInt16 address = [Bluetooth.share getCurrentProvisionAddress];
-        SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
-
-        VC_node_info_t node_info;
-        if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Normal) {
-            json_get_node_cps_info(address, &node_info);
-        } else if (Bluetooth.share.getCurrentKeyBindType == KeyBindTpye_Quick) {
-            DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:model.nodeInfo.cps.page0_head.cid PID:model.nodeInfo.cps.page0_head.pid];
-            if (deviceType) {
-                VC_node_info_t tem = deviceType.defultNodeInfo;
-                VC_node_info_t oldNode = model.nodeInfo;
-                memcpy(&tem, &oldNode, 22);
-                node_info = tem;
-            }else{
-                TeLog(@"waring: this node isn't support fast_bind model, auto do key bound in normal model, and key bound successful.");
-                json_get_node_cps_info(address, &node_info);
-            }
-        }else{
-            json_get_node_cps_info(address, &node_info);
-        }
-        
-        SigAppkeyModel *appkey = [SigDataSource.share curAppkeyModel];
-        SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
-        nodeAppkey.index = appkey.index;
-        if (![model.appKeys containsObject:nodeAppkey]) {
-            [model.appKeys addObject:nodeAppkey];
-        }
-        model.nodeInfo = node_info;
-        [SigDataSource.share saveLocationData];
-
-        //publish time model after keyBind success.（add since v3.1.0）
-        UInt32 option = SIG_MD_TIME_S;
-        NSArray *elementAddresses = [model getAddressesWithModelID:@(option)];
-        if (elementAddresses.count > 0) {
-            TeLog(@"SDK need publish time");
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                UInt16 eleAdr = [elementAddresses.firstObject intValue];
-                //周期，20秒上报一次。
-                mesh_pub_period_t period;
-                period.steps = kTimePublishInterval;//Range：0x01-0x3F
-                period.res = 1;
-                [Bluetooth.share.commandHandle editPublishListWithExecuteCommand:YES publishAddress:kAllDo_SIGParameters nodeAddress:model.address eleAddress:eleAdr option:option period:period Completation:^(ResponseModel *m) {
-                    TeLog(@"publish time callback");
-                    PublishResponseModel *pubModel = [[PublishResponseModel alloc] initWithResponseData:m.rspData];
-                    if (pubModel.status == 0 && pubModel.elementAddress == eleAdr) {
-                        if (pubModel.publishAddress == kAllDo_SIGParameters) {
-                            TeLog(@"publish time success");
-                            [Bluetooth.share addDevice_keyBindResultBack:YES];
-                        }
-                    }
-                }];
-            });
-        }else{
-            TeLog(@"SDK needn't publish time");
-            [Bluetooth.share addDevice_keyBindResultBack:YES];
-        }
-    } else {
-        [Bluetooth.share addDevice_keyBindResultBack:NO];
-    }
-    if (SigDataSource.share.time > 0) {
-        NSString *str = [NSString stringWithFormat:@"====================provision+keybind time:%f====================",[[NSDate date] timeIntervalSince1970]-SigDataSource.share.time];
-        saveLogData(str);
-        SigDataSource.share.time = 0;
-    }
-    return 0;
-}
-
 extern void LogMsgModuleDlgBuf(unsigned char *bin, int len) {
 //    NSData *data = [NSData dataWithBytes:bin length:len];
 //    TeLog(@"LogMsgModuleDlgBuf -> %@", data);
@@ -940,13 +1000,25 @@ extern void LogMsgModuleDlgBuf(unsigned char *bin, int len) {
 
 #warning (Cloud)2018年05月21日17:24:03，when develop add triad-node that need to check in the clouds, develop need realize this callback.
 extern int mesh_set_prov_cloud_para(u8 *p_pid,u8 *p_mac){
-    return 0;
+    NSData *staticOobData = Bluetooth.share.commandHandle.staticOOBData;
+    if (staticOobData && staticOobData.length == 16) {
+        UInt16 pid = 0;
+        SigScanRspModel *scanRsp = [SigDataSource.share getScanRspModelWithUUID:Bluetooth.share.currentPeripheral.identifier.UUIDString];
+        NSString *mac = scanRsp.macAddress;
+        NSData *macData = [LibTools nsstringToHex:mac];
+        Byte *byte = (Byte *)macData.bytes;
+        memcpy(p_pid, &pid, 2);
+        memcpy(p_mac, &byte, 6);
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 ///Remote Add: new callback, response of api:getRemoteProvisioningMaxScannedItemsWithCallback:
 void remote_prov_capa_sts_cb(u8 max_item,u8 active_scan){
     TeLog(@"remote_prov_capa_sts_cb，max_item=%d，active_scan=%d",max_item,active_scan);
-    
+
     if (Bluetooth.share.commandHandle.maxScannedItemsCallBack) {
         Bluetooth.share.commandHandle.maxScannedItemsCallBack(max_item,active_scan);
     }
@@ -1628,10 +1700,10 @@ int init_json(void)
             memcpy(&json_database.scene[i], &scene_struct, sizeof(scene_struct));
         }
     }
-    
+
     NSData *uuidData = [LibTools nsstringToHex:SigDataSource.share.curLocationNodeModel.UUID];
     memcpy(&vc_uuid, uuidData.bytes, sizeof(vc_uuid));
-    
+
     return 1;
 }
 
@@ -2281,32 +2353,38 @@ int mesh_model_remote_prov_win32(model_remote_prov_t *p_remote)
  pro_random:            8b 19 ac 31 d5 8b 12 4c 94 62 09 b5 db 10 21 b9
  */
 extern int mesh_sec_prov_cloud_comfirm(u8* p_comfirm,u8 *p_comfirm_key,u8 *pro_random){
-    /*static OOB 示范代码，添加天猫的设备需要*/
-//    unsigned char s[32];
-//    unsigned char aligenieAuthValue[16] = {0};
-//    memcpy (s, pro_random, 16);
-//    memcpy (s+16, aligenieAuthValue, 16);//oob
-//    tn_aes_cmac (p_comfirm_key, s, 32, p_comfirm);
-//    return 1;
+    NSData *staticOobData = Bluetooth.share.commandHandle.staticOOBData;
+    if (staticOobData && staticOobData.length == 16) {
+        /*static OOB 示范代码，添加天猫的设备需要*/
+        unsigned char s[32];
+        TeLog(@"staticOobData=%@",staticOobData);
+        Byte *staticOobDataByte = (Byte *)staticOobData.bytes;
+        memcpy (s, pro_random, 16);
+        memcpy (s+16, staticOobDataByte, 16);//oob
+        tn_aes_cmac (p_comfirm_key, s, 32, p_comfirm);
+        return 1;
+    } else {
+        return 0;
+    }
 
-    
-    return 0;
-    //该回调需要同步等待HTTP的值返回才往下走。且当前线程不是主线程。
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-    TeLog(@"开始请求");
-    LibHandle *tem = [[LibHandle alloc] init];
-    [tem requestHTTP:^(id result, NSError *err) {
-        if (err) {
-            TeLog(@"%@",err.localizedDescription);
-        } else {
-            //校验成功
-            //赋值到p_comfirm
-            TeLog(@"校验成功");
-        }
-        dispatch_semaphore_signal(semaphore);
-    }];
-    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-    TeLog(@"HTTP请求返回完成，继续其他代码");
+
+//    return 0;
+//    //该回调需要同步等待HTTP的值返回才往下走。且当前线程不是主线程。
+//    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+//    TeLog(@"开始请求");
+//    LibHandle *tem = [[LibHandle alloc] init];
+//    [tem requestHTTP:^(id result, NSError *err) {
+//        if (err) {
+//            TeLog(@"%@",err.localizedDescription);
+//        } else {
+//            //校验成功
+//            //赋值到p_comfirm
+//            TeLog(@"校验成功");
+//        }
+//        dispatch_semaphore_signal(semaphore);
+//    }];
+//    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+//    TeLog(@"HTTP请求返回完成，继续其他代码");
 }
 
 /*
@@ -2317,18 +2395,25 @@ extern int mesh_sec_prov_cloud_comfirm(u8* p_comfirm,u8 *p_comfirm_key,u8 *pro_r
  p_dev_comfirm:    2d ee 6f 21 a0 a0 21 14 f2 a3 ab bd b3 1b 49 14
  */
 extern int mesh_cloud_dev_comfirm_check(u8 *p_comfirm_key,u8* p_dev_random,u8*p_dev_comfirm){
-    /*static OOB 示范代码，添加天猫的设备需要*/
-//    unsigned char s[32];
-//    unsigned char aligenieAuthValue[16] = {0};
-//    memcpy (s, p_dev_random, 16);
-//    memcpy (s+16, aligenieAuthValue, 16);//oob
-//    unsigned char comfirm[16];
-//    tn_aes_cmac (p_comfirm_key, s, 32, comfirm);
-//    return memcmp(comfirm, p_dev_comfirm, 16)==0?1:0;
+    NSData *staticOobData = Bluetooth.share.commandHandle.staticOOBData;
+    if (staticOobData && staticOobData.length == 16) {
+        /*static OOB 示范代码，添加天猫的设备需要*/
+        unsigned char s[32];
+        NSData *staticOobData = Bluetooth.share.commandHandle.staticOOBData;
+        TeLog(@"staticOobData=%@",staticOobData);
+        Byte *staticOobDataByte = (Byte *)staticOobData.bytes;
+        memcpy (s, p_dev_random, 16);
+        memcpy (s+16, staticOobDataByte, 16);//oob
+        unsigned char comfirm[16];
+        tn_aes_cmac (p_comfirm_key, s, 32, comfirm);
+        return memcmp(comfirm, p_dev_comfirm, 16)==0?1:0;
+    } else {
+        return 0;
+    }
 
-    
-    return 0;
-    //该回调需要同步等待HTTP的值返回才往下走。参考代码同上。
+
+//    return 0;
+//    //该回调需要同步等待HTTP的值返回才往下走。参考代码同上。
 }
 
 typedef void (^myBlock)(id result,NSError *err);
@@ -2358,7 +2443,7 @@ u8 model_need_key_bind_whitelist(u16 *key_bind_list_buf,u8 *p_list_cnt,u8 max_cn
     //app don't use whitelist, return 1.
     *p_list_cnt =0;
     return 1;
-    
+
     //app use whitelist, need to comment the above two lines of code.
     NSInteger count = SigDataSource.share.keyBindModelIDs.count;
     *p_list_cnt = count;

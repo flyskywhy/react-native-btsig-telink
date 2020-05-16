@@ -326,4 +326,57 @@
     }
    return result;
 }
+
+- (UInt8)aesAttDecryptionPacketOnlineStatusWithNetworkBeaconKey:(UInt8 *)key iv:(UInt8 *)iv ivLen:(UInt8)ivLen mic:(UInt8 *)mic micLen:(UInt8)micLen ps:(UInt8 *)ps psLen:(int)psLen {
+    if(ivLen > 15){
+        return 0;
+    }
+    
+    if(psLen < 0){
+        return 0;   // failed
+    }
+
+    UInt8 len = (UInt8)psLen;
+    
+    UInt8    e[16], r[16];
+    
+    ///////////////// calculate enc ////////////////////////
+    memset (r, 0, 16);
+    memcpy (r+1, iv, ivLen);
+    for (int i=0; i<len; i++)
+    {
+        if ((i&15) == 0)
+        {
+            tn_aes_128 (key, r, e);
+            r[0]++;
+        }
+        ps[i] ^= e[i & 15];
+    }
+
+    ///////////// calculate mic ///////////////////////
+    memset (r, 0, 16);
+    memcpy (r, iv, ivLen);
+    r[ivLen] = len;
+    tn_aes_128 (key, r, r);
+
+    for (int i=0; i<len; i++)
+    {
+        r[i & 15] ^= ps[i];
+
+        if ((i&15) == 15 || i == len - 1)
+        {
+            tn_aes_128 (key, r, r);
+        }
+    }
+
+    for (int i=0; i<micLen; i++)
+    {
+        if (mic[i] != r[i])
+        {
+            return 0;            //Failed
+        }
+    }
+    return 1;
+}
+
 @end

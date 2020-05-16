@@ -199,7 +199,7 @@ typedef void(^writeJsonResponse)(void);
     memset(resultBytes, 0xff, length);      //初始化
     memcpy(resultBytes, &index, 2); //设置索引
     memcpy(resultBytes+2, tempBytes, data.length); //copy传过来的data
-    uint16_t crc = crc16(resultBytes, (int)data.length + 2);
+    uint16_t crc = libHandleCRC16(resultBytes, (int)data.length + 2);
     memcpy(resultBytes+data.length+2, &crc, 2); //设置crc校验值
     NSData *writeData = [NSData dataWithBytes:resultBytes length:length];
     TeLog(@"jsonPackIndex -> %04x ,length:%lu", index,(unsigned long)writeData.length);

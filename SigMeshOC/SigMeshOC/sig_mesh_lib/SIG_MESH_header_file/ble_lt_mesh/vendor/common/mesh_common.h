@@ -33,11 +33,26 @@
 #include "scheduler.h"
 #include "mesh_property.h"
 
+/** @addtogroup Mesh_Common
+  * @{
+  */
+  
+/** @defgroup Mesh_Common
+  * @brief Mesh Common Code.
+  * @{
+  */
+
+
 #ifndef HCI_LOG_FW_EN
 #define HCI_LOG_FW_EN   0
 #endif
 
+#if SPIRIT_PRIVATE_LPN_EN
+#define MESH_RSP_BASE_DELAY_STEP			120  //unit:ADV_INTERVAL_MIN(10ms)
+#else
 #define MESH_RSP_BASE_DELAY_STEP			18  //unit:ADV_INTERVAL_MIN(10ms)
+#endif
+
 #define MESH_POWERUP_BASE_TIME				200
 
 typedef struct{
@@ -61,7 +76,7 @@ typedef struct ais_pri_data{
 			u8 ota_support:1;
 			u8 authen_en:1;
 			u8 secret_type:1;// 0:one device type on key, 1:one device one key
-			u8 adv_mode:1;
+			u8 prov_flag:1;
 			u8 rfu:2;
 		};
 	};
@@ -96,6 +111,7 @@ void entry_ota_mode(void);
 void set_mesh_ota_type();
 void set_firmware_type_init();
 void set_firmware_type_SIG_mesh();
+void set_firmware_type_zb_with_factory_reset();
 void set_ota_firmwaresize(int adr);
 void ota_set_flag();
 void mesh_ota_reboot_set(u8 type);
@@ -118,12 +134,10 @@ void adc_drv_init();
 int blc_rx_from_uart (void);
 int blc_hci_tx_to_uart ();
 void mesh_scan_rsp_init();
-void mesh_scan_rsp_update_adr_primary(u16 adr);
 int SendOpParaDebug(u16 adr_dst, u8 rsp_max, u16 op, u8 *par, int len);
 int SendOpParaDebug_vendor(u16 adr_dst, u8 rsp_max, u16 op, u8 *par, int len, u8 rsp_op, u8 tid);
 void share_model_sub_by_rx_cmd(u16 op, u16 ele_adr, u16 sub_adr, u16 dst_adr,u8 *uuid, u32 model_id, int sig_model);
 void share_model_sub(u16 op, u16 sub_adr, u8 *uuid);
-u32 get_all_online_node(u16 *list, u32 max_cnt);
 void APP_reset_vendor_id(u16 vd_id);
 int mesh_rc_data_layer_access_cb(u8 *params, int par_len, mesh_cb_fun_par_t *cb_par);
 int mesh_tx_cmd2self_primary(u8 *ac, int len_ac);
@@ -139,9 +153,8 @@ extern u32 g_vendor_md_light_vc_c;
 extern u16 publish_powerup_random_ms;
 
 extern u32 fw_id_local;
-extern u8 prov_oob_info_use[16];
 extern u16 sub_adr_onoff ;
-void set_unprov_beacon_para(u8 *p_uuid ,u8 *p_info,u8 *p_hash,u8 *uri_para,u8 uri_len);
+void set_unprov_beacon_para(u8 *p_uuid ,u8 *p_info);
 void set_provision_adv_data(u8 *p_uuid,u8 *oob_info);
 void set_proxy_adv_data(u8 *p_hash,u8 *p_random);
 void bls_set_adv_delay(u8 delay);	// unit : 625us
@@ -167,7 +180,6 @@ void erase_ecdh_sector_restore_info(u32 adr,u8 *p_data,u16 len);
 int SendOpParaDebug_VC(u16 adr_dst, u8 rsp_max, u16 op, u8 *par, int len);  // only for SIG command now
 #endif
 extern u8  mesh_user_define_mode ;
-extern u8  provision_flow_simple_en ;
 
 extern u8 PROVISION_ATT_HANDLE; // may use in library
 extern u8 GATT_PROXY_HANDLE;    // may use in library
@@ -253,3 +265,15 @@ void blc_l2cap_register_pre_handler(void *p);
 #if!WIN32
 uint32_t soft_crc32_telink(const void *buf, size_t size, uint32_t crc);
 #endif
+void vendor_md_cb_pub_st_set2ali();
+
+
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
+
+

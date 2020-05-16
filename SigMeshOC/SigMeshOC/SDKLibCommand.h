@@ -1,5 +1,5 @@
 /********************************************************************************************************
- * @file     SDKLibCommand.h 
+ * @file     SDKLibCommand.h
  *
  * @brief    for TLSR chips
  *
@@ -8,16 +8,16 @@
  *
  * @par      Copyright (c) 2010, Telink Semiconductor (Shanghai) Co., Ltd.
  *           All rights reserved.
- *           
- *			 The information contained herein is confidential and proprietary property of Telink 
- * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms 
- *			 of Commercial License Agreement between Telink Semiconductor (Shanghai) 
- *			 Co., Ltd. and the licensee in separate contract or the terms described here-in. 
+ *
+ *			 The information contained herein is confidential and proprietary property of Telink
+ * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms
+ *			 of Commercial License Agreement between Telink Semiconductor (Shanghai)
+ *			 Co., Ltd. and the licensee in separate contract or the terms described here-in.
  *           This heading MUST NOT be removed from this file.
  *
- * 			 Licensees are granted free, non-transferable use of the information in this 
- *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided. 
- *           
+ * 			 Licensees are granted free, non-transferable use of the information in this
+ *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided.
+ *
  *******************************************************************************************************/
 //
 //  SDKLibCommand.h
@@ -32,13 +32,14 @@
 #import "BLECallBackAPI.h"
 
 typedef void(^snoCallBack)(UInt32 sno);
-typedef void(^responseModelCallBack)(ResponseModel *m);
-typedef void(^responseVendorModelCallBack)(VendorResponseModel *m);
+typedef void(^responseModelCallBack)(ResponseModel *m);// callback nil when command had timeout.
+typedef void(^responseVendorModelCallBack)(VendorResponseModel *m);// callback nil when command had timeout.
 typedef void(^resultCallBack)(void);
 typedef void(^addressCallBack)(NSNumber *address);
 typedef void(^remoteProvisioningMaxScannedItemsCallBack)(u8 maxItems,u8 activeScan);
 typedef void(^remoteProvisioningScanCallBack)(SigRemoteScanRspModel *scanRemoteModel);
 typedef void(^addSingleDeviceSuccessCallBack)(NSData *deviceKey,UInt16 address,UInt16 pid);
+typedef void(^discoverDeviceBlock)(CBPeripheral *peripheral,SigScanRspModel *model,BOOL provisionAble);
 
 @interface SDKLibCommand : NSObject
 
@@ -47,6 +48,8 @@ typedef void(^addSingleDeviceSuccessCallBack)(NSData *deviceKey,UInt16 address,U
 #pragma mark - Save call back
 //sno
 @property (nonatomic,copy) snoCallBack setLocationSnoCallBack;
+//callback all response data
+@property (nonatomic,copy) responseModelCallBack responseAllDataCallBack;
 //turn on / off group or device
 @property (nonatomic,copy) responseModelCallBack switchOnOffCallBack;
 //change brightness
@@ -107,6 +110,14 @@ typedef void(^addSingleDeviceSuccessCallBack)(NSData *deviceKey,UInt16 address,U
 @property (nonatomic,copy) addSingleDeviceSuccessCallBack fastProvisionAddSingleDeviceSuccessCallBack;
 //fast provision add device finish callback
 @property (nonatomic,copy) prvisionFinishCallBack fastProvisionAddDeviceFinishCallBack;
+@property (nonatomic,assign) BOOL isSingleProvision;
+@property (nonatomic,copy) addDevice_prvisionSuccessCallBack singlePrvisionSuccessCallBack;
+@property (nonatomic,copy) addDevice_keyBindSuccessCallBack singleKeyBindSuccessCallBack;
+@property (nonatomic,copy) ErrorBlock singlePrvisionFailCallBack;
+@property (nonatomic,copy) ErrorBlock singleKeyBindFailCallBack;
+@property (nonatomic,strong) NSData *staticOOBData;
+@property (nonatomic,assign) UInt16 fastKeybindProductID;
+@property (nonatomic,strong) NSData *fastKeybindCpsData;
 
 /// 启动meshSDK
 + (void)startMeshSDK;
@@ -229,5 +240,116 @@ typedef void(^addSingleDeviceSuccessCallBack)(NSData *deviceKey,UInt16 address,U
 
 /// get fw info
 - (void)getFwInfoWithAddress:(u16)address Completation:(responseModelCallBack)complete;
+
+
+#pragma mark - new api since v3.1.4
+
+
+/// start scan with timeout
+/// @param provisionAble YES means scan device for provision, NO means scan device for normal/keyBind/OTA.
+/// @param timeout timeout can't be 0.
+/// @param discoverDevice callback when SDK discover device.
+/// @param finish callback when timeout reached.
+- (void)startScanWithProvisionAble:(BOOL)provisionAble timeout:(NSTimeInterval)timeout discoverDevice:(discoverDeviceBlock)discoverDevice finish:(resultCallBack)finish;
+
+
+/// stop discover device, cancel timeout, set block of scan api to be nil.
+- (void)stopScan;
+
+
+/*
+ parameter of SigAddConfigModel:
+
+    1.normal provision + normal keybind:
+peripheral+unicastAddress+networkKey+netkeyIndex+appKey+appkeyIndex+provisionType:ProvisionTpye_NoOOB+keyBindType:KeyBindTpye_Normal
+    2.normal provision + fast keybind:
+ peripheral+unicastAddress+networkKey+netkeyIndex+appKey+appkeyIndex+provisionType:ProvisionTpye_NoOOB+keyBindType:KeyBindTpye_Fast+productID+cpsData
+    3.static oob provision(cloud oob) + normal keybind:
+ peripheral+unicastAddress+networkKey+netkeyIndex+appKey+appkeyIndex+provisionType:ProvisionTpye_StaticOOB+staticOOBData+keyBindType:KeyBindTpye_Normal
+    4.static oob provision(cloud oob) + fast keybind:
+ peripheral+unicastAddress+networkKey+netkeyIndex+appKey+appkeyIndex+provisionType:ProvisionTpye_StaticOOB+staticOOBData+keyBindType:KeyBindTpye_Fast+productID+cpsData
+ */
+/// Add Device (provision+keyBind)
+/// @param configModel all config message of add device.
+/// @param provisionSuccess callback when provision success.
+/// @param provisionFail callback when provision fail.
+/// @param keyBindSuccess callback when keybind success.
+/// @param keyBindFail callback when keybind fail.
+- (void)startAddDeviceWithSigAddConfigModel:(SigAddConfigModel *)configModel provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess provisionFail:(ErrorBlock)provisionFail keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess keyBindFail:(ErrorBlock)keyBindFail;
+
+
+/// provision
+/// @param peripheral CBPeripheral of CoreBluetooth will be provision.
+/// @param unicastAddress address of new device.
+/// @param networkKey networkKey
+/// @param netkeyIndex netkeyIndex
+/// @param provisionType ProvisionTpye_NoOOB means oob data is 16 bytes zero data, ProvisionTpye_StaticOOB means oob data is get from HTTP API.
+/// @param staticOOBData oob data get from HTTP API when provisionType is ProvisionTpye_StaticOOB.
+/// @param provisionSuccess callback when provision success.
+/// @param fail callback when provision fail.
+- (void)startProvisionWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress networkKey:(NSData *)networkKey netkeyIndex:(UInt16)netkeyIndex provisionType:(ProvisionTpye)provisionType staticOOBData:(NSData *)staticOOBData provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess fail:(ErrorBlock)fail;
+
+
+/// provision (add callback of start send provision data)
+/// @param peripheral CBPeripheral of CoreBluetooth will be provision.
+/// @param unicastAddress address of new device.
+/// @param networkKey networkKey
+/// @param netkeyIndex netkeyIndex
+/// @param provisionType ProvisionTpye_NoOOB means oob data is 16 bytes zero data, ProvisionTpye_StaticOOB means oob data is get from HTTP API.
+/// @param staticOOBData oob data get from HTTP API when provisionType is ProvisionTpye_StaticOOB.
+/// @param startSendProvision callback when provision packet begin send.
+/// @param provisionSuccess callback when provision success.
+/// @param fail callback when provision fail.
+- (void)startProvisionWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress networkKey:(NSData *)networkKey netkeyIndex:(UInt16)netkeyIndex provisionType:(ProvisionTpye)provisionType staticOOBData:(NSData *)staticOOBData startSendProvision:(bleFinishScanedCharachteristicCallBack)startSendProvision provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess fail:(ErrorBlock)fail;
+
+
+/// keybind
+/// @param peripheral CBPeripheral of CoreBluetooth will be keybind.
+/// @param unicastAddress address of new device.
+/// @param appkey appkey
+/// @param appkeyIndex appkeyIndex
+/// @param netkeyIndex netkeyIndex
+/// @param keyBindType KeyBindTpye_Normal means add appkey and model bind, KeyBindTpye_Fast means just add appkey.
+/// @param productID the productID info need to save in node when keyBindType is KeyBindTpye_Fast.
+/// @param cpsData the elements info need to save in node when keyBindType is KeyBindTpye_Fast.
+/// @param keyBindSuccess callback when keybind success.
+/// @param fail callback when provision fail.
+- (void)startKeyBindWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress appKey:(NSData *)appkey appkeyIndex:(UInt16)appkeyIndex netkeyIndex:(UInt16)netkeyIndex keyBindType:(KeyBindTpye)keyBindType productID:(UInt16)productID cpsData:(NSData *)cpsData keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(ErrorBlock)fail;
+
+
+/// keybind (with retry)
+/// @param peripheral CBPeripheral of CoreBluetooth will be keybind.
+/// @param unicastAddress address of new device.
+/// @param appkey appkey
+/// @param appkeyIndex appkeyIndex
+/// @param netkeyIndex netkeyIndex
+/// @param keyBindType KeyBindTpye_Normal means add appkey and model bind, KeyBindTpye_Fast means just add appkey.
+/// @param retryCount retry count of keybind.
+/// @param productID the productID info need to save in node when keyBindType is KeyBindTpye_Fast.
+/// @param cpsData the elements info need to save in node when keyBindType is KeyBindTpye_Fast.
+/// @param keyBindSuccess callback when keybind success.
+/// @param fail callback when provision fail.
+- (void)startKeyBindWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress appKey:(NSData *)appkey appkeyIndex:(UInt16)appkeyIndex netkeyIndex:(UInt16)netkeyIndex keyBindType:(KeyBindTpye)keyBindType retryCount:(int)retryCount productID:(UInt16)productID cpsData:(NSData *)cpsData keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(ErrorBlock)fail;
+
+
+/// set filter
+/// @param locationAddress current provisioner's nodeAddress
+/// @param timeout timeout can't be 0.
+/// @param result callback when set filter successful or timeout.
+- (void)setFilterWithLocationAddress:(UInt16)locationAddress timeout:(NSTimeInterval)timeout result:(bleSetFilterResultCallBack)result;
+
+
+/// cancel set filter
+- (void)cancelSetFilterWithTimeout;
+
+
+/// send sig model ini command or send vendor model ini command.
+/// @param command config of sig model command or vendor model command. sig model struct: mesh_bulk_cmd_par_t, vendor model struct: mesh_vendor_par_ini_t. sig model config: netkeyIndex, appkeyIndex, retryCount, responseMax, address, opcode, commandData.
+/// @param responseCallback callback when SDK receive response data of this command. And this callback will remove from SDK when all responses had received or command had timeout. Attention: this callback will not callback forever when command.responseOpcode is 0.
+- (void)sendIniCommand:(IniCommandModel *)command responseCallback:(responseModelCallBack)responseCallback;
+
+
+/// clean commands cache, because SDK may has many commands in queue when app change mesh.
+- (void)cleanCommandsCache;
 
 @end
