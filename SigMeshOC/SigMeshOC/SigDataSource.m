@@ -768,6 +768,9 @@
 }
 
 - (void)setLocationSno:(UInt32)sno {
+    if (Bluetooth.share.commandHandle.setLocationSnoCallBack) {
+        Bluetooth.share.commandHandle.setLocationSnoCallBack(sno);
+    }
     [[NSUserDefaults standardUserDefaults] setObject:@(sno) forKey:kCurrenProvisionerSno_key];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }

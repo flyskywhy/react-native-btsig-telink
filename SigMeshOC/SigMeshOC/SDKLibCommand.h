@@ -31,6 +31,7 @@
 #import "LibHandle.h"
 #import "BLECallBackAPI.h"
 
+typedef void(^snoCallBack)(UInt32 sno);
 typedef void(^responseModelCallBack)(ResponseModel *m);
 typedef void(^responseVendorModelCallBack)(VendorResponseModel *m);
 typedef void(^resultCallBack)(void);
@@ -44,6 +45,8 @@ typedef void(^addSingleDeviceSuccessCallBack)(NSData *deviceKey,UInt16 address,U
 @property (nonatomic,strong) NSTimer *busyTimer;
 
 #pragma mark - Save call back
+//sno
+@property (nonatomic,copy) snoCallBack setLocationSnoCallBack;
 //turn on / off group or device
 @property (nonatomic,copy) responseModelCallBack switchOnOffCallBack;
 //change brightness
