@@ -1713,10 +1713,13 @@ int mesh_misc_store_win32(misc_save_t *p_misc)
     if(p_node == NULL){
         return -1;
     }
-    p_node->sno = p_misc->sno;
-    memcpy(json_database.ivi_idx,p_misc->iv_index,sizeof(p_misc->iv_index));
+    if (p_misc->sno != 1) { // some time comes the 1 when APP start with other sno, thus cause connection problem
+        p_node->sno = p_misc->sno;
+        memcpy(json_database.ivi_idx,p_misc->iv_index,sizeof(p_misc->iv_index));
 
-    [SigDataSource.share setLocationSno:p_misc->sno];
+        [SigDataSource.share setLocationSno:p_misc->sno];
+    }
+
     NSData *ivIndexData = [NSData dataWithBytes:p_misc->iv_index length:4];
     if (SigDataSource.share.hasWriteDataSourceToLib) {
         [SigDataSource.share updateIvIndexData:ivIndexData];
