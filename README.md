@@ -29,4 +29,4 @@ Add bellow (after `pod 'Folly'`) into `ios/Podfile`
     import btsigTelink from 'react-native-btsig-telink';
 
 ## fastBind
-If you want fastBind, you need put the cpsData of your device into `android/src/main/java/com/telink/sig/mesh/PrivateDevice.java` and `DeviceTypeModel` in `SigMeshOC/SigMeshOC/Model.m`.
+If you want fastBind, you need put the cpsData of your device into `android/src/main/java/com/telink/sig/mesh/PrivateDevice.java` and `DeviceTypeModel` in `SigMeshOC/SigMeshOC/Model.h`.
