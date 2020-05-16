@@ -110,6 +110,7 @@ RCT_EXPORT_MODULE()
         @"notificationGetDeviceState",
         @"notificationOnlineStatus",
         @"notificationVendorResponse",
+        @"saveOrUpdateJS",
         @"serviceConnected",
         @"serviceDisconnected",
         @"systemLocationDisabled",
@@ -217,6 +218,8 @@ RCT_EXPORT_MODULE()
     [SigDataSource.share loadScanList];
     //init SigScanRspModel list
     [SigDataSource.share loadEncryptedNodeIdentityList];
+
+    [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
 }
 
 // ref to startMeshSDK() in SigMeshOC/SDKLibCommand.m
@@ -260,6 +263,15 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
      [self startMeshSDK:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno];
 
      __weak typeof(self) weakSelf = self;
+
+
+    Bluetooth.share.commandHandle.setLocationSnoCallBack = ^(UInt32 sno)  {
+        NSLog(@"TelinkBtSig sno set %d", sno);
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:sno] forKey:@"provisionerSno"];
+        [dict setObject:[NSNumber numberWithBool:YES] forKey:@"hasOnlineStatusNotifyRaw"];
+        [weakSelf sendEventWithName:@"saveOrUpdateJS" body:dict];
+    };
 
     // ref to anasislyResponseData() in SigMeshOC/LibHandle.m
     onVendorResponse = ^(VendorResponseModel *model) {
