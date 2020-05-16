@@ -808,8 +808,8 @@
     VC_node_info_t node_info = {};
     memset(&node_info, 0xff, sizeof(VC_node_info_t));
     Byte *byte = (Byte *)data.bytes;
-    int length = (int)data.length;
-    memcpy(&node_info.cps.page0_head.cid, byte, length);
+    _cpsDataLen = (int)data.length;
+    memcpy(&node_info.cps.page0_head.cid, byte, _cpsDataLen);
     _defultNodeInfo = node_info;
 }
 
