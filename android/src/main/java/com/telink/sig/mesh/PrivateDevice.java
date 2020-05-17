@@ -22,7 +22,7 @@ public enum PrivateDevice {
     //                 , (byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x00, (byte) 0x02, (byte) 0x10, (byte) 0x06, (byte) 0x13}),
 
     // when cpsData is changed by the change of element or model in firmware, FB00[] is also need changed here and in
-    // DeviceTypeModel of react-native-btsig-telink/SigMeshOC/SigMeshOC/Model.h
+    // DeviceTypeModel of react-native-btsig-telink/SigMeshOC/SigMeshOC/Model.m
     //
     // note 3 code in SigDataSource.m about FB00
     // note filter() here about FB00

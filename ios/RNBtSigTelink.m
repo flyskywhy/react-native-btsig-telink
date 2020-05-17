@@ -925,88 +925,77 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
         UInt16 provisionAddress = [[node objectForKey:@"meshAddress"] intValue];
 
         BOOL fastBind = true; // fastBind will be checked again in keybindAction() of SigMeshOC/Bluetooth.m , so true here
-//        fastBind = false;
 
+        [Bluetooth.share.commandHandle startAddDeviceWithNextAddress:provisionAddress networkKey:key netkeyIndex:SigDataSource.share.curNetkeyModel.index peripheral:device.peripheral keyBindType:fastBind ? KeyBindTpye_Quick : KeyBindTpye_Normal provisionSuccess:^(NSString *identify, UInt16 address) {
+            if (identify && address != 0) {
+                NSLog(@"TelinkBtSig AddNewDevice %d provisionSuccess", provisionAddress);
+            } else {
+                reject(@"provision", @"AddNewDevice fail", nil);
+            }
+        } keyBindSuccess:^(NSString *identify, UInt16 address) {
+            NSLog(@"TelinkBtSig AddNewDevice %d keyBindSuccess", provisionAddress);
 
-        [Bluetooth.share.commandHandle stopScan];
-        NSLog(@"TelinkBtSig AddNewDevice [Start] connecting");
-        [Bluetooth.share.commandHandle startProvisionWithPeripheral:device.peripheral unicastAddress:provisionAddress networkKey:key netkeyIndex:SigDataSource.share.curNetkeyModel.index provisionType:ProvisionTpye_NoOOB staticOOBData:nil startSendProvision:^(CBPeripheral *peripheral) {
-            NSLog(@"TelinkBtSig AddNewDevice [Start] provisioning netkeyIndex %ld", (long)SigDataSource.share.curNetkeyModel.index);
-        } provisionSuccess:^(NSString *identify, UInt16 address) {
-            NSLog(@"TelinkBtSig AddNewDevice [End] provision success");
-            NSLog(@"TelinkBtSig AddNewDevice [Start] setFilter LocationAddress %d", SigDataSource.share.curLocationNodeModel.address);
-            [Bluetooth.share.commandHandle setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address timeout:kSetFilterTimeout result:^(BOOL isSuccess) {
-                if (isSuccess) {
-                    NSLog(@"TelinkBtSig AddNewDevice [End] setFilter success");
-                    NSLog(@"TelinkBtSig AddNewDevice [Start] keybinding appkeyIndex %ld", (long)SigDataSource.share.curAppkeyModel.index);
-                    [Bluetooth.share.commandHandle startKeyBindWithPeripheral:device.peripheral unicastAddress:provisionAddress appKey:SigDataSource.share.curAppKey appkeyIndex:SigDataSource.share.curAppkeyModel.index netkeyIndex:SigDataSource.share.curNetkeyModel.index keyBindType:fastBind ? KeyBindTpye_Fast : KeyBindTpye_Normal retryCount:3 productID:0 cpsData:nil keyBindSuccess:^(NSString *identify, UInt16 address) {
-                        //添加成功
-                        NSLog(@"TelinkBtSig AddNewDevice [End] keybind success");
-                        NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-                        SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
-                        VC_node_info_t node_info = model.nodeInfo;
+            NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
+            SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
+            VC_node_info_t node_info = model.nodeInfo;
 
-//                        NSLog(@"TelinkBtSig AddNewDevice node_info %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
+//            NSLog(@"TelinkBtSig AddNewDevice node_info %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
 
-                        if (fastBind) {
-                            SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:identify];
-                            if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.CID != 0 && scanRspModel.PID != 0) {
-                                DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanRspModel.CID PID:scanRspModel.PID];
-                                node_info.cps.len_cps = deviceType.cpsDataLen; // otherwise the SDK will give you 0x0C
-                                VC_node_info_t private_node_info = deviceType.defultNodeInfo;
-                                memcpy(&node_info.cps.page0_head.cid, (Byte *)&private_node_info.cps.page0_head.cid, deviceType.cpsDataLen);
-                                node_info.cps.page0_head.pid = scanRspModel.PID;
-                                NSLog(@"TelinkBtSig AddNewDevice replace pid %x", node_info.cps.page0_head.pid);
-                                if ([scanRspModel.advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {
-                                    NSData *advDataServiceData = [(NSDictionary *)scanRspModel.advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
-                                    if (advDataServiceData) {
-                                        if (advDataServiceData.length >= 6) {
-                                            node_info.cps.page0_head.vid = [LibTools uint16FromBytes:[advDataServiceData subdataWithRange:NSMakeRange(4, 2)]];
-                                            NSLog(@"TelinkBtSig AddNewDevice replace vid %x", node_info.cps.page0_head.vid);
-                                        }
-                                    }
-                                }
-//                                NSLog(@"TelinkBtSig AddNewDevice node_repl %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
-                                model.nodeInfo = node_info;
-                                [SigDataSource.share saveDeviceWithDeviceModel:model];
+            if (fastBind) {
+                SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:identify];
+                if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.CID != 0 && scanRspModel.PID != 0) {
+                    DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanRspModel.CID PID:scanRspModel.PID];
+                    node_info.cps.len_cps = deviceType.cpsDataLen; // otherwise the SDK will give you 0x0C
+                    VC_node_info_t private_node_info = deviceType.defultNodeInfo;
+                    memcpy(&node_info.cps.page0_head.cid, (Byte *)&private_node_info.cps.page0_head.cid, deviceType.cpsDataLen);
+                    node_info.cps.page0_head.pid = scanRspModel.PID;
+                    NSLog(@"TelinkBtSig AddNewDevice replace pid %x", node_info.cps.page0_head.pid);
+                    if ([scanRspModel.advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {
+                        NSData *advDataServiceData = [(NSDictionary *)scanRspModel.advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
+                        if (advDataServiceData) {
+                            if (advDataServiceData.length >= 6) {
+                                node_info.cps.page0_head.vid = [LibTools uint16FromBytes:[advDataServiceData subdataWithRange:NSMakeRange(4, 2)]];
+                                NSLog(@"TelinkBtSig AddNewDevice replace vid %x", node_info.cps.page0_head.vid);
                             }
                         }
-
-                        int VC_node_info_t_length = sizeof(VC_node_info_t);
-                        u8 nodeInfoArray[VC_node_info_t_length];
-
-                        memcpy(nodeInfoArray, &node_info, VC_node_info_t_length);
-                        int nodeInfoWithoutCpsDataLength = 22;
-                        int nodeInfoValidLength = nodeInfoWithoutCpsDataLength + node_info.cps.len_cps;
-                        NSMutableArray *nodeInfo = [[NSMutableArray alloc] init];
-                        for (int i = 0; i < nodeInfoValidLength; i++) {
-                            [nodeInfo addObject:[NSNumber numberWithInt:nodeInfoArray[i]]];
-                        }
-                        NSLog(@"TelinkBtSig AddNewDevice pid = %@", model.pid);
-
-                        [event setObject:nodeInfo forKey:@"nodeInfo"];
-                        [event setObject:[NSNumber numberWithInt:node_info.element_cnt] forKey:@"elementCnt"];
-                        [event setObject:[NSNumber numberWithInt:node_info.cps.page0_head.pid] forKey:@"type"];
-                        NSMutableArray *dhmKey = [[NSMutableArray alloc] init];
-                        int dev_key_length = sizeof(node_info.dev_key);
-                        for (int i = 0; i < dev_key_length; i++) {
-                            [dhmKey addObject:[NSNumber numberWithInt:node_info.dev_key[i]]];
-                        }
-                        [event setObject:dhmKey forKey:@"dhmKey"];
-                        resolve(event);
-                    } fail:^(NSError *error) {
-                        //添加keybind失败
-                        NSLog(@"TelinkBtSig AddNewDevice [End] keybind fail: %@", error);
-                        reject(@"error", @"AddNewDevice fail", nil);
-                    }];
-                } else {
-                    //添加setFilter失败
-                    NSLog(@"TelinkBtSig AddNewDevice [End] setFilter fail");
+                    }
+//                    NSLog(@"TelinkBtSig AddNewDevice node_repl %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
+                    model.nodeInfo = node_info;
+                    [SigDataSource.share saveDeviceWithDeviceModel:model];
                 }
-            }];
-        } fail:^(NSError *error) {
-            //添加provision失败
-            NSLog(@"TelinkBtSig AddNewDevice [End] provision fail");
+            }
+
+            int VC_node_info_t_length = sizeof(VC_node_info_t);
+            u8 nodeInfoArray[VC_node_info_t_length];
+
+            memcpy(nodeInfoArray, &node_info, VC_node_info_t_length);
+            int nodeInfoWithoutCpsDataLength = 22;
+            int nodeInfoValidLength = nodeInfoWithoutCpsDataLength + node_info.cps.len_cps;
+            NSMutableArray *nodeInfo = [[NSMutableArray alloc] init];
+            for (int i = 0; i < nodeInfoValidLength; i++) {
+                [nodeInfo addObject:[NSNumber numberWithInt:nodeInfoArray[i]]];
+            }
+            NSLog(@"TelinkBtSig AddNewDevice nodeInfo = %@", nodeInfo);
+            NSLog(@"TelinkBtSig AddNewDevice pid = %@", model.pid);
+
+            [event setObject:nodeInfo forKey:@"nodeInfo"];
+            [event setObject:[NSNumber numberWithInt:node_info.element_cnt] forKey:@"elementCnt"];
+            [event setObject:[NSNumber numberWithInt:node_info.cps.page0_head.pid] forKey:@"type"];
+            NSMutableArray *dhmKey = [[NSMutableArray alloc] init];
+            int dev_key_length = sizeof(node_info.dev_key);
+            for (int i = 0; i < dev_key_length; i++) {
+                [dhmKey addObject:[NSNumber numberWithInt:node_info.dev_key[i]]];
+            }
+            NSLog(@"TelinkBtSig AddNewDevice dhmKey = %@", dhmKey);
+            [event setObject:dhmKey forKey:@"dhmKey"];
+            resolve(event);
+        } fail:^(NSString *errorString) {
+            NSLog(@"TelinkBtSig AddNewDevice %d fail: %@", provisionAddress, errorString);
+            reject(errorString, @"AddNewDevice fail", nil);
+        } finish:^{
+            NSLog(@"TelinkBtSig AddNewDevice finish");
+
+            Bluetooth.share.commandHandle.responseVendorIDCallBack = self->onVendorResponse;
         }];
     } else {
         __weak typeof(self) weakSelf = self;
