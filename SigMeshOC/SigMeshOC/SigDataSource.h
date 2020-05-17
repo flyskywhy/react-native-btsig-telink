@@ -32,7 +32,6 @@
 
 @class SigDataSource,SigNetkeyModel,SigNetkeyDerivaties,SigProvisionerModel,SigRangeModel,SigSceneRangeModel,SigAppkeyModel,SigSceneModel,SigGroupModel,SigNodeModel,SigRelayretransmitModel,SigNetworktransmitModel,SigFeatureModel,SigNodeKeyModel,SigElementModel,SigModelIDModel,SigPublishModel,SigRetransmitModel, Groups, OpenSSLHelper;
 
-/// 唯一标识符为address，且只存储本地json存在的identityData不为空的SigEncryptedModel。
 @interface SigEncryptedModel : NSObject
 @property (nonatomic, strong) NSData *identityData;
 @property (nonatomic, strong) NSData *hashData;
@@ -72,11 +71,6 @@
 
 @property (nonatomic,strong) NSMutableArray <SigEncryptedModel *>*matchsNodeIdentityArray;
 @property (nonatomic,strong) NSMutableArray <SigEncryptedModel *>*noMatchsNodeIdentityArray;
-
-
-+ (instancetype)new __attribute__((unavailable("please initialize by use .share or .share()")));
-- (instancetype)init __attribute__((unavailable("please initialize by use .share or .share()")));
-
 
 + (SigDataSource *)share;
 
@@ -162,7 +156,7 @@
 - (SigScanRspModel *)getScanRspModelWithAddress:(UInt16)address;
 - (void)deleteScanRspModelWithAddress:(UInt16)address;
 - (SigEncryptedModel *)getSigEncryptedModelWithAddress:(UInt16)address;
-- (SigEncryptedModel *)getSigEncryptedModelWithPeripheralUUID:(NSString *)peripheralUUID;
+- (void)deleteSigEncryptedModelWithAddress:(UInt16)address;
 - (void)updateScanRspModelToDataSource:(SigScanRspModel *)model;
 ///Special handling: determine model whether exist current meshNetwork
 - (BOOL)existScanRspModel:(SigScanRspModel *)model;

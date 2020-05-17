@@ -25,16 +25,6 @@
 #include "../../proj/tl_common.h"
 #include "../../vendor/common/mesh_node.h"
 
-/** @addtogroup Mesh_Common
-  * @{
-  */
-  
-/** @defgroup Light
-  * @brief Light Code.
-  * @{
-  */
-
-
 #define LED_INDICATE_VAL    (rgb_lumen_map[100])
 #define LED_INDICATE_LUM_VAL LED_INDICATE_VAL
 
@@ -139,7 +129,7 @@
 
 #define POWER_MODEL_EN			1
 
-enum ST_TRANS_TYPE{
+enum{
 	ST_TRANS_LIGHTNESS  	= 0,	// share with power level
 	#if (LIGHT_TYPE_CT_EN)
 	ST_TRANS_CTL_TEMP,
@@ -155,9 +145,6 @@ enum ST_TRANS_TYPE{
     #if (LIGHT_TYPE_CT_EN)
 	ST_TRANS_CTL_D_UV,              // no level model related, assign at the end should be better.
     #endif
-	#if (MI_API_ENABLE)
-	ST_TRANS_MI_VENDOR_STS,
-	#endif
 	ST_TRANS_MAX,
     ST_TRANS_PUB_ONOFF = ST_TRANS_MAX,  // just use for publish,
 };
@@ -171,7 +158,6 @@ enum{
 
 typedef struct{
 	u8 st[ST_TRANS_MAX + 1];  // + 1: for onoff publish flag
-	u8 no_dim_refresh_flag;
 }st_pub_list_t;  // st_level_set_pub_list_t
 
 typedef struct{
@@ -390,12 +376,4 @@ void increase_rx_onoff_cnt();
 u16 get_rx_cnts();
 void light_transition_onoff_manual(u8 onoff, u8 transit_t, u8 light_idx);
 
-
-/**
-  * @}
-  */
-    
-/**
-  * @}
-  */
 

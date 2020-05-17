@@ -31,11 +31,6 @@
 
 @interface OpenSSLHelper : NSObject
 
-
-+ (instancetype)new __attribute__((unavailable("please initialize by use .share or .share()")));
-- (instancetype)init __attribute__((unavailable("please initialize by use .share or .share()")));
-
-
 + (OpenSSLHelper *)share;
 
 /// Generates 128-bit random data.
@@ -135,7 +130,5 @@
 /// @return A byte array of encrypted data using the key. The size of the returned
 ///         array is equal to the size of input data.
 - (NSData *)calculateEvalueWithData:(NSData *)someData andKey:(NSData *)key;
-
-- (UInt8)aesAttDecryptionPacketOnlineStatusWithNetworkBeaconKey:(UInt8 *)key iv:(UInt8 *)iv ivLen:(UInt8)ivLen mic:(UInt8 *)mic micLen:(UInt8)micLen ps:(UInt8 *)ps psLen:(int)psLen;
 
 @end

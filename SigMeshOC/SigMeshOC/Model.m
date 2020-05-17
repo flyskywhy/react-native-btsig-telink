@@ -1,5 +1,5 @@
 /********************************************************************************************************
- * @file     Model.m
+ * @file     Model.m 
  *
  * @brief    for TLSR chips
  *
@@ -8,16 +8,16 @@
  *
  * @par      Copyright (c) 2010, Telink Semiconductor (Shanghai) Co., Ltd.
  *           All rights reserved.
- *
- *			 The information contained herein is confidential and proprietary property of Telink
- * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms
- *			 of Commercial License Agreement between Telink Semiconductor (Shanghai)
- *			 Co., Ltd. and the licensee in separate contract or the terms described here-in.
+ *           
+ *			 The information contained herein is confidential and proprietary property of Telink 
+ * 		     Semiconductor (Shanghai) Co., Ltd. and is available under the terms 
+ *			 of Commercial License Agreement between Telink Semiconductor (Shanghai) 
+ *			 Co., Ltd. and the licensee in separate contract or the terms described here-in. 
  *           This heading MUST NOT be removed from this file.
  *
- * 			 Licensees are granted free, non-transferable use of the information in this
- *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided.
- *
+ * 			 Licensees are granted free, non-transferable use of the information in this 
+ *			 file under Mutual Non-Disclosure Agreement. NO WARRENTY of ANY KIND is provided. 
+ *           
  *******************************************************************************************************/
 //
 //  Model.m
@@ -112,11 +112,11 @@
         _model50 = [[ModelIDModel alloc] initWithModelGroup:@"Lighting" modelName:@"Light LC Server" sigModelID:SIG_MD_LIGHT_LC_S];
         _model51 = [[ModelIDModel alloc] initWithModelGroup:@"Lighting" modelName:@"Light LC Setup Server" sigModelID:SIG_MD_LIGHT_LC_SETUP_S];
         _model52 = [[ModelIDModel alloc] initWithModelGroup:@"Lighting" modelName:@"Light LC Client" sigModelID:SIG_MD_LIGHT_LC_C];
-
+        
         _modelIDs = @[_model1,_model2,_model3,_model4,_model5,_model6,_model7,_model8,_model9,_model10,_model11,_model12,_model13,_model14,_model15,_model16,_model17,_model18,_model19,_model20,_model21,_model22,_model23,_model24,_model25,_model26,_model27,_model28,_model29,_model30,_model31,_model32,_model33,_model34,_model35,_model36,_model37,_model38,_model39,_model40,_model41,_model42,_model43,_model44,_model45,_model46,_model47,_model48,_model49,_model50,_model51,_model52];
         //        _defaultModelIDs = @[_model1,_model3,_model4,_model35,_model36,_model38,_model39,_model41,_model50,_model51];//默认选中10个
         _defaultModelIDs = _modelIDs;//默认选中所有
-
+        
     }
     return self;
 }
@@ -238,7 +238,7 @@
 - (void)setYear:(UInt64)year{
     UInt64 tem = 0x7F;
     _schedulerData = (_schedulerData & (~(tem<<4))) | ((year & tem) << 4);
-
+    
 }
 
 - (UInt64)month{
@@ -352,7 +352,7 @@
  u8 rsv_telink[10];  // not for user
  u8 rsv_user[11];
  }mesh_scan_rsp_t;
-
+ 
  iOS12 实际数据：
  1827 Printing description of advertisementData:
  {
@@ -365,8 +365,8 @@
  1827
  );
  }
-
-
+ 
+ 
  1828 Printing description of advertisementData:
  {
  kCBAdvDataIsConnectable = 1;
@@ -511,7 +511,7 @@
     if (self = [super init]) {
         Byte *pu = (Byte *)rspData.bytes;
         unsigned int temp = 0;
-
+        
         memcpy(&temp, pu + 8+1, 1);
         _status = temp;
         memcpy(&temp, pu + 9+1, 2);
@@ -658,12 +658,8 @@
         }];
         int low = (int)(floor(0.2 * (double)(sortRSSIs.count)));
         int hight = (int)(floor(0.1 * (double)(sortRSSIs.count)));
-        if (sortRSSIs && sortRSSIs.count >= low) {
-            [sortRSSIs removeObjectsInRange:NSMakeRange(0, low)];
-        }
-        if (sortRSSIs && sortRSSIs.count >= hight) {
-            [sortRSSIs removeObjectsInRange:NSMakeRange(sortRSSIs.count - hight, hight)];
-        }
+        [sortRSSIs removeObjectsInRange:NSMakeRange(0, low)];
+        [sortRSSIs removeObjectsInRange:NSMakeRange(sortRSSIs.count - hight, hight)];
         int rv = 0;
         for (NSNumber *r in sortRSSIs) {
             rv += r.intValue;
@@ -686,7 +682,6 @@
     self.PBGATT_OutCharacteristic = nil;
     self.PROXY_InCharacteristic = nil;
     self.PROXY_OutCharacteristic = nil;
-    self.OnlineStatusCharacteristic = nil;
     [self clearRecord];
 }
 
@@ -700,7 +695,7 @@
 
 - (void)writeForPROXYIn:(NSData *)d{
     if (self.PROXY_InCharacteristic) {
-        TeLog(@"---> to:PROXY, length:%d",d.length);
+        TeLog(@"app PROXY writeValue:%@",d);
         [self.peripheral writeValue:d forCharacteristic:self.PROXY_InCharacteristic type:CBCharacteristicWriteWithoutResponse];
     }else{
         TeLog(@"app don't found PROXY_InCharacteristic");
@@ -709,7 +704,7 @@
 
 - (void)writeForPBGATTIn:(NSData *)d{
     if (self.PBGATT_InCharacteristic) {
-        TeLog(@"---> to:GATT, length:%d,value:%@",d.length,[LibTools convertDataToHexStr:d]);
+        TeLog(@"app PBGATT writeValue:%@",d);
         [self.peripheral writeValue:d forCharacteristic:self.PBGATT_InCharacteristic type:CBCharacteristicWriteWithoutResponse];
     }else{
         TeLog(@"app don't found PBGATT_InCharacteristic");
@@ -718,7 +713,7 @@
 
 - (void)writeForOnlineStatus:(NSData *)d{
     if (self.OnlineStatusCharacteristic) {
-        TeLog(@"---> to:OnlineStatusCharacteristic, length:%d,value:%@",d.length,[LibTools convertDataToHexStr:d]);
+        TeLog(@"app's OnlineStatusCharacteristic writeValue:%@",d);
         [self.peripheral writeValue:d forCharacteristic:self.OnlineStatusCharacteristic type:CBCharacteristicWriteWithResponse];
     }else{
         TeLog(@"app don't found OnlineStatusCharacteristic");
@@ -777,6 +772,31 @@
 
 @implementation DeviceTypeModel
 
+static Byte PanelByte[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x07, (Byte) 0x00, (Byte) 0x32, (Byte) 0x37, (Byte) 0x69, (Byte) 0x00, (Byte) 0x07, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00
+    , (Byte) 0x02, (Byte) 0x00, (Byte) 0x03, (Byte) 0x00, (Byte) 0x04, (Byte) 0x00, (Byte) 0x05, (Byte) 0x00, (Byte) 0x00, (Byte) 0xfe, (Byte) 0x01, (Byte) 0xfe, (Byte) 0x02, (Byte) 0xfe, (Byte) 0x00, (Byte) 0xff
+    , (Byte) 0x01, (Byte) 0xff, (Byte) 0x00, (Byte) 0x12, (Byte) 0x01, (Byte) 0x12, (Byte) 0x00, (Byte) 0x10, (Byte) 0x03, (Byte) 0x12, (Byte) 0x04, (Byte) 0x12, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12
+    , (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00, (Byte) 0x11, (Byte) 0x02, (Byte) 0x01, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x05, (Byte) 0x01, (Byte) 0x00, (Byte) 0x10, (Byte) 0x03, (Byte) 0x12
+    , (Byte) 0x04, (Byte) 0x12, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x05, (Byte) 0x01, (Byte) 0x00, (Byte) 0x10
+    , (Byte) 0x03, (Byte) 0x12, (Byte) 0x04, (Byte) 0x12, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00};
+static Byte CTByte[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x01, (Byte) 0x00, (Byte) 0x32, (Byte) 0x37, (Byte) 0x69, (Byte) 0x00, (Byte) 0x07, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x19, (Byte) 0x01, (Byte) 0x00, (Byte) 0x00
+    , (Byte) 0x02, (Byte) 0x00, (Byte) 0x03, (Byte) 0x00, (Byte) 0x04, (Byte) 0x00, (Byte) 0x05, (Byte) 0x00, (Byte) 0x00, (Byte) 0xfe, (Byte) 0x01, (Byte) 0xfe, (Byte) 0x02, (Byte) 0xfe, (Byte) 0x00, (Byte) 0xff
+    , (Byte) 0x01, (Byte) 0xff, (Byte) 0x00, (Byte) 0x12, (Byte) 0x01, (Byte) 0x12, (Byte) 0x00, (Byte) 0x10, (Byte) 0x02, (Byte) 0x10, (Byte) 0x04, (Byte) 0x10, (Byte) 0x06, (Byte) 0x10, (Byte) 0x07, (Byte) 0x10
+    , (Byte) 0x03, (Byte) 0x12, (Byte) 0x04, (Byte) 0x12, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12, (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x13, (Byte) 0x03, (Byte) 0x13, (Byte) 0x04, (Byte) 0x13
+    , (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x02, (Byte) 0x00, (Byte) 0x02, (Byte) 0x10, (Byte) 0x06, (Byte) 0x13};
+
+// when cpsData is changed by the change of element or model in firmware, FB00[] is also need changed here and in
+// react-native-btsig-telink/android/src/main/java/com/telink/sig/mesh/PrivateDevice.java
+//
+// note 3 code in SigDataSource.m about FB00
+// note initWithCID() and isEqual() here about FB00
+//
+// Only need describe 0xFB00 here, because it will be replaced by e.g. 0xFB78 in ^keyBindSuccess() of ios/RNBtSigTelink.m
+// The version (Byte) 0x31, (Byte) 0x32 also will be replaced in ^keyBindSuccess() of ios/RNBtSigTelink.m
+static Byte FB00[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0xFB, (Byte) 0x31, (Byte) 0x32, (Byte) 0x69, (Byte) 0x00, (Byte) 0x07, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x00, (Byte) 0x00
+    , (Byte) 0x02, (Byte) 0x00, (Byte) 0x03, (Byte) 0x00, (Byte) 0x04, (Byte) 0x00, (Byte) 0x00, (Byte) 0xFE, (Byte) 0x01, (Byte) 0xFE, (Byte) 0x00, (Byte) 0xFF, (Byte) 0x01, (Byte) 0xFF, (Byte) 0x00, (Byte) 0x12
+    , (Byte) 0x01, (Byte) 0x12, (Byte) 0x00, (Byte) 0x10, (Byte) 0x02, (Byte) 0x10, (Byte) 0x04, (Byte) 0x10, (Byte) 0x06, (Byte) 0x10, (Byte) 0x07, (Byte) 0x10, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12
+    , (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x13, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00};
+
 - (instancetype)initWithCID:(UInt16)cid PID:(SigNodePID)pid{
     if (self = [super init]) {
         _CID = cid;
@@ -784,7 +804,7 @@
         if (cid == kCompanyID) {
             VC_node_info_t node_info = {};
             memset(&node_info, 0xff, sizeof(VC_node_info_t));
-
+            
             if (pid == SigNodePID_Panel) {
                 //set default VC_node_info_t of panel
                 _cpsDataLen = sizeof(PanelByte);
@@ -829,122 +849,6 @@
     } else {
         return NO;
     }
-}
-
-@end
-
-
-@implementation SigAddConfigModel
-
-- (instancetype)initWithCBPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress networkKey:(NSData *)networkKey netkeyIndex:(UInt16)netkeyIndex appKey:(NSData *)appkey appkeyIndex:(UInt16)appkeyIndex provisionType:(ProvisionTpye)provisionType staticOOBData:(NSData *)staticOOBData keyBindType:(KeyBindTpye)keyBindType productID:(UInt16)productID cpsData:(NSData *)cpsData {
-    if (self = [super init]) {
-        _peripheral = peripheral;
-        _unicastAddress = unicastAddress;
-        _networkKey = networkKey;
-        _netkeyIndex = netkeyIndex;
-        _appKey = appkey;
-        _appkeyIndex = appkeyIndex;
-        _provisionType = provisionType;
-        _staticOOBData = staticOOBData;
-        _keyBindType = keyBindType;
-        _productID = productID;
-        _cpsData = cpsData;
-    }
-    return self;
-}
-
-@end
-
-
-@implementation IniCommandModel
-
-- (instancetype)initSigModelIniCommandWithNetkeyIndex:(UInt16)netkeyIndex appkeyIndex:(UInt16)appkeyIndex retryCount:(UInt8)retryCount responseMax:(UInt8)responseMax address:(UInt16)address opcode:(UInt16)opcode commandData:(NSData *)commandData {
-    if (self = [super init]) {
-        _hasReceiveResponse = NO;
-        _netkeyIndex = netkeyIndex;
-        _appkeyIndex = appkeyIndex;
-        _retryCount = retryCount;
-        _responseMax = responseMax;
-        _address = address;
-        _opcode = opcode;
-        _commandData = commandData;
-    }
-    return self;
-}
-
-- (instancetype)initVendorModelIniCommandWithNetkeyIndex:(UInt16)netkeyIndex appkeyIndex:(UInt16)appkeyIndex retryCount:(UInt8)retryCount responseMax:(UInt8)responseMax address:(UInt16)address opcode:(UInt8)opcode vendorId:(UInt16)vendorId responseOpcode:(UInt8)responseOpcode needTid:(BOOL)needTid tid:(UInt8)tid commandData:(NSData *)commandData {
-    if (self = [super init]) {
-        _hasReceiveResponse = NO;
-        _netkeyIndex = netkeyIndex;
-        _appkeyIndex = appkeyIndex;
-        _retryCount = retryCount;
-        _responseMax = responseMax;
-        _address = address;
-        _opcode = opcode;
-        _vendorId = vendorId;
-        _responseOpcode = responseOpcode;
-        _needTid = needTid;
-        _tid = tid;
-        _commandData = commandData;
-    }
-    return self;
-}
-
-- (instancetype)initWithIniCommandData:(NSData *)iniCommandData {
-    if (self = [super init]) {
-        if (iniCommandData.length < 11) {
-            return nil;
-        }
-        Byte *pu = (Byte *)[iniCommandData bytes];
-        unsigned int temp = 0;
-        memcpy(&temp, pu+2, 2);
-        _netkeyIndex = temp;
-        temp = 0;
-        memcpy(&temp, pu+4, 2);
-        _appkeyIndex = temp;
-        temp = 0;
-        memcpy(&temp, pu+6, 1);
-        _retryCount = temp;
-        temp = 0;
-        memcpy(&temp, pu+7, 1);
-        _responseMax = temp;
-        temp = 0;
-        memcpy(&temp, pu+8, 2);
-        _address = temp;
-        temp = 0;
-        temp = rf_link_get_op_by_ac(pu+10);
-        _opcode = temp;
-        u32 size_op = SIZE_OF_OP(temp);
-        if (size_op > 2) {
-            //vendor model
-            temp = 0;
-            memcpy(&temp, pu+11, 2);
-            _vendorId = temp;
-            temp = 0;
-            memcpy(&temp, pu+13, 1);
-            _responseOpcode = temp;
-            temp = 0;
-            memcpy(&temp, pu+14, 1);
-            _needTid = temp != 0;
-            if (_needTid) {
-                if (iniCommandData.length >= 15+temp) {
-                    _commandData = [iniCommandData subdataWithRange:NSMakeRange(15, temp-1)];
-                    memcpy(&temp, pu+15+temp-1, 1);
-                    _tid = temp;
-                }
-            }else{
-                if (iniCommandData.length > 15) {
-                    _commandData = [iniCommandData subdataWithRange:NSMakeRange(15, iniCommandData.length-15)];
-                }
-            }
-        } else {
-            //sig model
-            if (iniCommandData.length > 10+size_op) {
-                _commandData = [iniCommandData subdataWithRange:NSMakeRange(10+size_op, iniCommandData.length-(10+size_op))];
-            }
-        }
-    }
-    return self;
 }
 
 @end

@@ -100,40 +100,25 @@ struct ProvisionInfo {
 #pragma mark- Model
 /// the model of sig modelID controller response packet
 @interface ResponseModel : NSObject
-/// all packet data
-@property (nonatomic, strong) NSData *rspData;
-/// packet type
-@property (nonatomic, assign) int type;
-/// Effective length of response, the length of data in addition to type and length.
-@property (nonatomic, assign) int length;
-///The corresponding node address of response
-@property (nonatomic, assign) int address;
-/// location unicastAddress
-@property (nonatomic, assign) int rspAddress;
-
-/// Opcode, same opcode like Model.h line.70 Opcode.
-@property (nonatomic, assign) int opcode;
-///// OPcode
-//@property (nonatomic, assign) int vendorOPCode;
-/// Custom data of current response packet
-@property (nonatomic, strong) NSData *customData;
-
-
-- (instancetype)initWithResponseData:(NSData *)data;
-
-
 
 @property (nonatomic, strong) NSMutableArray *clientSubGroups;
 @property (nonatomic, strong) NSMutableArray *serverSubGroups;
+///complete response data
+@property (nonatomic, strong) NSData *rspData;
+///The corresponding node address of response
+@property (nonatomic, assign) int address;
+///The location address
+@property (nonatomic, assign) int rspAddress;
 @property (nonatomic, assign) int clientPubAddress;
 @property (nonatomic, assign) int serverPubAddress;
 
 @property (nonatomic, assign) BOOL isClient;
-
 /// Current Status，on status or off status.
 @property (nonatomic, assign) BOOL currentState;
 /// Point status, on status or off status.
 @property (nonatomic, assign) BOOL pointState;
+/// Opcode, same opcode like Model.h line.70 Opcode.
+@property (nonatomic, assign) int opcode;
 /// Current value, brightness value or temprature value.
 @property (nonatomic, assign) int currentValue;
 /// Point value, eg: the node's brightness value is 50, app need set brightness to 100, The time of gradient is 200ms. The node will response one packet every 100ms, so app will get the packet's currentValue is 75 after 100ms and and will get the packet's currentValue is 100 after 200ms, but pointValue is 100 in 2 packet.
@@ -250,7 +235,7 @@ void sendReadFirmwareVersion(void);
 
 void sendStartOTA(void);
 
-extern unsigned short libHandleCRC16 (unsigned char *pD, int len);
+extern unsigned short crc16 (unsigned char *pD, int len);
 
 /// get remote uuids by send serarch, limit is response max of one node, and timeout is always 3s.
 int send_rp_scan_start(u16 address,u8 limit,u8 timeout);

@@ -29,11 +29,6 @@
 
 #import "SDKLibCommand.h"
 
-@interface SDKLibCommand ()
-@property (nonatomic,copy) discoverDeviceBlock discoverDeviceCallback;
-@property (nonatomic,copy) resultCallBack scanWithTimeoutFinishCallback;
-@end
-
 @implementation SDKLibCommand
 
 + (void)startMeshSDK {
@@ -67,7 +62,7 @@
  @param netkeyIndex netkey index
  @param unicastAddress address of remote device
  @param uuid uuid of remote device
- @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Fast是快速添加模式
+ @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Quick是快速添加模式
  @param isAuto 添加完成一个设备后，是否自动扫描添加下一个设备
  @param provisionSuccess call back when a device provision successful
  @param keyBindSuccess call back when a device keybind successful
@@ -85,7 +80,7 @@
  @param networkKey network key, which provsion need, you can see it as password of the mesh
  @param netkeyIndex netkey index
  @param peripheral device need add to mesh
- @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Fast是快速添加模式
+ @param type KeyBindTpye_Normal是普通添加模式，KeyBindTpye_Quick是快速添加模式
  @param provisionSuccess call back when a device provision successful
  @param keyBindSuccess call back when a device keybind successful
  @param fail call back when a device add to the mesh fail
@@ -164,8 +159,7 @@ if you did provision process , you could call this method, and it'll call back w
     }
     self.switchOnOffCallBack = complete;
     if (executeCommand) {
-        transition_par_t trs_par = {0,0};
-        access_cmd_onoff(address, (u8)resMax, (u8)(on ? 1 : 0), ack?1:0, &trs_par);
+        access_cmd_onoff(address, (u8)resMax, (u8)(on ? 1 : 0), ack?1:0, nil);
         //test，call api without response.
 //        access_cmd_onoff(address, (u8)0, (u8)(on ? 1 : 0), ack?0:0, nil);
     }
@@ -250,9 +244,11 @@ if you did provision process , you could call this method, and it'll call back w
         if (isGet) {
             access_cmd_get_light_hsl(address, (u32)respondMax);
         }else{
-            transition_par_t trs_par = {0,0};
+            transition_par_t trans;
+            trans.delay = 0;
+            trans.transit_t = 0;
             //注意，第六个参数为0则没有response，为1则有response。
-            access_cmd_set_light_hsl_100(address, (u8)respondMax, (u8)brightness, (u8)hue, (u8)saturation, ack?1:0, &trs_par);
+            access_cmd_set_light_hsl_100(address, (u8)respondMax, (u8)brightness, (u8)hue, (u8)saturation, ack?1:0, &trans);
         }
     }
 }
@@ -279,8 +275,10 @@ if you did provision process , you could call this method, and it'll call back w
         if (isGet) {
             access_cmd_get_level(address, (u32)respondMax);
         } else {
-            transition_par_t trs_par = {0,0};
-            access_cmd_set_delta(address, (u8)respondMax, level, ack?1:0, &trs_par);
+            transition_par_t trans;
+            trans.delay = 0;
+            trans.transit_t = 0;
+            access_cmd_set_delta(address, (u8)respondMax, level, ack?1:0, &trans);
         }
     }
 }
@@ -422,9 +420,9 @@ response data like :
 
 /// Get Online device, private use OnlineStatusCharacteristic
 - (BOOL)getOnlineStatusFromUUIDWithCompletation:(responseModelCallBack)complete{
-//    if ([self isBusy]) {
-//        return NO;
-//    }
+    if ([self isBusy]) {
+        return NO;
+    }
     if (Bluetooth.share.store.OnlineStatusCharacteristic != nil) {
         self.getOnlineStatusCallBack = complete;
         [Bluetooth.share getOnlineStatueFromUUID];
@@ -613,8 +611,10 @@ response data like :
         ack = 1;
         self.recallSceneCallBack = complete;
     }
-    transition_par_t trs_par = {0,0};
-    access_cmd_scene_recall(address,resMax,sceneId,ack,&trs_par);
+    transition_par_t trans = (transition_par_t){};
+    trans.delay = 0;
+    trans.transit_t = 0;
+    access_cmd_scene_recall(address,resMax,sceneId,ack,&trans);
 }
 
 
@@ -698,376 +698,6 @@ response data like :
 
     self.getFwInfoCallBack = complete;
     access_cmd_fw_info_get(address);
-}
-
-#pragma mark - new api since v3.1.4
-
-/// start scan with timeout
-/// @param provisionAble YES means scan device for provision, NO means scan device for normal/keyBind/OTA.
-/// @param timeout timeout can't be 0.
-/// @param discoverDevice callback when SDK discover device.
-/// @param finish callback when timeout reached.
-- (void)startScanWithProvisionAble:(BOOL)provisionAble timeout:(NSTimeInterval)timeout discoverDevice:(discoverDeviceBlock)discoverDevice finish:(resultCallBack)finish {
-    if (timeout <= 0) {
-        TeLog(@"The value of timeout is error!!!");
-        return;
-    }
-    self.discoverDeviceCallback = discoverDevice;
-    self.scanWithTimeoutFinishCallback = finish;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(scanWithTimeoutFinish) object:nil];
-        [self performSelector:@selector(scanWithTimeoutFinish) withObject:nil afterDelay:timeout];
-    });
-    __weak typeof(self) weakSelf = self;
-    [Bluetooth.share setBleScanNewDeviceCallBack:^(CBPeripheral *peripheral, BOOL provisioned) {
-        if (provisioned == provisionAble) {
-            SigScanRspModel *model = [SigDataSource.share getScanRspModelWithUUID:peripheral.identifier.UUIDString];
-            if (weakSelf.discoverDeviceCallback) {
-                weakSelf.discoverDeviceCallback(peripheral, model, provisionAble);
-            }
-        }
-    }];
-    
-    [Bluetooth.share stopAutoConnect];
-    if (provisionAble) {
-        [Bluetooth.share setProvisionState];
-    } else {
-        [Bluetooth.share setNormalState];
-    }
-    [Bluetooth.share startScan];
-}
-
-/// stop discover device, cancel timeout, set block of scan api to be nil.
-- (void)stopScan {
-    [self cancelScanWithTimeout];
-}
-
-/// Add Device (provision+keyBind)
-/// @param configModel all config message of add device.
-/// @param provisionSuccess callback when provision success.
-/// @param provisionFail callback when provision fail.
-/// @param keyBindSuccess callback when keybind success.
-/// @param keyBindFail callback when keybind fail.
-- (void)startAddDeviceWithSigAddConfigModel:(SigAddConfigModel *)configModel provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess provisionFail:(ErrorBlock)provisionFail keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess keyBindFail:(ErrorBlock)keyBindFail {
-    [Bluetooth.share.commandHandle startProvisionWithPeripheral:configModel.peripheral unicastAddress:configModel.unicastAddress networkKey:configModel.networkKey netkeyIndex:configModel.netkeyIndex provisionType:configModel.provisionType staticOOBData:configModel.staticOOBData provisionSuccess:^(NSString *identify, UInt16 address) {
-        if (provisionSuccess) {
-            provisionSuccess(identify,address);
-        }
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kMeshProxyInitDelayTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [Bluetooth.share.commandHandle setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address timeout:kSetFilterTimeout result:^(BOOL isSuccess) {
-                if (isSuccess) {
-                    [Bluetooth.share.commandHandle startKeyBindWithPeripheral:configModel.peripheral unicastAddress:configModel.unicastAddress appKey:configModel.appKey appkeyIndex:configModel.appkeyIndex netkeyIndex:configModel.netkeyIndex keyBindType:configModel.keyBindType productID:configModel.productID cpsData:configModel.cpsData keyBindSuccess:keyBindSuccess fail:keyBindFail];
-                } else {
-                    [Bluetooth.share cancelAllConnecttionWithComplete:^{
-                        //先断开连接，startKeyBindWithPeripheral接口会自动走一次连接流程。
-                        [Bluetooth.share.commandHandle startKeyBindWithPeripheral:configModel.peripheral unicastAddress:configModel.unicastAddress appKey:configModel.appKey appkeyIndex:configModel.appkeyIndex netkeyIndex:configModel.netkeyIndex keyBindType:configModel.keyBindType productID:configModel.productID cpsData:configModel.cpsData keyBindSuccess:keyBindSuccess fail:keyBindFail];
-                    }];
-                }
-            }];
-        });
-    } fail:provisionFail];
-}
-
-/// provision
-/// @param peripheral CBPeripheral of CoreBluetooth will be provision.
-/// @param unicastAddress address of new device.
-/// @param networkKey networkKey
-/// @param netkeyIndex netkeyIndex
-/// @param provisionType ProvisionTpye_NoOOB means oob data is 16 bytes zero data, ProvisionTpye_StaticOOB means oob data is get from HTTP API.
-/// @param staticOOBData oob data get from HTTP API when provisionType is ProvisionTpye_StaticOOB.
-/// @param provisionSuccess callback when provision success.
-/// @param fail callback when provision fail.
-- (void)startProvisionWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress networkKey:(NSData *)networkKey netkeyIndex:(UInt16)netkeyIndex provisionType:(ProvisionTpye)provisionType staticOOBData:(NSData *)staticOOBData provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess fail:(ErrorBlock)fail {
-    [Bluetooth.share cleanAddDeviceCache];
-    self.singlePrvisionSuccessCallBack = provisionSuccess;
-    self.singlePrvisionFailCallBack = fail;
-    self.staticOOBData = staticOOBData;
-    Bluetooth.share.commandHandle.isSingleProvision = YES;
-    [Bluetooth.share setProvisionState];
-    [Bluetooth.share setCurrentProvisionAddress:unicastAddress];
-    __block BOOL isProvisioning = NO;
-    set_gatt_pro_cloud_en(provisionType == ProvisionTpye_StaticOOB ? 1 : 0);
-    [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *p) {
-        if ([peripheral.identifier.UUIDString isEqualToString:p.identifier.UUIDString]) {
-            if (isProvisioning) {
-                TeLog(@"disconnect in provisioning，provision fail.");
-                if (fail) {
-                    NSError *err = [NSError errorWithDomain:@"disconnect in provisioning，provision fail." code:-1 userInfo:nil];
-                    fail(err);
-                }
-            }
-        }
-    }];
-    [Bluetooth.share setBleFinishScanedCharachteristicCallBack:^(CBPeripheral *p) {
-        if ([peripheral.identifier.UUIDString isEqualToString:p.identifier.UUIDString]) {
-            //delay 500ms between finish read services and send invite of provision.
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLoopWriteForBeaconDelayTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                isProvisioning = YES;
-                provision(networkKey, unicastAddress, netkeyIndex);
-            });
-        }
-    }];
-    if (Bluetooth.share.currentPeripheral && [Bluetooth.share.currentPeripheral.identifier.UUIDString isEqualToString:peripheral.identifier.UUIDString] && Bluetooth.share.currentPeripheral.state == CBPeripheralStateConnected) {
-        isProvisioning = YES;
-        provision(networkKey, unicastAddress, netkeyIndex);
-    } else {
-        [Bluetooth.share cancelAllConnecttionWithComplete:^{
-            [Bluetooth.share connectPeripheral:peripheral];
-        }];
-    }
-}
-
-/// provision (add callback of start send provision data)
-/// @param peripheral CBPeripheral of CoreBluetooth will be provision.
-/// @param unicastAddress address of new device.
-/// @param networkKey networkKey
-/// @param netkeyIndex netkeyIndex
-/// @param provisionType ProvisionTpye_NoOOB means oob data is 16 bytes zero data, ProvisionTpye_StaticOOB means oob data is get from HTTP API.
-/// @param staticOOBData oob data get from HTTP API when provisionType is ProvisionTpye_StaticOOB.
-/// @param startSendProvision callback when provision packet begin send.
-/// @param provisionSuccess callback when provision success.
-/// @param fail callback when provision fail.
-- (void)startProvisionWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress networkKey:(NSData *)networkKey netkeyIndex:(UInt16)netkeyIndex provisionType:(ProvisionTpye)provisionType staticOOBData:(NSData *)staticOOBData startSendProvision:(bleFinishScanedCharachteristicCallBack)startSendProvision provisionSuccess:(addDevice_prvisionSuccessCallBack)provisionSuccess fail:(ErrorBlock)fail {
-    [Bluetooth.share cleanAddDeviceCache];
-    self.singlePrvisionSuccessCallBack = provisionSuccess;
-    self.singlePrvisionFailCallBack = fail;
-    self.staticOOBData = staticOOBData;
-    Bluetooth.share.commandHandle.isSingleProvision = YES;
-    [Bluetooth.share setProvisionState];
-    [Bluetooth.share setCurrentProvisionAddress:unicastAddress];
-//    __block BOOL isProvisioning = NO;
-    set_gatt_pro_cloud_en(provisionType == ProvisionTpye_StaticOOB ? 1 : 0);
-//    Bluetooth.share.state == isProvisioning
-    [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *p) {
-        if ([peripheral.identifier.UUIDString isEqualToString:p.identifier.UUIDString]) {
-            if (Bluetooth.share.isProvisioning) {
-//                isProvisioning = NO;
-                TeLog(@"disconnect in provisioning，provision fail.");
-                if (fail) {
-                    NSError *err = [NSError errorWithDomain:@"disconnect in provisioning，provision fail." code:-1 userInfo:nil];
-                    fail(err);
-                }
-            }
-        }
-    }];
-    [Bluetooth.share setBleFinishScanedCharachteristicCallBack:^(CBPeripheral *p) {
-        if ([peripheral.identifier.UUIDString isEqualToString:p.identifier.UUIDString]) {
-            //delay 500ms between finish read services and send invite of provision.
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLoopWriteForBeaconDelayTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-//                isProvisioning = YES;
-                if (startSendProvision) {
-                    startSendProvision(p);
-                }
-                provision(networkKey, unicastAddress, netkeyIndex);
-            });
-        }
-    }];
-    if (Bluetooth.share.currentPeripheral && [Bluetooth.share.currentPeripheral.identifier.UUIDString isEqualToString:peripheral.identifier.UUIDString] && Bluetooth.share.currentPeripheral.state == CBPeripheralStateConnected) {
-//        isProvisioning = YES;
-        if (startSendProvision) {
-            startSendProvision(peripheral);
-        }
-        provision(networkKey, unicastAddress, netkeyIndex);
-    } else {
-        [Bluetooth.share cancelAllConnecttionWithComplete:^{
-            [Bluetooth.share connectPeripheral:peripheral];
-        }];
-    }
-}
-
-/// keybind
-/// @param peripheral CBPeripheral of CoreBluetooth will be keybind.
-/// @param unicastAddress address of new device.
-/// @param appkey appkey
-/// @param appkeyIndex appkeyIndex
-/// @param netkeyIndex netkeyIndex
-/// @param keyBindType KeyBindTpye_Normal means add appkey and model bind, KeyBindTpye_Fast means just add appkey.
-/// @param productID the productID info need to save in node when keyBindType is KeyBindTpye_Fast.
-/// @param cpsData the elements info need to save in node when keyBindType is KeyBindTpye_Fast.
-/// @param keyBindSuccess callback when keybind success.
-/// @param fail callback when provision fail.
-- (void)startKeyBindWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress appKey:(NSData *)appkey appkeyIndex:(UInt16)appkeyIndex netkeyIndex:(UInt16)netkeyIndex keyBindType:(KeyBindTpye)keyBindType productID:(UInt16)productID cpsData:(NSData *)cpsData keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(ErrorBlock)fail {
-    [Bluetooth.share cleanAddDeviceCache];
-    self.singleKeyBindSuccessCallBack = keyBindSuccess;
-    self.singleKeyBindFailCallBack = fail;
-    [Bluetooth.share setKeyBindState];
-    Bluetooth.share.commandHandle.fastKeybindProductID = productID;
-    Bluetooth.share.commandHandle.fastKeybindCpsData = cpsData;
-    __block BOOL isKeybinding = NO;
-    __weak typeof(self) weakSelf = self;
-//    [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *p) {
-//        if ([peripheral.identifier.UUIDString isEqualToString:p.identifier.UUIDString]) {
-//            if (isKeybinding) {
-//                TeLog(@"disconnect in keybinding，keybind fail.");
-//                if (fail) {
-//                    NSError *err = [NSError errorWithDomain:@"disconnect in keybinding，keybind fail." code:-1 userInfo:nil];
-//                    fail(err);
-//                }
-//            }
-//        }
-//    }];
-    [Bluetooth.share setBleFinishScanedCharachteristicCallBack:^(CBPeripheral *p) {
-        if ([peripheral.identifier.UUIDString isEqualToString:p.identifier.UUIDString]) {
-            //delay 500ms between finish read services and send invite of provision.
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLoopWriteForBeaconDelayTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                isKeybinding = YES;
-                [Bluetooth.share keyBind:unicastAddress appkey:appkey appkeyIndex:appkeyIndex netkeyIndex:netkeyIndex keyBindType:keyBindType keyBindSuccess:^(NSString *identify, UInt16 address) {
-                    isKeybinding = NO;
-                    if (weakSelf.singleKeyBindSuccessCallBack) {
-                        weakSelf.singleKeyBindSuccessCallBack(identify,address);
-                    }
-                } fail:^(NSString *errorString) {
-                    if (weakSelf.singleKeyBindFailCallBack) {
-                        NSError *err = [NSError errorWithDomain:errorString code:-1 userInfo:nil];
-                        weakSelf.singleKeyBindFailCallBack(err);
-                    }
-                }];
-            });
-        }
-    }];
-
-    if (Bluetooth.share.currentPeripheral && [Bluetooth.share.currentPeripheral.identifier.UUIDString isEqualToString:peripheral.identifier.UUIDString] && Bluetooth.share.currentPeripheral.state == CBPeripheralStateConnected && [Bluetooth.share getCharacteristicWithCharacteristicUUID:kPROXY_Out_CharacteristicsID ofPeripheral:Bluetooth.share.currentPeripheral] != nil) {
-        isKeybinding = YES;
-        [Bluetooth.share keyBind:unicastAddress appkey:appkey appkeyIndex:appkeyIndex netkeyIndex:netkeyIndex keyBindType:keyBindType keyBindSuccess:^(NSString *identify, UInt16 address) {
-            isKeybinding = NO;
-            if (weakSelf.singleKeyBindSuccessCallBack) {
-                weakSelf.singleKeyBindSuccessCallBack(identify,address);
-            }
-        } fail:^(NSString *errorString) {
-            if (weakSelf.singleKeyBindFailCallBack) {
-                NSError *err = [NSError errorWithDomain:errorString code:-1 userInfo:nil];
-                weakSelf.singleKeyBindFailCallBack(err);
-            }
-        }];
-    } else {
-        [Bluetooth.share cancelAllConnecttionWithComplete:^{
-            [Bluetooth.share connectPeripheral:peripheral];
-        }];
-    }
-}
-
-/// keybind (with retry)
-/// @param peripheral CBPeripheral of CoreBluetooth will be keybind.
-/// @param unicastAddress address of new device.
-/// @param appkey appkey
-/// @param appkeyIndex appkeyIndex
-/// @param netkeyIndex netkeyIndex
-/// @param keyBindType KeyBindTpye_Normal means add appkey and model bind, KeyBindTpye_Fast means just add appkey.
-/// @param retryCount retry count of keybind.
-/// @param productID the productID info need to save in node when keyBindType is KeyBindTpye_Fast.
-/// @param cpsData the elements info need to save in node when keyBindType is KeyBindTpye_Fast.
-/// @param keyBindSuccess callback when keybind success.
-/// @param fail callback when provision fail.
-- (void)startKeyBindWithPeripheral:(CBPeripheral *)peripheral unicastAddress:(UInt16)unicastAddress appKey:(NSData *)appkey appkeyIndex:(UInt16)appkeyIndex netkeyIndex:(UInt16)netkeyIndex keyBindType:(KeyBindTpye)keyBindType retryCount:(int)retryCount productID:(UInt16)productID cpsData:(NSData *)cpsData keyBindSuccess:(addDevice_keyBindSuccessCallBack)keyBindSuccess fail:(ErrorBlock)fail {
-    [Bluetooth.share cleanAddDeviceCache];
-    self.singleKeyBindSuccessCallBack = keyBindSuccess;
-    self.singleKeyBindFailCallBack = fail;
-    [Bluetooth.share setKeyBindState];
-    Bluetooth.share.commandHandle.fastKeybindProductID = productID;
-    Bluetooth.share.commandHandle.fastKeybindCpsData = cpsData;
-    __block BOOL isKeybinding = NO;
-    __weak typeof(self) weakSelf = self;
-    [Bluetooth.share setBleFinishScanedCharachteristicCallBack:^(CBPeripheral *p) {
-        if ([peripheral.identifier.UUIDString isEqualToString:p.identifier.UUIDString]) {
-            //delay 500ms between finish read services and send invite of provision.
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLoopWriteForBeaconDelayTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                isKeybinding = YES;
-                [Bluetooth.share keyBind:unicastAddress appkey:appkey appkeyIndex:appkeyIndex netkeyIndex:netkeyIndex keyBindType:keyBindType retryCount:0 keyBindSuccess:^(NSString *identify, UInt16 address) {
-                    isKeybinding = NO;
-                    if (weakSelf.singleKeyBindSuccessCallBack) {
-                        weakSelf.singleKeyBindSuccessCallBack(identify,address);
-                    }
-                } fail:^(NSString *errorString) {
-                    if (weakSelf.singleKeyBindFailCallBack) {
-                        NSError *err = [NSError errorWithDomain:errorString code:-1 userInfo:nil];
-                        weakSelf.singleKeyBindFailCallBack(err);
-                    }
-                }];
-            });
-        }
-    }];
-
-    if (Bluetooth.share.currentPeripheral && [Bluetooth.share.currentPeripheral.identifier.UUIDString isEqualToString:peripheral.identifier.UUIDString] && Bluetooth.share.currentPeripheral.state == CBPeripheralStateConnected && [Bluetooth.share getCharacteristicWithCharacteristicUUID:kPROXY_Out_CharacteristicsID ofPeripheral:Bluetooth.share.currentPeripheral] != nil) {
-        isKeybinding = YES;
-        [Bluetooth.share keyBind:unicastAddress appkey:appkey appkeyIndex:appkeyIndex netkeyIndex:netkeyIndex keyBindType:keyBindType keyBindSuccess:^(NSString *identify, UInt16 address) {
-            isKeybinding = NO;
-            if (weakSelf.singleKeyBindSuccessCallBack) {
-                weakSelf.singleKeyBindSuccessCallBack(identify,address);
-            }
-        } fail:^(NSString *errorString) {
-            if (weakSelf.singleKeyBindFailCallBack) {
-                NSError *err = [NSError errorWithDomain:errorString code:-1 userInfo:nil];
-                weakSelf.singleKeyBindFailCallBack(err);
-            }
-        }];
-    } else {
-        [Bluetooth.share cancelAllConnecttionWithComplete:^{
-            [Bluetooth.share connectPeripheral:peripheral];
-        }];
-    }
-}
-
-/// set filter
-/// @param locationAddress current provisioner's nodeAddress
-/// @param timeout timeout can't be 0.
-/// @param result callback when set filter successful or timeout.
-- (void)setFilterWithLocationAddress:(UInt16)locationAddress timeout:(NSTimeInterval)timeout result:(bleSetFilterResultCallBack)result {
-    __block int responseCount = 0;
-    [Bluetooth.share setFilterWithLocationAddress:locationAddress timeout:timeout complete:^{
-        responseCount ++;
-        if (responseCount == kSetFilterPacketCount) {
-            [Bluetooth.share cancelSetFilterWithLocationAddressTimeout];
-            Bluetooth.share.setFilterResponseCallBack = nil;
-            set_pair_login_ok(1);
-            if (result) {
-                result(YES);
-            }
-        }
-    } fail:^{
-        TeLog(@"setFilter fail.");
-        if (result) {
-            result(NO);
-        }
-    }];
-    mesh_tx_sec_nw_beacon_all_net(1);//send beacon, blt_sts can only be 0 or 1.
-}
-
-/// cancel set filter
-- (void)cancelSetFilterWithTimeout {
-    [Bluetooth.share cancelSetFilterWithLocationAddressTimeout];
-}
-
-/// send sig model ini command or send vendor model ini command.
-/// @param command config of sig model command or vendor model command. sig model struct: mesh_bulk_cmd_par_t, vendor model struct: mesh_vendor_par_ini_t. sig model config: netkeyIndex, appkeyIndex, retryCount, responseMax, address, opcode, commandData.
-/// @param responseCallback callback when SDK receive response data of this command. And this callback will remove from SDK when all responses had received or command had timeout. Attention: this callback will not callback forever when command.responseOpcode is 0.
-- (void)sendIniCommand:(IniCommandModel *)command responseCallback:(responseModelCallBack)responseCallback {
-    [Bluetooth.share sendIniCommand:command responseCallback:responseCallback];
-}
-
-/// clean commands cache, because SDK may has many commands in queue when app change mesh.
-- (void)cleanCommandsCache {
-    [Bluetooth.share cleanCommandsCache];
-}
-
-#pragma mark - private
-- (void)scanWithTimeoutFinish {
-    [self cleanScan];
-    if (self.scanWithTimeoutFinishCallback) {
-        self.scanWithTimeoutFinishCallback();
-    }
-}
-
-- (void)cancelScanWithTimeout {
-    [self cleanScan];
-}
-
-- (void)cleanScan {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(scanWithTimeoutFinish) object:nil];
-    });
-    [Bluetooth.share stopScan];
-    Bluetooth.share.bleScanNewDeviceCallBack = nil;
-    [Bluetooth.share setNormalState];
 }
 
 @end

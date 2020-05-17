@@ -123,9 +123,6 @@ enum{
 };
 
 #define	IV_IDX_CUR		{0x12,0x34,0x56,0x78}
-
-#define DEVKEY_DEF 		{0x9d,0x6d,0xd0,0xe9,0x6e,0xb2,0x5d,0xc1, 0x9a,0x40,0xed,0x99,0x14,0xf8,0xf0,0x3f}
-
 #define NETKEY_A 		{0x7d,0xd7,0x36,0x4c,0xd8,0x42,0xad,0x18, 0xc1,0x7c,0x74,0x65,0x6c,0x69,0x6e,0x6b}
 #define APPKEY_A		{0x63,0x96,0x47,0x71,0x73,0x4f,0xbd,0x76, 0xe3,0xb4,0x74,0x65,0x6c,0x69,0x6e,0x6b}
 #define APPKEY_B		{0xa0,0xa1,0xa2,0xa3,0xa4,0xa5,0xa6,0xa7, 0xa8,0xa9,0xaa,0xab,0xac,0xad,0xae,0xaf}
@@ -639,9 +636,9 @@ typedef struct{
 
 //--------------------------------------- node composition data
 #if (LIGHT_TYPE_SEL == LIGHT_TYPE_PANEL)
-#define LIGHT_CNT                       (3)     // means instance count
+#define LIGHT_CNT                       (3)
 #else
-#define LIGHT_CNT                       (1)     // means instance count
+#define LIGHT_CNT                       (1)
 #endif
 #define ELE_CNT                         (LIGHT_CNT * ELE_CNT_EVERY_LIGHT)
 
@@ -1466,7 +1463,7 @@ void mesh_service_change_report();
 int mesh_par_retrieve_store_win32(u8 *in_out, u32 *p_adr, u32 adr_base, u32 size,u8 flag);
 void mesh_seg_ack_poll_rx();
 void mesh_seg_ack_poll_tx();
-void blc_pm_select_none();
+
 
 
 extern u16 ele_adr_primary;
@@ -1483,7 +1480,6 @@ extern u8 factory_test_cache_not_equal_mode_en;
 extern u8 mesh_adv_txrx_self_en;
 extern mesh_tid_t mesh_tid;
 extern u8 switch_project_flag;
-extern u8 my_rf_power_index;
 
 //------------model
 extern /*const */mesh_page0_t * const gp_page0;
@@ -1508,6 +1504,7 @@ extern model_mesh_ota_t        model_mesh_ota;
 // extern model_g_power_level_t    model_sig_g_power_level; // share with model_sig_lightness
 
 extern model_vd_light_t       	model_vd_light;
+extern model_vd_light_t       	model_vd_mi_light;
 extern mesh_key_t mesh_key; 
 extern friend_key_t mesh_fri_key_lpn[NET_KEY_MAX][2];
 extern friend_key_t mesh_fri_key_fn[MAX_LPN_NUM][2];

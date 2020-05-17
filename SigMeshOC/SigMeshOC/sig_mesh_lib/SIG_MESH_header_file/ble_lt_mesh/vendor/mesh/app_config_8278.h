@@ -37,12 +37,7 @@ extern "C" {
 #define	__LOG_RT_ENABLE__		0
 //#define	__DEBUG_PRINT__			0
 
-#if DUAL_VENDOR_EN
 #define FLASH_1M_ENABLE         0
-#else
-#define FLASH_1M_ENABLE         0
-#endif
-
 #if FLASH_1M_ENABLE
 #define PINGPONG_OTA_DISABLE    0 // it can disable only when 1M flash.
 #if	PINGPONG_OTA_DISABLE

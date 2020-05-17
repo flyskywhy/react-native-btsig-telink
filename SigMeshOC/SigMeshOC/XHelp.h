@@ -30,20 +30,18 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
+UIKIT_EXTERN NSString *const NotifyUpdateLogContent;
+
 @interface XHelp : NSObject
 
 @property (strong,nonatomic) NSObject *saveLogObject;
 @property (assign,nonatomic) BOOL saveTelinkSDKDebugLogEnable;
-@property (strong,nonatomic,readonly) NSString *logFilePath;
-
-
-+ (instancetype)new __attribute__((unavailable("please initialize by use .share or .share()")));
-- (instancetype)init __attribute__((unavailable("please initialize by use .share or .share()")));
-
 
 + (XHelp *)share;
 
-//+ (NSString *)logFilePath;
+- (void)initLogFile;
+
++ (NSString *)logFilePath;
 
 /**
  log
@@ -53,10 +51,5 @@
 void saveLogData(id data);
 
 void saveMeshJsonData(id data);
-
-/**
- 自定义打印，会自动写文件
- */
-void TelinkLogWithFile(NSString *format, ...);
 
 @end

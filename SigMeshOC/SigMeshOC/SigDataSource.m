@@ -367,8 +367,7 @@
     //init defoult data
     node.UUID = provisioner.UUID;
     node.secureNetworkBeacon = YES;
-//    node.defaultTTL = TTL_DEFAULT;
-    node.defaultTTL = 10;
+    node.defaultTTL = TTL_DEFAULT;
     node.features.proxy = 2;
     node.features.friend = 0;
     node.features.relay = 2;
@@ -533,7 +532,6 @@
 
 - (void)setAllDevicesOutline{
     @synchronized(self) {
-        _curNodes = nil;
         for (SigNodeModel *model in _nodes) {
             model.state = DeviceStateOutOfLine;
         }
@@ -578,9 +576,9 @@
             [tem addObject:rsp];
         }
     }
-//    if (tem.count == 0) {
-//        TeLog(@"scanList is empty.");
-//    }
+    if (tem.count == 0) {
+        TeLog(@"scanList is empty.");
+    }
     NSData *data = [NSKeyedArchiver archivedDataWithRootObject:tem];
     [[NSUserDefaults standardUserDefaults] setObject:data forKey:kScanList_key];
     [[NSUserDefaults standardUserDefaults] synchronize];
@@ -645,7 +643,7 @@
 //            if (add) {
                 [self.scanList addObject:model];
                 [self saveScanList];
-            TeLog(@"新增缓存UUID=%@ address=%d macAddress=%@ self.scanList.count=%lu,advertisementData=%@",model.uuid,model.address,model.macAddress,(unsigned long)self.scanList.count,model.advertisementData);
+                TeLog(@"新增缓存UUID=%@ address=%d macAddress=%@ self.scanList.count=%lu",model.uuid,model.address,model.macAddress,(unsigned long)self.scanList.count);
 //            }
         }
     }
@@ -924,16 +922,6 @@
     return tem;
 }
 
-- (SigEncryptedModel *)getSigEncryptedModelWithPeripheralUUID:(NSString *)peripheralUUID {
-    SigEncryptedModel *tem = nil;
-    for (SigEncryptedModel *model in _matchsNodeIdentityArray) {
-        if ([model.peripheralUUID isEqualToString:peripheralUUID]) {
-            return model;
-        }
-    }
-    return tem;
-}
-
 - (void)deleteSigEncryptedModelWithAddress:(UInt16)address {
     for (SigEncryptedModel *model in _matchsNodeIdentityArray) {
         if (model.address == address) {
@@ -976,12 +964,7 @@
 
 - (SigNodeModel *)curLocationNodeModel{
     if (SigDataSource.share.provisioners.count > 0) {
-        NSString *uuid = self.curProvisionerModel.UUID;
-        for (SigNodeModel *model in self.nodes) {
-            if ([model.UUID isEqualToString:uuid]) {
-                return model;
-            }
-        }
+        return [self getDeviceWithUUID:self.curProvisionerModel.UUID];
     }
     return nil;
 }
@@ -1030,7 +1013,7 @@
         TeLog(@"warning: Abnormal situation, there is not provisioner.");
         return kLocationAddress;
     } else {
-        UInt16 maxAddr = self.curLocationNodeModel.address;
+        UInt16 maxAddr = self.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress;
         for (SigNodeModel *node in SigDataSource.share.nodes) {
             NSInteger curMax = node.address + node.elements.count - 1;
             if (curMax > maxAddr) {
@@ -1900,7 +1883,8 @@
             break;
 
         default:
-            TeLog(@"opcode:0x%x",op);
+            NSLog(@"opcode:%lu",(unsigned long)op);
+            saveLogData([NSString stringWithFormat:@"opcode:%lu",(unsigned long)op]);
             break;
     }
     return change;
@@ -2022,7 +2006,7 @@
 }
 
 - (NSString *)peripheralUUID{
-    if (self.address == SigDataSource.share.curLocationNodeModel.address) {
+    if (self.address == SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress) {
         //location node's uuid
         return _UUID;
     }

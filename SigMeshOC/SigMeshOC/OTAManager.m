@@ -183,13 +183,12 @@
         //change since v2.8.2
         __block int responseCount = 0;
         __weak typeof(self) weakSelf = self;
-        [Bluetooth.share setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address timeout:kSetFilterTimeout complete:^{
+        [Bluetooth.share setFilterWithLocationAddress:SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress complete:^{
             responseCount ++;
             if (responseCount == 3) {
-                set_pair_login_ok(1);//OTA鉴权
+                set_pair_login_ok(1);
                 [weakSelf sendOTAAfterSetFilter];
                 Bluetooth.share.setFilterResponseCallBack = nil;
-                [Bluetooth.share cancelSetFilterWithLocationAddressTimeout];
             }
         }fail:^{
             TeLog(@"setFilter fail.");
@@ -215,11 +214,14 @@
 }
 
 - (void)startScanForOTA{
-    [_ble startScan];
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(scanPeripheralTimeout) object:nil];
-        [self performSelector:@selector(scanPeripheralTimeout) withObject:nil afterDelay:10.0];
-    });
+    __weak typeof(self) weakSelf = self;
+    [_ble cancelAllConnecttionWithComplete:^{
+        [weakSelf.ble startScan];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [NSObject cancelPreviousPerformRequestsWithTarget:weakSelf selector:@selector(scanPeripheralTimeout) object:nil];
+            [weakSelf performSelector:@selector(scanPeripheralTimeout) withObject:nil afterDelay:10.0];
+        });
+    }];
 }
 
 - (void)connectPeripheralWithUUIDTimeout{

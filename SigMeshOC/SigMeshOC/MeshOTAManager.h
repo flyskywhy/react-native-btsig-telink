@@ -31,15 +31,11 @@
 
 typedef void(^ProgressBlock)(NSInteger progress);
 typedef void(^FinishBlock)(NSArray <NSNumber *>*successAddresses,NSArray <NSNumber *>*failAddresses);
+typedef void(^ErrorBlock)(NSError *error);
 
 @interface MeshOTAManager : NSObject
 
 @property(nonatomic, strong) NSData *otaData;
-
-
-+ (instancetype)new __attribute__((unavailable("please initialize by use .share or .share()")));
-- (instancetype)init __attribute__((unavailable("please initialize by use .share or .share()")));
-
 
 + (MeshOTAManager*)share;
 

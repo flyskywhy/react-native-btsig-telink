@@ -423,7 +423,6 @@ void APP_report_mesh_ota_apply_status(u16 adr_src, fw_update_status_t *p);
 u16 APP_get_GATT_connect_addr();
 void APP_set_mesh_ota_pause_flag(u8 val);
 int is_mesh_ota_and_only_VC_update();
-u32 soft_crc32_ota_flash(u32 addr, u32 len, u32 crc_init,u32 *out_crc_type1_blk);
 
 int access_cmd_fw_info_get(u16 adr_dst);
 int access_cmd_fw_distribut_stop(u16 adr_dst);

@@ -26,14 +26,18 @@
 #include "../tl_common.h"
 
 
+#ifndef PA_ENABLE
+#define PA_ENABLE                           0
+#endif
 
-// for not 826x,PA pin use integrated RF synthesizer, refer to RF_LNARxPinDef and RF_PATxPinDef for pa pin!!!
+
+
 #ifndef PA_TXEN_PIN
-#define PA_TXEN_PIN                         GPIO_PC7
+#define PA_TXEN_PIN                         GPIO_PB2
 #endif
 
 #ifndef PA_RXEN_PIN
-#define PA_RXEN_PIN                         GPIO_PC6
+#define PA_RXEN_PIN                         GPIO_PB3
 #endif
 
 

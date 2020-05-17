@@ -42,9 +42,7 @@ typedef void(^workWithPeripheralCallBack)(NSString *uuidString);
 typedef void(^bleCancelConnectCallBack)(void);
 typedef void(^bleSetFilterResponseCallBack)(void);
 typedef void(^bleSetFilterFailCallBack)(void);
-typedef void(^bleSetFilterResultCallBack)(BOOL isSuccess);
 typedef void(^bleCompleteCallBack)(void);
-typedef void(^ErrorBlock)(NSError *error);
 
 
 @interface BLECallBackAPI : BLEProperties
