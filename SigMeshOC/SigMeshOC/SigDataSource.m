@@ -101,6 +101,8 @@
 
         DeviceTypeModel *model3 = [[DeviceTypeModel alloc] initWithCID:kCompanyID PID:0xFB00];
         [_defaultNodeInfos addObject:model3];
+        DeviceTypeModel *model4 = [[DeviceTypeModel alloc] initWithCID:kCompanyID PID:0xFA00];
+        [_defaultNodeInfos addObject:model4];
     }
     return self;
 }
@@ -110,6 +112,9 @@
     for (DeviceTypeModel *tem in _defaultNodeInfos) {
         if (tem.CID == CID) {
             if ((PID & 0xFF00) == 0xFB00 && tem.PID == 0xFB00) {
+                model = tem;
+                break;
+            } else if ((PID & 0xFF00) == 0xFA00 && tem.PID == 0xFA00) {
                 model = tem;
                 break;
             } else if (tem.PID == PID) {
@@ -1126,6 +1131,9 @@
             node_ele_cnt = 8;
             break;
         case 0xFB00:
+            node_ele_cnt = 1;
+            break;
+        case 0xFA00:
             node_ele_cnt = 1;
             break;
         default:

@@ -24,13 +24,18 @@ public enum PrivateDevice {
     // when cpsData is changed by the change of element or model in firmware, FB00[] is also need changed here and in
     // DeviceTypeModel of react-native-btsig-telink/SigMeshOC/SigMeshOC/Model.m
     //
-    // note 3 code in SigDataSource.m about FB00
+    // note onProvisionSuccess() in TelinkBtSigNativeModule.java about FB
     // note filter() here about FB00
     //
     // Only need describe 0xFB00 here, because it will be e.g. 0xFB78 in onProvisionSuccess() of TelinkBtSigNativeModule.java
     // The version (byte) 0x31, (byte) 0x32 also will be replaced in onProvisionSuccess() of TelinkBtSigNativeModule.java
     FB00(0x0211, 0xFB00, "lightstring",
             new byte[]{(byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0xFB, (byte) 0x31, (byte) 0x32, (byte) 0x69, (byte) 0x00, (byte) 0x07, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x13, (byte) 0x01, (byte) 0x00, (byte) 0x00
+                    , (byte) 0x02, (byte) 0x00, (byte) 0x03, (byte) 0x00, (byte) 0x04, (byte) 0x00, (byte) 0x00, (byte) 0xFE, (byte) 0x01, (byte) 0xFE, (byte) 0x00, (byte) 0xFF, (byte) 0x01, (byte) 0xFF, (byte) 0x00, (byte) 0x12
+                    , (byte) 0x01, (byte) 0x12, (byte) 0x00, (byte) 0x10, (byte) 0x02, (byte) 0x10, (byte) 0x04, (byte) 0x10, (byte) 0x06, (byte) 0x10, (byte) 0x07, (byte) 0x10, (byte) 0x06, (byte) 0x12, (byte) 0x07, (byte) 0x12
+                    , (byte) 0x00, (byte) 0x13, (byte) 0x01, (byte) 0x13, (byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0x00}),
+    FA00(0x0211, 0xFA00, "lightstring",
+            new byte[]{(byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0xFA, (byte) 0x31, (byte) 0x32, (byte) 0x69, (byte) 0x00, (byte) 0x07, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x13, (byte) 0x01, (byte) 0x00, (byte) 0x00
                     , (byte) 0x02, (byte) 0x00, (byte) 0x03, (byte) 0x00, (byte) 0x04, (byte) 0x00, (byte) 0x00, (byte) 0xFE, (byte) 0x01, (byte) 0xFE, (byte) 0x00, (byte) 0xFF, (byte) 0x01, (byte) 0xFF, (byte) 0x00, (byte) 0x12
                     , (byte) 0x01, (byte) 0x12, (byte) 0x00, (byte) 0x10, (byte) 0x02, (byte) 0x10, (byte) 0x04, (byte) 0x10, (byte) 0x06, (byte) 0x10, (byte) 0x07, (byte) 0x10, (byte) 0x06, (byte) 0x12, (byte) 0x07, (byte) 0x12
                     , (byte) 0x00, (byte) 0x13, (byte) 0x01, (byte) 0x13, (byte) 0x11, (byte) 0x02, (byte) 0x00, (byte) 0x00});
@@ -72,6 +77,8 @@ public enum PrivateDevice {
                 values) {
             if (device.vid == vid) {
                 if ((pid & 0xFF00) == 0xFB00 && device.pid == 0xFB00) {
+                    return device;
+                } else if ((pid & 0xFF00) == 0xFA00 && device.pid == 0xFA00) {
                     return device;
                 } else if (device.pid == pid) {
                     return device;
