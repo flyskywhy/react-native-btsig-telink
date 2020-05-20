@@ -30,7 +30,7 @@ class TelinkBtSig {
     static HUE_MAX = 360;
     static SATURATION_MIN = 0;
     static SATURATION_MAX = 100;
-    static BRIGHTNESS_MIN = 39; // 实测灯串不会随着亮度变化而改变颜色的最低亮度
+    static BRIGHTNESS_MIN = 30; // 实测灯串不会随着亮度变化而改变颜色的最低亮度
     static BRIGHTNESS_MAX = 100;
     static COLOR_TEMP_MIN = 5;
     static COLOR_TEMP_MAX = 100;
@@ -69,6 +69,52 @@ class TelinkBtSig {
     static ALARM_TYPE_WEEK = 1;
 
     static passthroughMode = undefined; // 通过串口或者说自定义发送数据来控制蓝牙节点
+    static gamma = [  // gamma 2.4 ，normal color ，据说较暗时颜色经 gamma 校正后会比较准
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                                 // 0
+        0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,                                 // 16
+        2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,                                 // 32
+        5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9,                                 // 48
+        9, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14, 14, 14, 15, 15,                  // 64
+        16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 22, 22, 23, 23, 24,                 // 80
+        24, 25, 26, 26, 27, 28, 28, 29, 30, 30, 31, 32, 32, 33, 34, 35,                 // 96
+        35, 36, 37, 38, 39, 39, 40, 41, 42, 43, 43, 44, 45, 46, 47, 48,                 // 112
+        49, 50, 51, 52, 53, 53, 54, 55, 56, 57, 58, 59, 60, 62, 63, 64,                 // 128
+        65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 78, 80, 81, 82,                 // 144
+        83, 85, 86, 87, 88, 90, 91, 92, 94, 95, 96, 98, 99, 100, 102, 103,              // 160
+        105, 106, 108, 109, 111, 112, 114, 115, 117, 118, 120, 121, 123, 124, 126, 127, // 176
+        129, 131, 132, 134, 136, 137, 139, 141, 142, 144, 146, 148, 149, 151, 153, 155, // 192
+        156, 158, 160, 162, 164, 166, 167, 169, 171, 173, 175, 177, 179, 181, 183, 185, // 208
+        187, 189, 191, 193, 195, 197, 199, 201, 203, 205, 207, 210, 212, 214, 216, 218, // 224
+        220, 223, 225, 227, 229, 232, 234, 236, 239, 241, 243, 246, 248, 250, 253, 255  // 240
+    ];
+    // static gamma = [  // gamma 2.8 ，vivid color ，据说较明亮时颜色经 gamma 校正后会比较准
+    //     0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,                                 // 0
+    //     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,                                 // 16
+    //     1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3,                                 // 32
+    //     3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6,                                 // 48
+    //     6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 10, 10,                               // 64
+    //     10, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17,                 // 80
+    //     17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25, 25,                 // 96
+    //     26, 27, 27, 28, 29, 29, 30, 31, 31, 32, 33, 34, 34, 35, 36, 37,                 // 112
+    //     38, 38, 39, 40, 41, 42, 43, 43, 44, 45, 46, 47, 48, 49, 50, 51,                 // 128
+    //     52, 53, 54, 55, 56, 57, 58, 59, 60, 62, 63, 64, 65, 66, 67, 68,                 // 144
+    //     70, 71, 72, 73, 75, 76, 77, 78, 80, 81, 82, 84, 85, 87, 88, 89,                 // 160
+    //     91, 92, 94, 95, 97, 98, 100, 101, 103, 104, 106, 108, 109, 111, 112, 114,       // 176
+    //     116, 117, 119, 121, 123, 124, 126, 128, 130, 131, 133, 135, 137, 139, 141, 143, // 192
+    //     145, 147, 149, 151, 153, 155, 157, 159, 161, 163, 165, 167, 169, 171, 173, 176, // 208
+    //     178, 180, 182, 185, 187, 189, 192, 194, 196, 199, 201, 203, 206, 208, 211, 213, // 224
+    //     216, 218, 221, 223, 226, 228, 231, 234, 236, 239, 242, 244, 247, 250, 253, 255  // 240
+    // ];
+    static whiteBalance = { // cooler
+        r: 1,
+        g: 0.6,
+        b: 0.24,
+    };
+    // static whiteBalance = { // warmer
+    //     r: 1,
+    //     g: 0.5,
+    //     b: 0.18,
+    // };
 
     static longCommandParams = true; // 可以在一条命令中发送大量数据，无需拆分成许多小命令
     static MESH_CMD_ACCESS_LEN_MAX = 380;
@@ -105,7 +151,7 @@ class TelinkBtSig {
             return { ...device,
                 dhmKey: this.hexString2ByteArray(device.dhmKey),
                 nodeInfo: this.hexString2ByteArray(device.nodeInfo),
-            }
+            };
         }), this.provisionerSno);
     }
 
@@ -385,7 +431,7 @@ class TelinkBtSig {
             if (index % 2 === 0) {
                 array.push(parseInt(value + str[index + 1], 16));
             }
-        })
+        });
 
         return array;
     }
@@ -402,6 +448,8 @@ class TelinkBtSig {
     // 存在矛盾，也就是说是灯串硬件等级（成本）较低造成的，光靠调灯串硬件固件是不行的。现在的解决方
     // 法是查看 RGB 中的某个分量，如果低于某个值（视灯串 LED 的 gamma 表而定）的就变为 0 之类的方法。
     // 具体来说，低于等于 0x30 的就变为 0 ，位于 0x30 和 0x40 之间的就变为 0x40，其它不变。
+    //
+    // 后来发现颜色不准主要是由于固件中效果变化时 gamma 重复操作导致的，所以下面代码暂时简单禁用 ledFilter3040
     static ledFilter3040(value) {
         if (value <= 0x30) {
             return 0;
@@ -449,40 +497,34 @@ class TelinkBtSig {
                     h: hue / this.HUE_MAX,
                     s: saturation / this.SATURATION_MAX,
                     v: value / this.BRIGHTNESS_MAX,
-                }).toRgb();;
+                }).toRgb();
             } else {
-                color3.r = this.ledFilter3040(color3.r);
-                color3.g = this.ledFilter3040(color3.g);
-                color3.b = this.ledFilter3040(color3.b);
-                if (tinycolor(color3).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
-                    color3.r = 0;
-                    color3.g = 0;
-                    color3.b = 0;
-                }
+                // color3.r = this.ledFilter3040(color3.r);
+                // color3.g = this.ledFilter3040(color3.g);
+                // color3.b = this.ledFilter3040(color3.b);
+                color3.r = parseInt(this.gamma[color3.r] * this.whiteBalance.r, 10);
+                color3.g = parseInt(this.gamma[color3.g] * this.whiteBalance.g, 10);
+                color3.b = parseInt(this.gamma[color3.b] * this.whiteBalance.b, 10);
             }
             let color3Bg = colorBg && tinycolor(colorBg).toRgb();
             if (color3Bg) {
-                color3Bg.r = this.ledFilter3040(color3Bg.r);
-                color3Bg.g = this.ledFilter3040(color3Bg.g);
-                color3Bg.b = this.ledFilter3040(color3Bg.b);
-                if (tinycolor(color3Bg).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
-                    color3Bg.r = 0;
-                    color3Bg.g = 0;
-                    color3Bg.b = 0;
-                }
+                // color3Bg.r = this.ledFilter3040(color3Bg.r);
+                // color3Bg.g = this.ledFilter3040(color3Bg.g);
+                // color3Bg.b = this.ledFilter3040(color3Bg.b);
+                color3Bg.r = parseInt(this.gamma[color3Bg.r] * this.whiteBalance.r, 10);
+                color3Bg.g = parseInt(this.gamma[color3Bg.g] * this.whiteBalance.g, 10);
+                color3Bg.b = parseInt(this.gamma[color3Bg.b] * this.whiteBalance.b, 10);
             }
             let colors3 = [];
-            colors.map(color => {
+            colors.map(colour => {
                 colors3.push(0);
-                let rgb = tinycolor(color).toRgb();
-                rgb.r = this.ledFilter3040(rgb.r);
-                rgb.g = this.ledFilter3040(rgb.g);
-                rgb.b = this.ledFilter3040(rgb.b);
-                if (tinycolor(rgb).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
-                    rgb.r = 0;
-                    rgb.g = 0;
-                    rgb.b = 0;
-                }
+                let rgb = tinycolor(colour).toRgb();
+                // rgb.r = this.ledFilter3040(rgb.r);
+                // rgb.g = this.ledFilter3040(rgb.g);
+                // rgb.b = this.ledFilter3040(rgb.b);
+                rgb.r = parseInt(this.gamma[rgb.r] * this.whiteBalance.r, 10);
+                rgb.g = parseInt(this.gamma[rgb.g] * this.whiteBalance.g, 10);
+                rgb.b = parseInt(this.gamma[rgb.b] * this.whiteBalance.b, 10);
                 colors3.push(rgb.r);
                 colors3.push(rgb.g);
                 colors3.push(rgb.b);
@@ -661,18 +703,12 @@ class TelinkBtSig {
                                         let subdataLength = 7;
                                         let bulbsStart = subdata[1];
                                         let bulbsLength = subdata[2];
-                                        let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
-                                        let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
-                                        let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
-                                        if (tinycolor({
-                                            r: bulbsColorR,
-                                            g: bulbsColorG,
-                                            b: bulbsColorB,
-                                        }).toHsv().v < (this.BRIGHTNESS_MIN - 1) / 100) {
-                                            bulbsColorR = 0;
-                                            bulbsColorG = 0;
-                                            bulbsColorB = 0;
-                                        }
+                                        // let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
+                                        // let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
+                                        // let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
+                                        let bulbsColorR = parseInt(this.gamma[subdata[3] >> 16 & 0xFF] * this.whiteBalance.r, 10);
+                                        let bulbsColorG = parseInt(this.gamma[subdata[3] >> 8 & 0xFF] * this.whiteBalance.g, 10);
+                                        let bulbsColorB = parseInt(this.gamma[subdata[3] & 0xFF] * this.whiteBalance.b, 10);
                                         rawData = rawData.concat([
                                             subdataLength,
                                             bulbsMode,
@@ -681,7 +717,7 @@ class TelinkBtSig {
                                             bulbsColorR,
                                             bulbsColorG,
                                             bulbsColorB,
-                                        ])
+                                        ]);
                                     }
                                 });
                                 let dataType = 0;
@@ -785,7 +821,7 @@ class TelinkBtSig {
                     this.isClaiming = false;
                 }
                 reject(err);
-            })
+            });
         });
     }
 
@@ -803,8 +839,8 @@ class TelinkBtSig {
             NativeModule.setNodeGroupAddr(toDel, meshAddress, groupAddress).then(() => {
                 clearTimeout(timer);
                 resolve();
-            }, reject)
-        })
+            }, reject);
+        });
     }
 
     static setTime({
@@ -829,8 +865,8 @@ class TelinkBtSig {
             NativeModule.getTime(meshAddress, relayTimes).then(payload => {
                 clearTimeout(timer);
                 resolve(payload);
-            }, reject)
-        })
+            }, reject);
+        });
     }
 
     static setAlarm({
@@ -861,8 +897,8 @@ class TelinkBtSig {
             NativeModule.getAlarm(meshAddress, relayTimes, alarmId).then(payload => {
                 clearTimeout(timer);
                 resolve(payload);
-            }, reject)
-        })
+            }, reject);
+        });
     }
 
     static cascadeLightStringGroup({ // 用于将一个组中的几个灯串级联模拟成一个灯串
