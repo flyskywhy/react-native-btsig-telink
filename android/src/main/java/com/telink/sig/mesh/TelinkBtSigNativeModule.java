@@ -157,7 +157,6 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     // Members
     private static TelinkBtSigNativeModule mThis;
-    private static MeshService mService;
     private TelinkApplication mTelinkApplication;
     private BluetoothAdapter mBluetoothAdapter;
     private ReactApplicationContext mReactContext;
@@ -424,10 +423,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
         if (isServiceStarted) {
             isServiceStarted = false;
-            if (mService != null) {
-                mContext.unbindService(mServiceConnection);
-                mService = null;
-            }
+            mContext.unbindService(mServiceConnection);
         }
     }
 
@@ -495,14 +491,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void notModeAutoConnectMesh(Promise promise) {
-        if (mService != null) {
-            if (mService.getMode() != MeshController.MODE_AUTO_CONNECT) {
-                promise.resolve(true);
-            } else {
-                promise.reject(new Exception("Already in mode AutoConnectMesh"));
-            }
+        if (MeshService.getInstance().getMode() != MeshController.MODE_AUTO_CONNECT) {
+            promise.resolve(true);
         } else {
-            promise.reject(new Exception("MeshService is null"));
+            promise.reject(new Exception("Already in mode AutoConnectMesh"));
         }
     }
 
@@ -515,18 +507,18 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
         AutoConnectParameters connectParams = AutoConnectParameters.getDefault(unicastAddresses, mNetKey);
         connectParams.setScanMinPeriod(1000);
-        mService.autoConnect(connectParams);
+        MeshService.getInstance().autoConnect(connectParams);
     }
 
     @ReactMethod
     public void idleMode(boolean disconnect) {
-        mService.idle(disconnect);
+        MeshService.getInstance().idle(disconnect);
     }
 
     @ReactMethod
     public void startScan(int timeoutSeconds, boolean isSingleNode) {
         ScanParameters parameters = ScanParameters.getDefault(false, isSingleNode);
-        List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(mService.getAdvDevices());
+        List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(MeshService.getInstance().getAdvDevices());
         if (advDevices.size() != 0) {
             String[] excludeMacs = new String[advDevices.size()];
             for (int i = 0; i < advDevices.size(); i++) {
@@ -535,7 +527,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             parameters.setExcludeMacs(excludeMacs);
         }
         parameters.setScanTimeout(timeoutSeconds * 1000);
-        mService.startScan(parameters);
+        MeshService.getInstance().startScan(parameters);
     }
 
     // public static String[] readableArray2StringArray(ReadableArray arr) {
@@ -592,7 +584,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public void sendCommand(int opcode, int meshAddress, ReadableArray value, boolean immediate) {
         MeshCommand command = MeshCommand.newInstance(0, 0, 0, meshAddress, opcode);
         command.params = readableArray2ByteArray(value);
-        mService.sendMeshCommand(command);
+        MeshService.getInstance().sendMeshCommand(command);
     }
 
     @ReactMethod
@@ -605,7 +597,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 elementAddr = meshAddress;
             }
         }
-        mService.setOnOff(elementAddr, (byte) value, true, 0, 0, (byte) 0, null);
+        MeshService.getInstance().setOnOff(elementAddr, (byte) value, true, 0, 0, (byte) 0, null);
     }
 
     @ReactMethod
@@ -618,7 +610,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 elementAddr = meshAddress;
             }
         }
-        mService.setLum(elementAddr, value, false, 0, 0, (byte) 0, null);
+        MeshService.getInstance().setLum(elementAddr, value, false, 0, 0, (byte) 0, null);
     }
 
     @ReactMethod
@@ -631,7 +623,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 elementAddr = meshAddress;
             }
         }
-        mService.setTemperature100(elementAddr, value, false, 0, 0, (byte) 0, null);
+        MeshService.getInstance().setTemperature100(elementAddr, value, false, 0, 0, (byte) 0, null);
     }
 
     @ReactMethod
@@ -644,7 +636,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 elementAddr = meshAddress;
             }
         }
-        mService.setHSL(elementAddr, hue, saturation, lightness, false, 0, 0, (byte) 0, null);
+        MeshService.getInstance().setHSL(elementAddr, hue, saturation, lightness, false, 0, 0, (byte) 0, null);
     }
 
     @ReactMethod
@@ -656,7 +648,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             int address = node.getInt("meshAddress");
             TelinkLog.d("alloc address: " + address);
 
-            List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(mService.getAdvDevices());
+            List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(MeshService.getInstance().getAdvDevices());
             AdvertisingDevice advDevice = null;
             for (int i = 0; i < advDevices.size(); i++) {
                 if (advDevices.get(i).device.getAddress().equals(macAddress)) {
@@ -672,12 +664,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             UnprovisionedDevice targetDevice = new UnprovisionedDevice(advDevice, address);
             byte[] provisionData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, 0, address);
             ProvisionParameters parameters = ProvisionParameters.getDefault(provisionData, targetDevice);
-            mService.startProvision(parameters);
+            MeshService.getInstance().startProvision(parameters);
         } else {
             mConfigNodeResetMacAddress = node.getString("macAddress");
             mConfigNodeResetMeshAddress = node.getInt("meshAddress");
-            kickDirect = mConfigNodeResetMacAddress.equals(mService.getCurDeviceMac());
-            mService.resetNode(mConfigNodeResetMeshAddress, null);
+            kickDirect = mConfigNodeResetMacAddress.equals(MeshService.getInstance().getCurDeviceMac());
+            MeshService.getInstance().resetNode(mConfigNodeResetMeshAddress, null);
             if (!kickDirect) {
                 mHandler.postDelayed(new Runnable() {
                     @Override
@@ -694,11 +686,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private void onKickOutFinish() {
         kickDirect = false;
 
-        if (mService == null) {
+        if (MeshService.getInstance() == null) {
             Log.e(TAG, "xxxxxxx onKickOutFinish mService == null");
         }
 
-        mService.removeNodeInfo(mConfigNodeResetMeshAddress);
+        MeshService.getInstance().removeNodeInfo(mConfigNodeResetMeshAddress);
         this.removeDeviceByMesh(mConfigNodeResetMeshAddress);
         if (mConfigNodePromise != null) {
             WritableMap params = Arguments.createMap();
@@ -758,7 +750,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     public AdvertisingDevice getAdvDeviceByMacAddress(String address) {
-        List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(mService.getAdvDevices());
+        List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(MeshService.getInstance().getAdvDevices());
         for (AdvertisingDevice advDevice : advDevices) {
             if (advDevice.device.getAddress().equals(address))
                 return advDevice;
@@ -838,11 +830,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         KeyBindParameters parameters = KeyBindParameters.getDefault(device,
                 mAppKey, 0, 0, fastBind);
 
-        if (mService == null) {
+        if (MeshService.getInstance() == null) {
             Log.e(TAG, "xxxxxxx onProvisionSuccess mService == null");
         }
 
-        mService.startKeyBind(parameters);
+        MeshService.getInstance().startKeyBind(parameters);
     }
 
     private void onProvisionFail(MeshEvent event) {
@@ -1337,7 +1329,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 setNextModel();
                 return;
             }
-            if (!mService.setSubscription(mSetNodeGroupAddrType, mSetNodeGroupAddrDevice.meshAddress, elementAddr, mSetNodeGroupAddrGroupAddr, models[mSetNodeGroupAddrModelIndex].modelId, true, TAG_CMD_SET_NODE_GROUP)) {
+            if (!MeshService.getInstance().setSubscription(mSetNodeGroupAddrType, mSetNodeGroupAddrDevice.meshAddress, elementAddr, mSetNodeGroupAddrGroupAddr, models[mSetNodeGroupAddrModelIndex].modelId, true, TAG_CMD_SET_NODE_GROUP)) {
                 if (mSetNodeGroupAddrPromise != null) {
                     mSetNodeGroupAddrPromise.reject(new Exception("setSubscription return false"));
                 }
@@ -1379,7 +1371,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 elementAddr = meshAddress;
             }
         }
-        mService.setTime(elementAddr, 0, time, offset, null);
+        MeshService.getInstance().setTime(elementAddr, 0, time, offset, null);
     }
 
     @ReactMethod
@@ -1398,7 +1390,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
 
         mGetTimePromise = promise;
-        mService.getTime(meshAddress, 0, null);
+        MeshService.getInstance().getTime(meshAddress, 0, null);
     }
 
     private synchronized void onGetTimeNotify(NotificationEvent event) {
@@ -1460,7 +1452,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 elementAddr = meshAddress;
             }
         }
-        mService.setSchedulerAction(elementAddr, true, 0, scheduler, null);
+        MeshService.getInstance().setSchedulerAction(elementAddr, true, 0, scheduler, null);
     }
 
     @ReactMethod
@@ -1479,7 +1471,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
 
         mGetAlarmPromise = promise;
-        mService.getSchedulerAction(meshAddress, 0, alarmId, null);
+        MeshService.getInstance().getSchedulerAction(meshAddress, 0, alarmId, null);
     }
 
     private synchronized void onGetAlarmNotify(NotificationEvent event) {
@@ -1542,7 +1534,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void startMeshOTA(ReadableArray meshAddresses, ReadableArray firmware) {
-        mService.startMeshOTA(readableArray2IntArray(meshAddresses), readableArray2ByteArray(firmware));
+        MeshService.getInstance().startMeshOTA(readableArray2IntArray(meshAddresses), readableArray2ByteArray(firmware));
     }
 
     @ReactMethod
@@ -1557,7 +1549,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void stopMeshOTA(String tag) {
-        mService.stopMeshOTA(tag);
+        MeshService.getInstance().stopMeshOTA(tag);
     }
 
     private synchronized void onGetMeshOtaProgress(MeshOtaProgressEvent event) {
@@ -1595,7 +1587,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void startOta(String mac, ReadableArray firmware, Promise promise) {
         mStartOtaPromise = promise;
-        mService.startOta(mac, readableArray2ByteArray(firmware));
+        MeshService.getInstance().startOta(mac, readableArray2ByteArray(firmware));
     }
 
     private synchronized void onGetOtaProgress(OtaEvent event) {
@@ -1642,16 +1634,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
      */
     @ReactMethod
     public void replaceMeshSetting() {
-        mService.idle(true);
+        MeshService.getInstance().idle(true);
         byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, 0, mMeshAddressOfApp);
-        mService.meshProvisionParSetDir(pvData, pvData.length);
-        mService.setLocalAddress(mMeshAddressOfApp);
+        MeshService.getInstance().meshProvisionParSetDir(pvData, pvData.length);
+        MeshService.getInstance().setLocalAddress(mMeshAddressOfApp);
         List<byte[]> nodeList = new ArrayList<>();
         for (DeviceInfo node : devices) {
             nodeList.add(node.nodeInfo.toVCNodeInfo());
         }
         byte[][] nodeData = nodeList.toArray(new byte[][]{});
-        mService.reattachNodes(nodeData);
+        MeshService.getInstance().reattachNodes(nodeData);
 
         // TODO: 由 fw/SIG_MESH_Release_V3.1/sdk/ble_lt_mesh/vendor/common/mesh_node.c
         // 里面的 mesh_app_key_set() 里的 st = (same ? ST_SUCCESS : ST_KEYIDX_ALREADY_STORE);
@@ -1665,27 +1657,23 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // 当然，如果 JS 层没有将 appKey 初始化为随机值而是真正意义上的一种类别的 APP 就是一个固定 appKey ，
         // 那么， JS 层导入（别人分享来）的配置后调用本函数就无需重启 APP 也能正常连接和控制了。
         // PS，之所以曾经在 JS 层将 appKey 初始化为随机值，是因为受到了 telink demo 代码的误导。
-        mService.resetAppKey(0, 0, mAppKey);
+        MeshService.getInstance().resetAppKey(0, 0, mAppKey);
     }
 
     private ServiceConnection mServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder rawBinder) {
-            mService = MeshService.getInstance();
-            if (mService != null) {
-                mService.startMeshController(mTelinkApplication.getMeshLib());
+            if (MeshService.getInstance() != null) {
+                MeshService.getInstance().startMeshController(mTelinkApplication.getMeshLib());
                 byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, 0, mMeshAddressOfApp);
-                mService.meshProvisionParSetDir(pvData, pvData.length);
-                mService.setLocalAddress(mMeshAddressOfApp);
-                mService.resetAppKey(0, 0, mAppKey);
+                MeshService.getInstance().meshProvisionParSetDir(pvData, pvData.length);
+                MeshService.getInstance().setLocalAddress(mMeshAddressOfApp);
+                MeshService.getInstance().resetAppKey(0, 0, mAppKey);
 
                 sendEvent(SERVICE_CONNECTED);
             }
         }
 
         public void onServiceDisconnected(ComponentName classname) {
-            Log.d(TAG, "xxxxxxx onServiceDisconnected mService = null");
-
-            mService = null;
             sendEvent(SERVICE_DISCONNECTED);
         }
     };
@@ -1744,14 +1732,14 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 this.onGetMeshOtaFirmwareDistributionStatus((NotificationEvent) event);
                 break;
             case OtaEvent.EVENT_TYPE_OTA_SUCCESS:
-                // mService.idle(false);
+                // MeshService.getInstance().idle(false);
                 if (mStartOtaPromise != null) {
                     mStartOtaPromise.resolve(true);
                 }
                 mStartOtaPromise = null;
                 break;
             case OtaEvent.EVENT_TYPE_OTA_FAIL:
-                // mService.idle(true);
+                // MeshService.getInstance().idle(true);
                 if (mStartOtaPromise != null) {
                     mStartOtaPromise.reject(new Exception("OTA_FAIL"));
                 }
@@ -1789,26 +1777,26 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 //     // 如果后续从蓝牙设备固件代码中得知 telink 也实现了（应该实现了） sig mesh 协议中
                 //     // model 之间关联功能，放到这里就是实现了亮度 modle 如果亮度为 <= 0 的话就会关联
                 //     // 开关灯 model 为关灯状态，则此处可以不再使用 getOnOff 而只用 getCtl 等代替
-                //     mService.getOnOff(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_ON_OFF_STATUS
+                //     MeshService.getInstance().getOnOff(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_ON_OFF_STATUS
 
                 //     // 测试得：如果紧接着上面 getOnOff 后立即进行其它 get ，则只会触发 getOnOff 对应的 EVENT，因此需要延迟进行
                 //     mHandler.postDelayed(new Runnable() {
                 //         @Override
                 //         public void run() {
                 //             // 因为此处只会返回第一个 get 函数的结果，所以那些注释掉的 get 函数仅用于测试
-                //             // mService.getLevel(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_LEVEL_STATUS
-                //             // mService.getLightness(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY
+                //             // MeshService.getInstance().getLevel(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_LEVEL_STATUS
+                //             // MeshService.getInstance().getLightness(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY
 
                 //             // 如 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
-                //             mService.getCtl(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_CTL_STATUS_NOTIFY
+                //             MeshService.getInstance().getCtl(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_CTL_STATUS_NOTIFY
 
-                //             // mService.getTemperature(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_TEMP_STATUS_NOTIFY
+                //             // MeshService.getInstance().getTemperature(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_TEMP_STATUS_NOTIFY
                 //         }
                 //     }, 1 * 1000); // 测试得：当延时为 100 时无法触发对应的 EVENT ，而 500 是可以的，保险起见，这里可以使用 1000
                 // }
 
                 WritableMap params = Arguments.createMap();
-                params.putInt("connectMeshAddress", getDeviceByMacAddress(mService.getCurDeviceMac()).meshAddress);
+                params.putInt("connectMeshAddress", getDeviceByMacAddress(MeshService.getInstance().getCurDeviceMac()).meshAddress);
                 sendEvent(DEVICE_STATUS_LOGIN, params);
                 break;
             case MeshEvent.EVENT_TYPE_DISCONNECTED:
