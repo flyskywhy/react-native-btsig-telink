@@ -675,7 +675,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 35:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 2, 0, color3.r, color3.g, color3.b, 0, color3Bg.r, color3Bg.g, color3Bg.b], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
 
