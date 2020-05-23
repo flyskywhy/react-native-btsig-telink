@@ -692,18 +692,19 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     private void onKickOutFinish() {
-        kickDirect = false;
-
         if (mService == null) {
             Log.e(TAG, "xxxxxxx onKickOutFinish mService == null");
-        }
-
-        mService.removeNodeInfo(mConfigNodeResetMeshAddress);
-        this.removeDeviceByMesh(mConfigNodeResetMeshAddress);
-        if (mConfigNodePromise != null) {
-            WritableMap params = Arguments.createMap();
-            mConfigNodePromise.resolve(params);
-            mConfigNodePromise = null;
+            Intent bindIntent = new Intent(mContext, MeshService.class);
+            mContext.bindService(bindIntent, mServiceConnectionWhileOnKickOutFinish, Context.BIND_AUTO_CREATE);
+        } else {
+            kickDirect = false;
+            mService.removeNodeInfo(mConfigNodeResetMeshAddress);
+            this.removeDeviceByMesh(mConfigNodeResetMeshAddress);
+            if (mConfigNodePromise != null) {
+                WritableMap params = Arguments.createMap();
+                mConfigNodePromise.resolve(params);
+                mConfigNodePromise = null;
+            }
         }
     }
 
@@ -1686,7 +1687,27 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             Log.d(TAG, "xxxxxxx onServiceDisconnected mService = null");
 
             mService = null;
-            sendEvent(SERVICE_DISCONNECTED);
+            // sendEvent(SERVICE_DISCONNECTED);
+        }
+    };
+
+    private ServiceConnection mServiceConnectionWhileOnKickOutFinish = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder rawBinder) {
+            mService = MeshService.getInstance();
+            if (mService != null) {
+                mService.startMeshController(mTelinkApplication.getMeshLib());
+                byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, 0, mMeshAddressOfApp);
+                mService.meshProvisionParSetDir(pvData, pvData.length);
+                mService.setLocalAddress(mMeshAddressOfApp);
+                mService.resetAppKey(0, 0, mAppKey);
+
+                onKickOutFinish();
+            }
+        }
+
+        public void onServiceDisconnected(ComponentName classname) {
+            Log.d(TAG, "xxxxxxx mServiceConnectionWhileOnKickOutFinish mService = null");
+            mService = null;
         }
     };
 
