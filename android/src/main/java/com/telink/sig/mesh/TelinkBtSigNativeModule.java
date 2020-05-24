@@ -678,14 +678,6 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             mConfigNodeResetMeshAddress = node.getInt("meshAddress");
             kickDirect = mConfigNodeResetMacAddress.equals(mService.getCurDeviceMac());
             mService.resetNode(mConfigNodeResetMeshAddress, null);
-            if (!kickDirect) {
-                mHandler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        onKickOutFinish();
-                    }
-                }, 3 * 1000);
-            }
 
             // startScan();
         }
@@ -698,9 +690,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             Log.e(TAG, "xxxxxxx onKickOutFinish mService == null");
         }
 
-        mService.removeNodeInfo(mConfigNodeResetMeshAddress);
-        this.removeDeviceByMesh(mConfigNodeResetMeshAddress);
         if (mConfigNodePromise != null) {
+            mService.removeNodeInfo(mConfigNodeResetMeshAddress);
+            this.removeDeviceByMesh(mConfigNodeResetMeshAddress);
             WritableMap params = Arguments.createMap();
             mConfigNodePromise.resolve(params);
             mConfigNodePromise = null;
@@ -1813,13 +1805,25 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 break;
             case MeshEvent.EVENT_TYPE_DISCONNECTED:
                 if (kickDirect) {
-                    onKickOutFinish();
+                    mHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            onKickOutFinish();
+                            sendEvent(DEVICE_STATUS_LOGOUT);
+                        }
+                    }, 1500);
+                } else {
+                    sendEvent(DEVICE_STATUS_LOGOUT);
                 }
-                sendEvent(DEVICE_STATUS_LOGOUT);
                 break;
             case NotificationEvent.EVENT_TYPE_KICK_OUT_CONFIRM:
                 if (!kickDirect) {
-                    onKickOutFinish();
+                    mHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            onKickOutFinish();
+                        }
+                    }, 5000);
                 }
                 break;
             case ScanEvent.DEVICE_FOUND:
