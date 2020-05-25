@@ -190,6 +190,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     // Promises
     private Promise mConfigNodePromise;
+    private Promise mConfigNodeResetPromise;
     private Promise mSetNodeGroupAddrPromise;
     private Promise mGetTimePromise;
     private Promise mGetAlarmPromise;
@@ -649,9 +650,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void configNode(ReadableMap node, boolean isToClaim, Promise promise) {
-        mConfigNodePromise = promise;
-
         if (isToClaim) {
+            mConfigNodePromise = promise;
             String macAddress = node.getString("macAddress");
             int address = node.getInt("meshAddress");
             TelinkLog.d("alloc address: " + address);
@@ -674,6 +674,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             ProvisionParameters parameters = ProvisionParameters.getDefault(provisionData, targetDevice);
             mService.startProvision(parameters);
         } else {
+            mConfigNodeResetPromise = promise;
             mConfigNodeResetMacAddress = node.getString("macAddress");
             mConfigNodeResetMeshAddress = node.getInt("meshAddress");
             kickDirect = mConfigNodeResetMacAddress.equals(mService.getCurDeviceMac());
@@ -690,11 +691,14 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             Log.e(TAG, "xxxxxxx onKickOutFinish mService == null");
         }
 
-        if (mConfigNodePromise != null) {
+        if (mConfigNodeResetPromise != null) {
             mService.removeNodeInfo(mConfigNodeResetMeshAddress);
             this.removeDeviceByMesh(mConfigNodeResetMeshAddress);
             WritableMap params = Arguments.createMap();
-            mConfigNodePromise.resolve(params);
+            mConfigNodeResetPromise.resolve(params);
+            mConfigNodeResetPromise = null;
+        } else if (mConfigNodePromise != null) {    // provision successful but keybind failure
+            mConfigNodePromise.reject(new Exception("onUpdateMeshFailure"));
             mConfigNodePromise = null;
         }
     }
@@ -1007,10 +1011,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private void onUpdateMeshFailure(MeshEvent event) {
         DeviceInfo deviceInfo = event.getDeviceInfo();
         if (D) Log.d(TAG, "onUpdateMeshFailure");
-        if (mConfigNodePromise != null) {
-            mConfigNodePromise.reject(new Exception("onUpdateMeshFailure"));
-        }
-        mConfigNodePromise = null;
+        kickDirect = true;
+        mService.resetNode(deviceInfo.meshAddress, null);
     }
 
     private void onUpdateMeshFailure() {
@@ -1096,7 +1098,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     private synchronized void onMeshOffline(MeshEvent event) {
-        onUpdateMeshFailure();
+        // onUpdateMeshFailure();
         sendEvent(MESH_OFFLINE);
     }
 
