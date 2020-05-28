@@ -127,6 +127,7 @@ class TelinkBtSig {
     static needRefreshMeshNodesBeforeConfig = true;
     static canConfigEvenDisconnected = true;
     static needClaimedBeforeConnect = true;
+    static isClaiming = false;
 
     static del4GroupStillSendOriginGroupAddress = true;
     static defaultAllGroupAddress = 0xFFFF;
@@ -271,6 +272,7 @@ class TelinkBtSig {
         timeoutSeconds,
         isSingleNode,
     }) {
+        this.isClaiming = false;
         return NativeModule.startScan(timeoutSeconds, isSingleNode);
     }
 
