@@ -404,7 +404,7 @@ public /*abstract*/ class TelinkApplication /*extends Application*/ implements M
     }
 
     protected void onSettingEvent(Intent intent) {
-        TelinkLog.d(TAG + "#onMeshEvent");
+        TelinkLog.d(TAG + "#onSettingEvent");
         dispatchEvent(new SettingEvent(this, intent.getStringExtra(MeshController.EXTRA_EVENT_TYPE),
                 intent.getIntExtra(MeshController.EXTRA_SETTING_INFO, -1)));
     }
