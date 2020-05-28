@@ -527,14 +527,6 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void startScan(int timeoutSeconds, boolean isSingleNode) {
         ScanParameters parameters = ScanParameters.getDefault(false, isSingleNode);
-        List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(mService.getAdvDevices());
-        if (advDevices.size() != 0) {
-            String[] excludeMacs = new String[advDevices.size()];
-            for (int i = 0; i < advDevices.size(); i++) {
-                excludeMacs[i] = advDevices.get(i).device.getAddress();
-            }
-            parameters.setExcludeMacs(excludeMacs);
-        }
         parameters.setScanTimeout(timeoutSeconds * 1000);
         mService.startScan(parameters);
     }
