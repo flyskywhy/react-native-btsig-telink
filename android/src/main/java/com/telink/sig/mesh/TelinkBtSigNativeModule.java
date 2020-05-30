@@ -1495,16 +1495,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         if (mGetAlarmPromise != null) {
             WritableMap params = Arguments.createMap();
             params.putInt("alarmId", scheduler.getIndex());
-            params.putInt("year", (int)register.getYear());
-            params.putInt("month", (int)register.getMonth());
-            params.putInt("day", (int)register.getDay());
-            params.putInt("hour", (int)register.getHour());
-            params.putInt("minute", (int)register.getMinute());
-            params.putInt("second", (int)register.getSecond());
-            params.putInt("week", (int)register.getWeek());
-            params.putInt("action", (int)register.getAction());
-            params.putInt("transTime", (int)register.getTransTime());
-            params.putInt("sceneId", register.getSceneId());
+            params.putInt("year", (int)register.getYear() & 0xFF);
+            params.putInt("month", (int)register.getMonth() & 0xFFFF);
+            params.putInt("day", (int)register.getDay() & 0xFF);
+            params.putInt("hour", (int)register.getHour() & 0xFF);
+            params.putInt("minute", (int)register.getMinute() & 0xFF);
+            params.putInt("second", (int)register.getSecond() & 0xFF);
+            params.putInt("week", (int)register.getWeek() & 0xFF);
+            params.putInt("action", (int)register.getAction() & 0xFF);
+            params.putInt("transTime", (int)register.getTransTime() & 0xFF);
+            params.putInt("sceneId", register.getSceneId() & 0xFFFF);
             mGetAlarmPromise.resolve(params);
         }
         mGetAlarmPromise = null;
