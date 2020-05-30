@@ -104,25 +104,27 @@ public final class Scheduler implements Serializable, ModelMessage {
         if (data == null || data.length != 10) return null;
         byte index = (byte) (data[0] & 0x0F);
         Register reg = new Register();
-        reg.year = (data[0] >> 4) | (data[1] & 0b111);
-        reg.month = (data[1] >> 3) | (data[2] & 0b1111111);
-        reg.day = (data[2] >> 7) | (data[3] & 0b1111); // d3 4
+        reg.year = ((data[0] & 0b11110000) >> 4) | ((data[1] & 0b00000111) << 4);
 
-        reg.hour = (data[3] >> 4) | (data[4] & 0b1); // d4 1
+        // 这里 >> 3 之前必须先 & 0b11111000 ，否则该等式会被计算为错误的 0xFFFF ，而这个对于 12bits 的 reg.month 来说是错误的，下同
+        reg.month = ((data[1] & 0b11111000) >> 3) | ((data[2] & 0b01111111) << 5);
+        reg.day = ((data[2] & 0b10000000) >> 7) | ((data[3] & 0b00001111) << 1);
 
-        reg.minute = ((data[4] >> 1) & 0b111111); // d4 7
+        reg.hour = ((data[3] & 0b11110000) >> 4) | ((data[4] & 0b00000001) << 4);
 
-
-        reg.second = ((data[4] >> 7) | (data[5] & 0b11111)); // d5 5
-
-        reg.week = ((data[5] >> 5) | (data[6] & 0b1111)); // d6 4
+        reg.minute = (data[4] & 0b01111110) >> 1;
 
 
-        reg.action = (data[6] >> 4); // d6 8
+        reg.second = ((data[4] & 0b10000000) >> 7) | ((data[5] & 0b00011111) << 1);
 
-        reg.transTime = data[7]; // d7 8
+        reg.week = ((data[5] & 0b11100000) >> 5) | ((data[6] & 0b00001111) << 3);
 
-        reg.sceneId = (data[8] & 0xFF) | ((data[9] << 8) & 0xFF); // d8 d9
+
+        reg.action = (data[6] & 0b11110000) >> 4;
+
+        reg.transTime = data[7];
+
+        reg.sceneId = (data[8] & 0xFF) | ((data[9] & 0xFF) << 8);
 
         return new Scheduler(index, reg);
     }
