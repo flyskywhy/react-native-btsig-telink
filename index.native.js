@@ -914,11 +914,18 @@ class TelinkBtSig {
         second = 0,
         week = this.ALARM_WEEK_ALL,
         action,
+        type,
         sceneId = 0,
         immediate = false,
     }) {
-        // NativeModule.sendCommand(0xE5, meshAddress, [crud, alarmId, status << 7 | type << 4 | action, month, dayOrweek, hour, minute, second, sceneId], immediate);
-        NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, day, hour, minute, second, week, action, sceneId);
+        let realDay = day;
+        let realWeek = week;
+        if (type === this.ALARM_TYPE_DAY) {
+            realDay = new Date().getDate();
+            realWeek = 0;
+        }
+
+        NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, realDay, hour, minute, second, realWeek, action, sceneId);
     }
 
     static getAlarm({
@@ -930,7 +937,26 @@ class TelinkBtSig {
             let timer = setTimeout(() => reject({errCode: 'getAlarm time out'}), 10000);
             NativeModule.getAlarm(meshAddress, relayTimes, alarmId).then(payload => {
                 clearTimeout(timer);
-                resolve(payload);
+                if (payload.action === 0 && payload.week === 0 && payload.month === 0 && payload.year === 0) {
+                    reject({errCode: 'getAlarm data 0'})
+                } else {
+                    resolve({
+                        alarmId: payload.alarmId,
+                        year: payload.year,
+                        month: payload.month,
+                        day: payload.day,
+                        hour: payload.hour,
+                        minute: payload.minute,
+                        second: payload.second,
+                        week: payload.week,
+                        action: payload.action,
+                        transTime: payload.transTime,
+                        sceneId: payload.sceneId,
+
+                        status: payload.action === this.ALARM_ACTION_NO ? 0 : 1,
+                        type: payload.day === 0 ? this.ALARM_TYPE_WEEK : this.ALARM_TYPE_DAY,
+                    });
+                }
             }, reject);
         });
     }
