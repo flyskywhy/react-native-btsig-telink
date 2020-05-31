@@ -1808,7 +1808,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                             onKickOutFinish();
                             sendEvent(DEVICE_STATUS_LOGOUT);
                         }
-                    }, 1500);
+                    }, 2000);
                 } else {
                     sendEvent(DEVICE_STATUS_LOGOUT);
                 }
@@ -1820,7 +1820,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                         public void run() {
                             onKickOutFinish();
                         }
-                    }, 5000);
+                    }, 5500);
                 }
                 break;
             case ScanEvent.DEVICE_FOUND:
