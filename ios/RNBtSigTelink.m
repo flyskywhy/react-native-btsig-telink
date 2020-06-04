@@ -222,7 +222,21 @@ RCT_EXPORT_MODULE()
     [SigDataSource.share saveLocationProvisionAddress:meshAddressOfApp];
     [SigDataSource.share changeLocationProvisionerNodeAddressToAddress:meshAddressOfApp];
 
+    NSLog(@"Save meshAddressOfApp into mesh.json");
+    [SigDataSource.share saveLocationData];
+
     [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
+
+    //exist mesh.json, load json
+    NSData *data = [SigDataSource.share getLocationMeshData];
+    NSDictionary *meshDict = [LibTools getDictionaryWithJSONData:data];
+    [SigDataSource.share setDictionaryToDataSource:meshDict];
+
+    //Attention: it will set _ivIndex to @"11223344" when mesh.json hasn't the key @"ivIndex"
+    if (!SigDataSource.share.ivIndex || SigDataSource.share.ivIndex.length == 0) {
+        SigDataSource.share.ivIndex = @"11223344";
+        [SigDataSource.share saveLocationData];
+    }
 }
 
 // ref to startMeshSDK() in SigMeshOC/SDKLibCommand.m
