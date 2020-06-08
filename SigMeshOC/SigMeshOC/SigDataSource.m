@@ -969,7 +969,12 @@
 
 - (SigNodeModel *)curLocationNodeModel{
     if (SigDataSource.share.provisioners.count > 0) {
-        return [self getDeviceWithUUID:self.curProvisionerModel.UUID];
+        NSString *uuid = self.curProvisionerModel.UUID;
+        for (SigNodeModel *model in self.nodes) {
+            if ([model.UUID isEqualToString:uuid]) {
+                return model;
+            }
+        }
     }
     return nil;
 }
@@ -2014,7 +2019,7 @@
 }
 
 - (NSString *)peripheralUUID{
-    if (self.address == SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress) {
+    if (self.address == SigDataSource.share.curLocationNodeModel.address) {
         //location node's uuid
         return _UUID;
     }

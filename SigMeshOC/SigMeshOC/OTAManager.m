@@ -183,7 +183,7 @@
         //change since v2.8.2
         __block int responseCount = 0;
         __weak typeof(self) weakSelf = self;
-        [Bluetooth.share setFilterWithLocationAddress:SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress complete:^{
+        [Bluetooth.share setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address complete:^{
             responseCount ++;
             if (responseCount == 3) {
                 set_pair_login_ok(1);

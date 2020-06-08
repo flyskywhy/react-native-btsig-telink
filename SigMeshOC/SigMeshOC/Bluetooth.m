@@ -382,7 +382,8 @@ static NSTimeInterval commentTime;
     //change since v2.8.2
     __block int responseCount = 0;
     __weak typeof(self) weakSelf = self;
-    [self setFilterWithLocationAddress:SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress complete:^{
+        TeLog(@"setFilter %d", SigDataSource.share.curLocationNodeModel.address);
+    [self setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address complete:^{
         responseCount ++;
         if (responseCount == kSetFilterPacketCount) {
             [weakSelf cancelSetFilterWithLocationAddressTimeout];
@@ -1451,7 +1452,7 @@ static NSTimeInterval commentTime;
         //change since v2.8.2
         __block int responseCount = 0;
         __weak typeof(self) weakSelf = self;
-        [self setFilterWithLocationAddress:SigDataSource.share.curProvisionerModel.allocatedUnicastRange.firstObject.lowIntAddress complete:^{
+        [self setFilterWithLocationAddress:SigDataSource.share.curLocationNodeModel.address complete:^{
             responseCount ++;
             if (responseCount == kSetFilterPacketCount) {
                 set_pair_login_ok(1);
