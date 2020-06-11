@@ -282,14 +282,6 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
      __weak typeof(self) weakSelf = self;
 
 
-    Bluetooth.share.commandHandle.setLocationSnoCallBack = ^(UInt32 sno)  {
-        NSLog(@"TelinkBtSig sno set %d", sno);
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:sno] forKey:@"provisionerSno"];
-        [dict setObject:[NSNumber numberWithBool:YES] forKey:@"hasOnlineStatusNotifyRaw"];
-        [weakSelf sendEventWithName:@"saveOrUpdateJS" body:dict];
-    };
-
     // ref to anasislyResponseData() in SigMeshOC/LibHandle.m
     onVendorResponse = ^(VendorResponseModel *model) {
         NSLog(@"TelinkBtSig onVendorResponse %@", model.rspData); //0xf0080002000100e3110201
@@ -399,6 +391,14 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
 
     // //注册通知，当app由后台切换到前台，在appdelegate中通知获取灯的状态，避免在后台时，灯的状态发生改变，而app上数据没有更新
     // [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidBecomeActive) name:@"applicationDidBecomeActive" object:nil];
+
+    Bluetooth.share.commandHandle.setLocationSnoCallBack = ^(UInt32 sno)  {
+        NSLog(@"TelinkBtSig sno set %d", sno);
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:sno] forKey:@"provisionerSno"];
+        [dict setObject:[NSNumber numberWithBool:YES] forKey:@"hasOnlineStatusNotifyRaw"];
+        [weakSelf sendEventWithName:@"saveOrUpdateJS" body:dict];
+    };
 }
 
 
