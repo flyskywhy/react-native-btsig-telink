@@ -231,6 +231,7 @@ RCT_EXPORT_MODULE()
     NSData *data = [SigDataSource.share getLocationMeshData];
     NSDictionary *meshDict = [LibTools getDictionaryWithJSONData:data];
     [SigDataSource.share setDictionaryToDataSource:meshDict];
+//    NSLog(@"%@", meshDict);
 
     //Attention: it will set _ivIndex to @"11223344" when mesh.json hasn't the key @"ivIndex"
     if (!SigDataSource.share.ivIndex || SigDataSource.share.ivIndex.length == 0) {
