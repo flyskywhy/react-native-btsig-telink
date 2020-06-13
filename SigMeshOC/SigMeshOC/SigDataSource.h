@@ -76,6 +76,7 @@
 
 - (NSDictionary *)getDictionaryFromDataSource;
 - (void)setDictionaryToDataSource:(NSDictionary *)dictionary;
+- (void)saveCurrentProvisionerUUID:(NSString *)uuid;
 
 @property (nonatomic, strong) NSMutableArray<SigScanRspModel *> *scanList;
 @property (nonatomic,assign) UInt16 provisionAddress;
