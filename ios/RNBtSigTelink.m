@@ -154,6 +154,11 @@ RCT_EXPORT_MODULE()
     netkey.minSecurity = @"high";
     [SigDataSource.share.netKeys addObject:netkey];
 
+    // The first use of SigDataSource.share above will call init() in SigMeshOC/SigDataSource.m
+    // and cause _ivIndex = @"11223344" , for share with android telink sdk which set
+    // ivIndex to 0 as default, we need this
+    SigDataSource.share.ivIndex = @"0";
+
     //2.appKeys
     SigAppkeyModel *appkey = [[SigAppkeyModel alloc] init];
     appkey.oldKey = @"";
