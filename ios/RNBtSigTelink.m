@@ -225,7 +225,9 @@ RCT_EXPORT_MODULE()
     NSLog(@"Save meshAddressOfApp into mesh.json");
     [SigDataSource.share saveLocationData];
 
-    [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
+//    [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
+    [[NSUserDefaults standardUserDefaults] setObject:@((UInt32)provisionerSno) forKey:kCurrenProvisionerSno_key];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 
     //exist mesh.json, load json
     NSData *data = [SigDataSource.share getLocationMeshData];
