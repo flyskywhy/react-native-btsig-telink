@@ -252,10 +252,14 @@ RCT_EXPORT_MODULE()
 
     //check provisioner
     [SigDataSource.share checkExistLocationProvisioner];
+
+    // 由于在 SigMeshOCDemo/SigMeshOCDemo/ViewController/Setting/ShareInVC.m
+    // 看到说扫描别人分享来的数据后需要清空下面的 list ，虽然暂时发现不清空也没问题，但既然
+    // 这里每次启动 APP 都不加载缓存也就是清空 list 也能正常使用，那保险起见就把下面两句都注释了
     //init SigScanRspModel list
-    [SigDataSource.share loadScanList];
+//    [SigDataSource.share loadScanList];
     //init SigScanRspModel list
-    [SigDataSource.share loadEncryptedNodeIdentityList];
+//    [SigDataSource.share loadEncryptedNodeIdentityList];
 
 //    [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
     [[NSUserDefaults standardUserDefaults] setObject:@((UInt32)provisionerSno) forKey:kCurrenProvisionerSno_key];
