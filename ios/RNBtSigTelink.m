@@ -167,8 +167,40 @@ RCT_EXPORT_MODULE()
     SigProvisionerModel *provisioner = [[SigProvisionerModel alloc] initWithExistProvisionerCount:0 andProvisionerUUID:[LibTools convertDataToHexStr:[LibTools initMeshUUID]]];
     [SigDataSource.share.provisioners addObject:provisioner];
 
-    //4.add new provisioner to nodes
-    [SigDataSource.share addLocationNodeWithProvisioner:provisioner];
+    //4.add new provisioner to nodes, ref to addLocationNodeWithProvisioner() in SigMeshOC/SigDataSource.m
+    SigNodeModel *node = [[SigNodeModel alloc] init];
+
+    //init defoult data
+    node.UUID = provisioner.UUID;
+    node.secureNetworkBeacon = YES;
+    node.defaultTTL = TTL_DEFAULT;
+    node.features.proxy = 2;
+    node.features.friend = 0;
+    node.features.relay = 2;
+    node.relayRetransmit.count = 3;
+    node.relayRetransmit.interval = 0;
+    node.networkTransmit.count = 5;
+    node.networkTransmit.interval = 2;
+    [SigDataSource.share saveCurrentProvisionerUUID:provisioner.UUID];
+    node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
+    NSData *devicekeyData = [LibTools createRandomDataWithLength:16];
+    node.deviceKey = [LibTools convertDataToHexStr:devicekeyData];
+    SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
+    nodeAppkey.index = appkey.index;
+    if (![node.appKeys containsObject:nodeAppkey]) {
+        [node.appKeys addObject:nodeAppkey];
+    }
+
+    VC_node_info_t node_info = {};
+    //_nodeInfo默认赋值ff
+    memset(&node_info, 0xff, sizeof(VC_node_info_t));
+    node_info.node_adr = [LibTools uint16From16String:node.unicastAddress];
+    node_info.element_cnt = 1;
+    node_info.cps.len_cps = SIZE_OF_PAGE0_LOCAL;
+    memcpy(&node_info.cps.page0_head, gp_page0, SIZE_OF_PAGE0_LOCAL);
+    node.nodeInfo = node_info;
+
+    [SigDataSource.share.nodes addObject:node];
 
     //5.add default group
     SigGroupModel *group = [[SigGroupModel alloc] init];
@@ -206,7 +238,8 @@ RCT_EXPORT_MODULE()
 
 //        NSLog(@"TelinkBtSig sigmodel %@", [model getDictionaryOfSigNodeModel]);
 
-        [SigDataSource.share saveDeviceWithDeviceModel:model];
+//        [SigDataSource.share saveDeviceWithDeviceModel:model];
+        [SigDataSource.share.nodes addObject:model];
     }
 
     NSLog(@"TelinkBtSig create mesh.json success");
@@ -219,27 +252,9 @@ RCT_EXPORT_MODULE()
     //init SigScanRspModel list
     [SigDataSource.share loadEncryptedNodeIdentityList];
 
-    [SigDataSource.share saveLocationProvisionAddress:meshAddressOfApp];
-    [SigDataSource.share changeLocationProvisionerNodeAddressToAddress:meshAddressOfApp];
-
-    NSLog(@"Save meshAddressOfApp into mesh.json");
-    [SigDataSource.share saveLocationData];
-
 //    [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
     [[NSUserDefaults standardUserDefaults] setObject:@((UInt32)provisionerSno) forKey:kCurrenProvisionerSno_key];
     [[NSUserDefaults standardUserDefaults] synchronize];
-
-    //exist mesh.json, load json
-    NSData *data = [SigDataSource.share getLocationMeshData];
-    NSDictionary *meshDict = [LibTools getDictionaryWithJSONData:data];
-    [SigDataSource.share setDictionaryToDataSource:meshDict];
-//    NSLog(@"%@", meshDict);
-
-    //Attention: it will set _ivIndex to @"11223344" when mesh.json hasn't the key @"ivIndex"
-    if (!SigDataSource.share.ivIndex || SigDataSource.share.ivIndex.length == 0) {
-        SigDataSource.share.ivIndex = @"11223344";
-        [SigDataSource.share saveLocationData];
-    }
 }
 
 // ref to startMeshSDK() in SigMeshOC/SDKLibCommand.m
@@ -248,11 +263,8 @@ RCT_EXPORT_MODULE()
     // 中调用的 C 函数 mesh_init_all() 会触发回调 LibHandle.mesh_par_retrieve_store_win32() ->
     // 而进入 mesh_key_retrieve_win32() 以获取上面 initMesh() 中由 JS 层传过来保存在 SigDataSource 中的 netKey 和 appKey
     // 以及进入 update_VC_info_from_json() 以获取上面 initMesh() 中由 JS 层传过来保存在 SigDataSource 中的 devices
-    // 至于 provisionerSno ，既然完全在 ios SDK 内部自产自销，那相关使用方式就与 android SDK 不同，不需要通过
-    // [SigDataSource.share setLocationSno] 的方式由 JS 层传过来进行保存，也不需要通过
-    // [SigDataSource.share.getLocationSno] 以及在 mesh_misc_store_win32 中增加回调的
-    // 方式（就像 android SDK 中 TelinkApplication.saveMisc() 那样的回调做法）来保存回 JS 层
-    // 所以上面 initMesh() 中并没有处理 provisionerSno
+    // 至于 JS 层传来 provisionerSno ，由上面 initMesh() 中自定义的 setLocationSno 进行初始化，后续设备触发的 mesh_misc_store_win32 中调用 setLocationSno 时则会回调保存回 JS 层
+
     //init Bluetooth
     [Bluetooth share];
 
