@@ -521,7 +521,7 @@ class TelinkBtSig {
             }
             let colors3 = [];
             colors.map(colour => {
-                colors3.push(0);
+                colors3.push(0);    // 0 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）
                 let rgb = tinycolor(colour).toRgb();
                 // rgb.r = this.ledFilter3040(rgb.r);
                 // rgb.g = this.ledFilter3040(rgb.g);
@@ -538,7 +538,7 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         let patchedSpeed = speed - 3;
                         switch (scene) {
-                            case 0:                                                             //这里的 1 是颜色个数， 0 是某个颜色的保留字节（每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
+                            case 0:                                                             //这里的 1 是颜色个数， 0 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
@@ -699,7 +699,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 40:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 41:
