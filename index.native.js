@@ -1119,7 +1119,7 @@ class TelinkBtSig {
     static stopMeshOta({
         tag = 'dist_stop',
     }) {
-        NativeModule.stopMeshOta(tag);
+        NativeModule.stopMeshOTA(tag);
     }
 
     static startOta({

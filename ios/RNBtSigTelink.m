@@ -5,6 +5,8 @@
 #import <SigMeshOC/SigDataSource.h>
 #import <SigMeshOC/LibTools.h>
 #import <SigMeshOC/BTConst.h>
+#import <SigMeshOC/OTAManager.h>
+#import <SigMeshOC/MeshOTAManager.h>
 //#import "BTCentralManager.h"
 //#import "MeshOTAManager.h"
 //#import "MeshOTAItemModel.h"
@@ -99,7 +101,9 @@ RCT_EXPORT_MODULE()
         @"leScanTimeout",
         @"meshOffline",
         @"notificationDataGetCtl",
+        @"notificationDataGetMeshOtaApplyStatus",
         @"notificationDataGetMeshOtaProgress",
+        @"notificationDataGetMeshOtaFirmwareDistributionStatus",
         @"notificationDataGetLevel",
         @"notificationDataGetLightness",
         @"notificationDataGetOnOff",
@@ -782,75 +786,76 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
 }
 
 
- RCT_EXPORT_METHOD(startOta:(NSArray *) value) {
-//     //数组转化成bytes
-//     unsigned c = (int)value.count;
-//     uint8_t *bytes = (uint8_t*)malloc(sizeof(*bytes) * c);
-//     unsigned i;
-//     for (i = 0; i < c; i++) {
-//         NSString *str = [value objectAtIndex:i];
-//         int byte = [str intValue];
-//         bytes[i] = (uint8_t)byte;
-//     }
-//     self.otaData = [NSData dataWithBytesNoCopy:bytes length:c freeWhenDone:YES];
-
-//     self.location = 0;
-//     self.isStartOTA = YES;
-//     if (![[MeshOTAManager share] isMeshOTAing]) {
-//         [self configMeshOTAList];
-//     } else {
-//         [[MeshOTAManager share] continueMeshOTAWithDeviceType:1 progressHandle:^(MeshOTAState meshState, NSInteger progress) {
-//             if (meshState == MeshOTAState_normal) {
-//                 //点对点OTA阶段
-//                 NSString *t = [NSString stringWithFormat:@"ota firmware push... progress:%ld%%", (long)progress];
-//                 NSLog(@"ota = %@", t);
-//                 NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//                 [dict setObject:[NSNumber numberWithInteger:progress] forKey:@"otaMasterProgress"];
-//                 [self sendEventWithName:@"deviceStatusOtaMasterProgress" body:dict];
-//             } else if (meshState == MeshOTAState_continue) {
-//                 //meshOTA阶段
-//                 NSString *t = [NSString stringWithFormat:@"package meshing... progress:%ld%%", (long)progress];
-//                 NSLog(@"ota = %@", t);
-//             }
-//         } finishHandle:^(NSInteger successNumber, NSInteger failNumber) {
-//             NSString *tip = [NSString stringWithFormat:@"success:%ld,fail:%ld", (long)successNumber, (long)failNumber];
-//             NSLog(@"ota = %@", tip);
-//             NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//             [self sendEventWithName:@"deviceStatusOtaMasterComplete" body:dict];
-//         } errorHandle:^(NSError *error) {
-//             NSLog(@"ota = %@", error.domain);
-//             NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//             [self sendEventWithName:@"deviceStatusOtaMasterFail" body:dict];
-//         }];
-//     }
+RCT_EXPORT_METHOD(startOta:(NSString *)mac firmware:(NSArray *)firmware resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+    __weak typeof(self) weakSelf = self;
+    [OTAManager.share startOTAWithOtaData:[self byteArray2Data:firmware] models:@[[SigDataSource.share getDeviceWithMacAddress:[mac stringByReplacingOccurrencesOfString:@":" withString:@""]]] singleSuccessAction:^(SigNodeModel *device) {
+        resolve(@true);
+    } singleFailAction:^(SigNodeModel *device) {
+        reject(@"", @"OTA_FAIL", nil);
+    } singleProgressAction:^(float progress) {
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:(int)progress] forKey:@"otaMasterProgress"];
+        [weakSelf sendEventWithName:@"deviceStatusOtaMasterProgress" body:dict];
+    } finishAction:^(NSArray<SigNodeModel *> *successModels, NSArray<SigNodeModel *> *fileModels) {
+        NSLog(@"TelinkBtSig OTA finished");
+    }];
  }
 
-// - (void)configMeshOTAList {
-//     [[MeshOTAManager share] startMeshOTAWithDeviceType:1 otaData:self.otaData progressHandle:^(MeshOTAState meshState, NSInteger progress) {
-//         if (meshState == MeshOTAState_normal) {
-//             //点对点OTA阶段
-//             NSString *t = [NSString stringWithFormat:@"ota firmware push... progress:%ld%%", (long)progress];
-//             NSLog(@"ota = %@", t);
-//             NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//             [dict setObject:[NSNumber numberWithInteger:progress] forKey:@"otaMasterProgress"];
-//             [self sendEventWithName:@"deviceStatusOtaMasterProgress" body:dict];
-//         } else if (meshState == MeshOTAState_continue) {
-//             //meshOTA阶段
-//             NSString *t = [NSString stringWithFormat:@"package meshing... progress:%ld%%", (long)progress];
-//             NSLog(@"ota = %@", t);
-//         }
-//     } finishHandle:^(NSInteger successNumber, NSInteger failNumber) {
-//         NSString *tip = [NSString stringWithFormat:@"success:%ld,fail:%ld", (long)successNumber, (long)failNumber];
-//         NSLog(@"ota = %@", tip);
-//         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//         [self sendEventWithName:@"deviceStatusOtaMasterComplete" body:dict];
-//     } errorHandle:^(NSError *error) {
-//         NSLog(@"ota = %@", error.domain);
-//         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//         [self sendEventWithName:@"deviceStatusOtaMasterFail" body:dict];
-//     }];
-// }
+RCT_EXPORT_METHOD(startMeshOTA:(NSArray *)meshAddresses firmware:(NSArray *)firmware) {
+    __weak typeof(self) weakSelf = self;
+    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+    [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
+    [dict setObject:@"start" forKey:@"status"];
+    [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
 
+    [MeshOTAManager.share startMeshOTAWithLocationAddress:SigDataSource.share.curLocationNodeModel.address cid:0x0211 deviceAddresses:meshAddresses otaData:[self byteArray2Data:firmware] progressHandle:^(NSInteger progress) {
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:(int)progress] forKey:@"OtaSlaveProgress"];
+        [weakSelf sendEventWithName:@"notificationDataGetMeshOtaProgress" body:dict];
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (progress == 100) {
+                NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+                [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
+                [dict setObject:@"stop" forKey:@"status"];
+                [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
+
+                [Bluetooth.share setNormalState];
+            }
+        });
+    } finishHandle:^(NSArray<NSNumber *> *successAddresses, NSArray<NSNumber *> *failAddresses) {
+        for (unsigned i = 0; i < successAddresses.count; i++) {
+            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+            [dict setObject:[successAddresses objectAtIndex:i] forKey:@"meshAddress"];
+            [dict setObject:@"success" forKey:@"status"];
+            [weakSelf sendEventWithName:@"notificationDataGetMeshOtaApplyStatus" body:dict];
+        }
+        for (unsigned i = 0; i < failAddresses.count; i++) {
+            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+            [dict setObject:[failAddresses objectAtIndex:i] forKey:@"meshAddress"];
+            [dict setObject:@"failure" forKey:@"status"];
+            [weakSelf sendEventWithName:@"notificationDataGetMeshOtaApplyStatus" body:dict];
+        }
+    } errorHandle:^(NSError *error) {
+        NSLog(@"TelinkBtSig MeshOTA error = %@",error);
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
+        [dict setObject:@"error" forKey:@"status"];
+        [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
+    }];
+}
+
+RCT_EXPORT_METHOD(pauseMeshOta) {
+    APP_set_mesh_ota_pause_flag(1);
+}
+
+RCT_EXPORT_METHOD(continueMeshOta) {
+    APP_set_mesh_ota_pause_flag(0);
+}
+
+RCT_EXPORT_METHOD(stopMeshOTA:(NSString *)tag) {
+    [MeshOTAManager.share stopMeshOTA];
+}
 
 RCT_EXPORT_METHOD(changePower:(NSInteger)meshAddress value:(NSInteger)value) {
     [Bluetooth.share.commandHandle switchOnOffWithExecuteCommand:YES on:(value == 1) address:meshAddress resMax:0 ack:YES Completation:onGetOnOffNotify];
