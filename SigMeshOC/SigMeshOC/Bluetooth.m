@@ -727,6 +727,13 @@ static NSTimeInterval commentTime;
                 if (self.commandHandle.setSchedulerActionCallBack) {
                     dispatch_async(dispatch_get_main_queue(), ^{
                         self.commandHandle.setSchedulerActionCallBack(tempResponseModel);
+                        self.commandHandle.setSchedulerActionCallBack = nil;
+                    });
+                }
+                if (self.commandHandle.getSchedulerActionCallBack) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.commandHandle.getSchedulerActionCallBack(tempResponseModel);
+                        self.commandHandle.getSchedulerActionCallBack = nil;
                     });
                 }
             }
