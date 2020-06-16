@@ -49,7 +49,6 @@ timer = nil; \
     RCTPromiseResolveBlock _resolvedateBlock;
     RCTPromiseResolveBlock _resolveMesheBlock;
     RCTPromiseResolveBlock _resolvesetNodeGroupAddr;
-    RCTPromiseResolveBlock _resolvesegetAlarm;
 
     RCTPromiseRejectBlock _rejectsetNodeGroupAddr;
     RCTPromiseRejectBlock _rejectBlock;
@@ -1049,10 +1048,34 @@ RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTime
 // }
 
 RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes alarmId:(NSInteger)alarmId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-//     NSLog(@"getAlarm");
-//     //    NSArray *value = [NSArray arrayWithObjects:[NSNumber numberWithInteger:relayTimes],[NSNumber numberWithInteger:alarmId],nil];
-//     //    [[BTCentralManager shareBTCentralManager] sendCommand:0xE6 meshAddress:meshAddress value:value];
-//     //    _resolvesegetAlarm = resolve;
+    SigNodeModel *curDevice = [SigDataSource.share getDeviceWithAddress:[meshAddress intValue]];
+    [Bluetooth.share.commandHandle getSchedulerActionWithAddress:curDevice.address resMax:0 schedulerModelID:alarmId complete:^(ResponseModel *m) {
+        SchedulerModel *model = [[SchedulerModel alloc] init];
+        // model.schedulerID = (UInt8)alarmId;
+        // model.valid_flag_or_idx = model.schedulerID;
+        //data字节翻转
+        NSMutableData *data = [NSMutableData data];
+        for (int i=15; i>=8; i--) {
+            [data appendData:[m.rspData subdataWithRange:NSMakeRange(i, 1)]];
+        }
+        model.schedulerData = [LibTools NSDataToUInt:data];
+        model.sceneId = [LibTools uint16FromBytes:[m.rspData subdataWithRange:NSMakeRange(16, 2)]];
+        NSLog(@"TelinkBtSig getAlarm %@", m.rspData);
+
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:[model valid_flag_or_idx]] forKey:@"alarmId"];
+        [dict setObject:[NSNumber numberWithInt:[model year]] forKey:@"year"];
+        [dict setObject:[NSNumber numberWithInt:[model month]] forKey:@"month"];
+        [dict setObject:[NSNumber numberWithInt:[model day]] forKey:@"day"];
+        [dict setObject:[NSNumber numberWithInt:[model hour]] forKey:@"hour"];
+        [dict setObject:[NSNumber numberWithInt:[model minute]] forKey:@"minute"];
+        [dict setObject:[NSNumber numberWithInt:[model second]] forKey:@"second"];
+        [dict setObject:[NSNumber numberWithInt:[model week]] forKey:@"week"];
+        [dict setObject:[NSNumber numberWithInt:[model action]] forKey:@"action"];
+        [dict setObject:[NSNumber numberWithInt:[model transTime]] forKey:@"transTime"];
+        [dict setObject:[NSNumber numberWithInt:[model action]] forKey:@"sceneId"];
+        resolve(dict);
+    }];
 }
 
 RCT_EXPORT_METHOD(setNodeGroupAddr:(BOOL)toDel meshAddress:(NSInteger)meshAddress groupAddress:(NSInteger)groupAddress resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
