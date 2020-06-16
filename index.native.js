@@ -972,11 +972,11 @@ class TelinkBtSig {
         alarmId,
     }) {
         return new Promise((resolve, reject) => {
-            let timer = setTimeout(() => reject({errCode: 'getAlarm time out'}), 10000);
+            let timer = setTimeout(() => reject({errCode: alarmId + ' getAlarm time out'}), 10000);
             NativeModule.getAlarm(meshAddress, relayTimes, alarmId).then(payload => {
                 clearTimeout(timer);
                 if (payload.action === 0 && payload.week === 0 && payload.month === 0 && payload.year === 0) {
-                    reject({errCode: 'getAlarm data 0'})
+                    reject({errCode: payload.alarmId + ' getAlarm data 0'})
                 } else {
                     resolve({
                         alarmId: payload.alarmId,

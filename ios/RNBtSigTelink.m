@@ -1048,11 +1048,16 @@ RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTime
 // }
 
 RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes alarmId:(NSInteger)alarmId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    SigNodeModel *curDevice = [SigDataSource.share getDeviceWithAddress:[meshAddress intValue]];
-    [Bluetooth.share.commandHandle getSchedulerActionWithAddress:curDevice.address resMax:0 schedulerModelID:alarmId complete:^(ResponseModel *m) {
+    [Bluetooth.share.commandHandle getSchedulerActionWithAddress:meshAddress resMax:0 schedulerModelID:alarmId Completation:^(ResponseModel *m) {
         SchedulerModel *model = [[SchedulerModel alloc] init];
         // model.schedulerID = (UInt8)alarmId;
         // model.valid_flag_or_idx = model.schedulerID;
+
+//        NSLog(@"TelinkBtSig getAlarm %@", m.rspData);
+//        TelinkBtSig getAlarm {length = 18, bytes = 0xf00f000100d80a5f02000000000000000000}
+//        TelinkBtSig getAlarm {length = 18, bytes = 0xf00f00010089195f41fe7f803ce01f000000}
+//        TelinkBtSig getAlarm {length = 18, bytes = 0xf00f00010089195f42fe7f103de00f000000}
+
         //data字节翻转
         NSMutableData *data = [NSMutableData data];
         for (int i=15; i>=8; i--) {
@@ -1060,20 +1065,19 @@ RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTim
         }
         model.schedulerData = [LibTools NSDataToUInt:data];
         model.sceneId = [LibTools uint16FromBytes:[m.rspData subdataWithRange:NSMakeRange(16, 2)]];
-        NSLog(@"TelinkBtSig getAlarm %@", m.rspData);
 
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:[model valid_flag_or_idx]] forKey:@"alarmId"];
-        [dict setObject:[NSNumber numberWithInt:[model year]] forKey:@"year"];
-        [dict setObject:[NSNumber numberWithInt:[model month]] forKey:@"month"];
-        [dict setObject:[NSNumber numberWithInt:[model day]] forKey:@"day"];
-        [dict setObject:[NSNumber numberWithInt:[model hour]] forKey:@"hour"];
-        [dict setObject:[NSNumber numberWithInt:[model minute]] forKey:@"minute"];
-        [dict setObject:[NSNumber numberWithInt:[model second]] forKey:@"second"];
-        [dict setObject:[NSNumber numberWithInt:[model week]] forKey:@"week"];
-        [dict setObject:[NSNumber numberWithInt:[model action]] forKey:@"action"];
-        [dict setObject:[NSNumber numberWithInt:[model transTime]] forKey:@"transTime"];
-        [dict setObject:[NSNumber numberWithInt:[model action]] forKey:@"sceneId"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model valid_flag_or_idx]] forKey:@"alarmId"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model year]] forKey:@"year"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model month]] forKey:@"month"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model day]] forKey:@"day"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model hour]] forKey:@"hour"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model minute]] forKey:@"minute"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model second]] forKey:@"second"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model week]] forKey:@"week"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model action]] forKey:@"action"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model transitionTime]] forKey:@"transTime"];
+        [dict setObject:[NSNumber numberWithInt:(int)model.sceneId] forKey:@"sceneId"];
         resolve(dict);
     }];
 }
