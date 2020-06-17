@@ -30,7 +30,7 @@ class TelinkBtSig {
     static HUE_MAX = 360;
     static SATURATION_MIN = 0;
     static SATURATION_MAX = 100;
-    static BRIGHTNESS_MIN = 30; // 实测灯串不会随着亮度变化而改变颜色的最低亮度，比如 30 的话就代表 30%
+    static BRIGHTNESS_MIN = 45; // 实测灯串不会随着亮度变化而改变颜色的最低亮度，比如 30 的话就代表 30%
     static BRIGHTNESS_MAX = 100;
     static LED_GREEN_MAX = 65;  // 如果 LED 中绿色灯珠容易烧坏，此处记录着实际（也就是经过下面的 whiteBalance 之后）发给灯珠不会烧坏的最大值，比如 65 代表 65/255
     static COLOR_TEMP_MIN = 5;
