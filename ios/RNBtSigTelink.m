@@ -1028,11 +1028,14 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
 //     }
 // }
 
+RCT_EXPORT_METHOD(setTime:(NSInteger)meshAddress) {
+    [Bluetooth.share.commandHandle statusNowTime];
+}
+
 RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-//     NSLog(@"getTime");
-//     NSArray *value = [NSArray arrayWithObject:[NSNumber numberWithInteger:relayTimes]];
-//     [[BTCentralManager shareBTCentralManager] sendCommand:0xE8 meshAddress:meshAddress value:value];
-//     _resolvedateBlock = resolve;
+// Because telink sig ios sdk has no getTime() , and sdk will call delayMeshProxyInit() in SigMeshOC/Bluetooth.m
+// to statusNowTime() in SigMeshOC/SDKLibCommand.m when device connected, so I think it's enough to just return here
+    reject(@"already statusNowTime() and sdk has no getTime()", @"so just return here", nil);
 }
 
 // - (void)getDevDate:(NSDate *)date
