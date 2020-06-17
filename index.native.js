@@ -30,8 +30,9 @@ class TelinkBtSig {
     static HUE_MAX = 360;
     static SATURATION_MIN = 0;
     static SATURATION_MAX = 100;
-    static BRIGHTNESS_MIN = 30; // 实测灯串不会随着亮度变化而改变颜色的最低亮度
+    static BRIGHTNESS_MIN = 30; // 实测灯串不会随着亮度变化而改变颜色的最低亮度，比如 30 的话就代表 30%
     static BRIGHTNESS_MAX = 100;
+    static LED_GREEN_MAX = 65;  // 如果 LED 中绿色灯珠容易烧坏，此处记录着实际（也就是经过下面的 whiteBalance 之后）发给灯珠不会烧坏的最大值，比如 65 代表 65/255
     static COLOR_TEMP_MIN = 5;
     static COLOR_TEMP_MAX = 100;
     static NODE_STATUS_OFF = 0;
@@ -464,6 +465,26 @@ class TelinkBtSig {
         return value;
     }
 
+    static ledFilterBurnGreen({
+        r,
+        g,
+        b,
+    }) {
+        if (g > this.LED_GREEN_MAX) {
+            return {
+                r: parseInt(r * this.LED_GREEN_MAX / g, 10),
+                g: this.LED_GREEN_MAX,
+                b: parseInt(b * this.LED_GREEN_MAX / g, 10),
+            }
+        } else {
+            return {
+                r,
+                g,
+                b,
+            }
+        }
+    }
+
     static async changeScene({
         meshAddress,
         sceneSyncMeshAddress,
@@ -509,6 +530,10 @@ class TelinkBtSig {
                 color3.r = parseInt(this.gamma[color3.r] * this.whiteBalance.r, 10);
                 color3.g = parseInt(this.gamma[color3.g] * this.whiteBalance.g, 10);
                 color3.b = parseInt(this.gamma[color3.b] * this.whiteBalance.b, 10);
+                let safeColor = this.ledFilterBurnGreen(color3);
+                color3.r = safeColor.r;
+                color3.g = safeColor.g;
+                color3.b = safeColor.b;
             }
             let color3Bg = colorBg && tinycolor(colorBg).toRgb();
             if (color3Bg) {
@@ -518,6 +543,10 @@ class TelinkBtSig {
                 color3Bg.r = parseInt(this.gamma[color3Bg.r] * this.whiteBalance.r, 10);
                 color3Bg.g = parseInt(this.gamma[color3Bg.g] * this.whiteBalance.g, 10);
                 color3Bg.b = parseInt(this.gamma[color3Bg.b] * this.whiteBalance.b, 10);
+                let safeColor = this.ledFilterBurnGreen(color3Bg);
+                color3Bg.r = safeColor.r;
+                color3Bg.g = safeColor.g;
+                color3Bg.b = safeColor.b;
             }
             let colors3 = [];
             colors.map(colour => {
@@ -529,6 +558,10 @@ class TelinkBtSig {
                 rgb.r = parseInt(this.gamma[rgb.r] * this.whiteBalance.r, 10);
                 rgb.g = parseInt(this.gamma[rgb.g] * this.whiteBalance.g, 10);
                 rgb.b = parseInt(this.gamma[rgb.b] * this.whiteBalance.b, 10);
+                let safeColor = this.ledFilterBurnGreen(rgb);
+                rgb.r = safeColor.r;
+                rgb.g = safeColor.g;
+                rgb.b = safeColor.b;
                 colors3.push(rgb.r);
                 colors3.push(rgb.g);
                 colors3.push(rgb.b);
@@ -781,6 +814,14 @@ class TelinkBtSig {
                                         let bulbsColorR = parseInt(this.gamma[subdata[3] >> 16 & 0xFF] * this.whiteBalance.r, 10);
                                         let bulbsColorG = parseInt(this.gamma[subdata[3] >> 8 & 0xFF] * this.whiteBalance.g, 10);
                                         let bulbsColorB = parseInt(this.gamma[subdata[3] & 0xFF] * this.whiteBalance.b, 10);
+                                        let safeColor = this.ledFilterBurnGreen({
+                                            r: bulbsColorR,
+                                            g: bulbsColorG,
+                                            b: bulbsColorB,
+                                        });
+                                        bulbsColorR = safeColor.r;
+                                        bulbsColorG = safeColor.g;
+                                        bulbsColorB = safeColor.b;
                                         rawData = rawData.concat([
                                             subdataLength,
                                             bulbsMode,
