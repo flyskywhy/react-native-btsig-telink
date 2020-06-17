@@ -1047,6 +1047,23 @@ RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTime
 //     _resolvedateBlock(event);
 // }
 
+RCT_EXPORT_METHOD(setAlarm:(NSInteger)meshAddress index:(NSInteger)index year:(NSInteger)year month:(NSInteger)month day:(NSInteger)day hour:(NSInteger)hour minute:(NSInteger)minute second:(NSInteger)second week:(NSInteger)week action:(NSInteger)action sceneId:(NSInteger)sceneId) {
+    SchedulerModel *model = [[SchedulerModel alloc] init];
+    model.schedulerID = index;
+    model.valid_flag_or_idx = model.schedulerID;
+    model.year = year;
+    model.month = month;
+    model.day = day;
+    model.hour = hour;
+    model.minute = minute;
+    model.second = second;
+    model.week = week;
+    model.action = action;
+    model.sceneId = sceneId;
+
+    [Bluetooth.share.commandHandle setSchedulerActionWithAddress:meshAddress resMax:0 schedulerModel:model Completation:nil];
+}
+
 RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes alarmId:(NSInteger)alarmId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     [Bluetooth.share.commandHandle getSchedulerActionWithAddress:meshAddress resMax:0 schedulerModelID:alarmId Completation:^(ResponseModel *m) {
         SchedulerModel *model = [[SchedulerModel alloc] init];
