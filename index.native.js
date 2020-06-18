@@ -506,7 +506,6 @@ class TelinkBtSig {
         type,
         immediate = false,
     }) {
-        this.syncSceneIdTimer && clearTimeout(this.syncSceneIdTimer);
         if (this.isSceneCadenceBusy) {
             this.allowSceneCadence = false;
             await this.sleepMs(this.DELAY_MS_COMMAND);
@@ -569,6 +568,12 @@ class TelinkBtSig {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(type)) {
                     if (mode === 'silan') {
+                        if (!isEditingCustom) {
+                            this.selectNodeToResponseSceneId({
+                                sceneSyncMeshAddress,
+                            });
+                        }
+
                         let patchedSpeed = speed - 3;   // 不过如下所示没有使用 patchedSpeed 的就是那些无法使用跳帧（固件判断是负值的话就会跳帧）的效果
                         switch (scene) {
                             case 0:                                                             //这里的 1 是颜色个数， 0 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
@@ -854,17 +859,8 @@ class TelinkBtSig {
                         }
                     }
                     if (changed) {
-                        if (!isEditingCustom) {
-                            this.syncSceneIdTimer = setTimeout(async () => {
-                                this.selectNodeToResponseSceneId({
-                                    sceneSyncMeshAddress,
-                                });
-                                await this.sleepMs(this.DELAY_MS_COMMAND);
-                                this.allowSceneCadence = true;
-                            }, this.DELAY_MS_COMMAND);
-                        } else {
-                            this.allowSceneCadence = true;
-                        }
+                        await this.sleepMs(this.DELAY_MS_COMMAND);
+                        this.allowSceneCadence = true;
                         break;
                     }
                 }
@@ -876,7 +872,7 @@ class TelinkBtSig {
         }
     }
 
-    static selectNodeToResponseSceneId({
+    static async selectNodeToResponseSceneId({
         sceneSyncMeshAddress,
         immediate = false,
     }) {
@@ -885,6 +881,7 @@ class TelinkBtSig {
             let addrLowByte = sceneSyncMeshAddress & 0xFF;
             let addrHightByte = sceneSyncMeshAddress >> 8 & 0xFF;
             NativeModule.sendCommand(0x0211F2, this.defaultAllGroupAddress, [0, 0, addrLowByte, addrHightByte], immediate);
+            await this.sleepMs(100);
         }
     }
 
