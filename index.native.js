@@ -150,6 +150,8 @@ class TelinkBtSig {
     static otaFileVersionOffset = 4;    // 把二进制固件作为一个字节数组看待的话，描述着版本号的第一个字节的数组地址
     static otaFileVersionLength = 2;    // 二进制固件中描述版本号用了几个字节
 
+    static lastSceneSyncMeshAddress = undefined;
+
     static doInit() {
         NativeModule.doInit(this.netKey, this.appKey, this.meshAddressOfApp, this.devices.map(device => {
             return { ...device,
@@ -876,12 +878,13 @@ class TelinkBtSig {
         sceneSyncMeshAddress,
         immediate = false,
     }) {
-        if (sceneSyncMeshAddress !== undefined && sceneSyncMeshAddress !== null) {
+        if (sceneSyncMeshAddress !== undefined && sceneSyncMeshAddress !== null && sceneSyncMeshAddress !== this.lastSceneSyncMeshAddress) {
+            this.lastSceneSyncMeshAddress = sceneSyncMeshAddress;
             // 设置同步的消息里的参数里的 mesh 地址（不是消息本身的目的地址）需要传输两个字节，因为固件那里是按 u16 读取参数中的两个字节的
             let addrLowByte = sceneSyncMeshAddress & 0xFF;
             let addrHightByte = sceneSyncMeshAddress >> 8 & 0xFF;
             NativeModule.sendCommand(0x0211F2, this.defaultAllGroupAddress, [0, 0, addrLowByte, addrHightByte], immediate);
-            await this.sleepMs(100);
+            await this.sleepMs(this.DELAY_MS_COMMAND);
         }
     }
 
