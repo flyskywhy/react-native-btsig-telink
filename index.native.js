@@ -679,7 +679,8 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 25:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
+                                // 这里对 patchedSpeed 做特殊处理以不传 0 给固件，是因为固件代码 e12005a 提交点会使得该效果在速度为零时，第二轮效果飞快运行，找不到根本的解决方法，那就将错就错吧
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed >= 0 ? patchedSpeed + 1 : patchedSpeed, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
                             case 26:
