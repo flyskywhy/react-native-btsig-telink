@@ -1113,11 +1113,13 @@
 }
 
 - (NSData *)getIvIndexData{
+    TeLog(@"ivIndex get: %@",_ivIndex);
     return [LibTools nsstringToHex:_ivIndex];
 }
 
 - (void)updateIvIndexData:(NSData *)ivIndex{
     _ivIndex = [LibTools convertDataToHexStr:ivIndex];
+    TeLog(@"ivIndex set: %@",_ivIndex);
     Byte *ivbyte = (Byte *)[ivIndex bytes];
     struct ProvisionInfo provsionInfo = SigDataSource.share.provsionInfo;
     memcpy(provsionInfo.prov_iv_index, ivbyte, 4);
