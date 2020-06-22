@@ -144,7 +144,7 @@ RCT_EXPORT_MODULE()
 }
 
 // ref to configData() in SigMeshOC/SigDataSource.m
-- (void)initMesh:(NSString *)netKeyJS appKey:(NSString *)appKeyJS meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno {
+- (void)initMesh:(NSString *)netKeyJS appKey:(NSString *)appKeyJS meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex {
     // Even exist mesh.json, still create a new one with data from JS and init mesh
     //1.netKeys
     SigNetkeyModel *netkey = [[SigNetkeyModel alloc] init];
@@ -160,7 +160,7 @@ RCT_EXPORT_MODULE()
     // The first use of SigDataSource.share above will call init() in SigMeshOC/SigDataSource.m
     // and cause _ivIndex = @"11223344" , for share with android telink sdk which set
     // ivIndex to 0 as default, we need this
-    SigDataSource.share.ivIndex = @"0";
+    SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08lX",(long)provisionerIvIndex];
 
     //2.appKeys
     SigAppkeyModel *appkey = [[SigAppkeyModel alloc] init];
@@ -283,13 +283,13 @@ RCT_EXPORT_MODULE()
     APP_reset_vendor_id(kCompanyID);
 }
 
-- (void)startMeshSDK:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno {
-    [self initMesh:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno];
+- (void)startMeshSDK:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex {
+    [self initMesh:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex];
     [self initMeshLib];
     [Bluetooth.share.commandHandle provisionLocation:[netKey dataUsingEncoding:NSUTF8StringEncoding] withLocationAddress:(int)meshAddressOfApp netketIndex:0];
 }
 
-RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno) {
+RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex) {
     //    [[BTCentralManager shareBTCentralManager] stopScan];
     //扫描我的在线灯
     // [BTCentralManager shareBTCentralManager].delegate = self;
@@ -304,7 +304,7 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
 
     //init SDK
 //    [SDKLibCommand startMeshSDK];
-     [self startMeshSDK:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno];
+     [self startMeshSDK:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex];
 
      __weak typeof(self) weakSelf = self;
 

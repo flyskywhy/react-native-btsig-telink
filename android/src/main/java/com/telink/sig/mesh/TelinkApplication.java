@@ -235,15 +235,15 @@ public /*abstract*/ class TelinkApplication /*extends Application*/ implements M
     }
 
     public MiscStorage getMisc() {
-        return MiscStorage.getDefault(mRnModule.sno, mRnModule.ivIndex);
+        MiscStorage miscStorage = MiscStorage.getDefault(mRnModule.sno, mRnModule.ivIndex);
+        TelinkLog.d("misc get: " + miscStorage);
+        return miscStorage;
     }
 
 
     public void saveMisc(byte[] data) {
-
         MiscStorage miscStorage = MiscStorage.fromBytes(data);
-
-        TelinkLog.d("save misc: " + miscStorage);
+        TelinkLog.d("misc save: " + miscStorage);
         if (miscStorage == null) return;
         // iv index saved as big endian in misc
         mRnModule.sno = miscStorage.sno;

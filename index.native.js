@@ -146,6 +146,7 @@ class TelinkBtSig {
     static meshAddressOfApp = this.MESH_ADDRESS_MAX + parseInt(Math.random() * 10000, 10);
     static devices = [];
     static provisionerSno = 0;
+    static provisionerIvIndex = 0;
 
     static otaFileVersionOffset = 4;    // 把二进制固件作为一个字节数组看待的话，描述着版本号的第一个字节的数组地址
     static otaFileVersionLength = 2;    // 二进制固件中描述版本号用了几个字节
@@ -158,7 +159,7 @@ class TelinkBtSig {
                 dhmKey: this.hexString2ByteArray(device.dhmKey),
                 nodeInfo: this.hexString2ByteArray(device.nodeInfo),
             };
-        }), this.provisionerSno);
+        }), this.provisionerSno, this.provisionerIvIndex);
     }
 
     static doDestroy() {

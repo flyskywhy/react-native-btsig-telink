@@ -337,11 +337,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
-    public void doInit(String netKey, String appKey, int meshAddressOfApp, ReadableArray devices, int provisionerSno) {
+    public void doInit(String netKey, String appKey, int meshAddressOfApp, ReadableArray devices, int provisionerSno, int provisionerIvIndex) {
         mNetKey = Strings.stringToBytes(netKey);
         mAppKey = Strings.stringToBytes(appKey);
         mMeshAddressOfApp = meshAddressOfApp;
         sno = provisionerSno;
+        ivIndex = provisionerIvIndex;
         setDevices(devices);
         if (mTelinkApplication == null) {
             mTelinkApplication = new TelinkApplication(getCurrentActivity().getApplication(), this);
@@ -662,7 +663,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             }
 
             UnprovisionedDevice targetDevice = new UnprovisionedDevice(advDevice, address);
-            byte[] provisionData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, 0, address);
+            byte[] provisionData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, ivIndex, address);
             ProvisionParameters parameters = ProvisionParameters.getDefault(provisionData, targetDevice);
             mService.startProvision(parameters);
         } else {
@@ -1629,7 +1630,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void replaceMeshSetting() {
         mService.idle(true);
-        byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, 0, mMeshAddressOfApp);
+        byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, ivIndex, mMeshAddressOfApp);
         mService.meshProvisionParSetDir(pvData, pvData.length);
         mService.setLocalAddress(mMeshAddressOfApp);
         List<byte[]> nodeList = new ArrayList<>();
