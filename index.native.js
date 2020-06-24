@@ -498,6 +498,12 @@ class TelinkBtSig {
                 g: this.LED_GREEN_MAX,
                 b: parseInt(b * this.LED_GREEN_MAX / g, 10),
             }
+        } else if (r === 0 && g === 0) {    // 因为当前使用的灯串的蓝色偏暗，而又受到白平衡和 LED_GREEN_MAX 的限制，所以这里单独将纯蓝亮度提高到客户满意的 2 倍
+            return {
+                r,
+                g,
+                b: (b * 2) % 255,
+            }
         } else {
             return {
                 r,
