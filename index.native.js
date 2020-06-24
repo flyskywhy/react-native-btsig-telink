@@ -579,7 +579,7 @@ class TelinkBtSig {
 
                         // speed 所减的数值来自上层 APP 代码中的 speedOffset 的值
                         // 不过如下所示没有使用 patchedSpeed 的就是那些无法使用跳帧（固件判断是负值的话就会跳帧）的效果
-                        let patchedSpeed = speed - 3;
+                        let patchedSpeed = speed - 5;
 
                         // 这里对 patchedSpeed 做特殊处理以不传 0 给固件，是因为固件代码 e12005a 提交点会使得 verticalWave
                         // 效果在速度为零时，第二轮效果飞快运行，找不到根本的解决方法，只能将错就错。
