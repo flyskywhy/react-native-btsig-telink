@@ -578,6 +578,12 @@ class TelinkBtSig {
                         }
 
                         let patchedSpeed = speed - 3;   // 不过如下所示没有使用 patchedSpeed 的就是那些无法使用跳帧（固件判断是负值的话就会跳帧）的效果
+
+                        // 这里对 patchedSpeed 做特殊处理以不传 0 给固件，是因为固件代码 e12005a 提交点会使得 verticalWave
+                        // 效果在速度为零时，第二轮效果飞快运行，找不到根本的解决方法，只能将错就错。
+                        // 而且后来固件 6ccfe32 “无论是否颜色有更新都重刷一遍数据”，导致速度 0 时效果较慢，所以统一取消速度 0
+                        patchedSpeed = patchedSpeed >= 0 ? patchedSpeed + 1 : patchedSpeed;
+
                         switch (scene) {
                             case 0:                                                             //这里的 1 是颜色个数， 0 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, 0, color3.r, color3.g, color3.b], immediate);
@@ -680,8 +686,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 25:
-                                // 这里对 patchedSpeed 做特殊处理以不传 0 给固件，是因为固件代码 e12005a 提交点会使得该效果在速度为零时，第二轮效果飞快运行，找不到根本的解决方法，那就将错就错吧
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed >= 0 ? patchedSpeed + 1 : patchedSpeed, colorsLength, ...colors3], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
                             case 26:
