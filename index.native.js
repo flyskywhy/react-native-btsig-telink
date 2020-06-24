@@ -32,7 +32,27 @@ class TelinkBtSig {
     static SATURATION_MAX = 100;
     static BRIGHTNESS_MIN = 45; // 实测灯串不会随着亮度变化而改变颜色的最低亮度，比如 30 的话就代表 30%
     static BRIGHTNESS_MAX = 100;
-    static LED_GREEN_MAX = 65;  // 如果 LED 中绿色灯珠容易烧坏，此处记录着实际（也就是经过下面的 whiteBalance 之后）发给灯珠不会烧坏的最大值，比如 65 代表 65/255
+
+    // 如果 LED 中绿色灯珠容易烧坏，此处记录着实际（也就是经过下面的 whiteBalance 之后）发给灯珠不会烧坏的最大值，比如 65 代表 65/255
+    // 纯绿色情况下的 g 值
+    // 100% 153
+    // 95%  135
+    // 90%  119
+    // 85%  103
+    // 80%  89
+    // 75%  76
+    // 70%  65
+
+    // 白色情况下的 r g b 值
+    // 100% 255, 153, 61
+    // 95%  225, 135, 54
+    // 90%  199, 119, 47
+    // 85%  173, 103, 41
+    // 80%  149, 89,  35
+    // 75%  127, 76,  30
+    // 70%  109, 65,  26
+    static LED_GREEN_MAX = 103;
+
     static COLOR_TEMP_MIN = 5;
     static COLOR_TEMP_MAX = 100;
     static NODE_STATUS_OFF = 0;
