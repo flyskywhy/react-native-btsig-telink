@@ -159,7 +159,26 @@ class TelinkBtSig {
                 dhmKey: this.hexString2ByteArray(device.dhmKey),
                 nodeInfo: this.hexString2ByteArray(device.nodeInfo),
             };
-        }), this.provisionerSno, this.provisionerIvIndex);
+
+        // }), this.provisionerSno, this.provisionerIvIndex);
+        // 实测发现，不管上面的 ivIndex ，甚至也不用管 sno ，而是每次打开 APP 时将这两者都设为 0 ，然后每次就都可以连接上了。
+        // 唯一的例外是如果 APP 一直开在那里足够长时间，然后 sno 足够大时让 ivIndex 变成 1 后，就再也连不上了，而按照
+        // int sno 溢出计算，这个“足够长时间”是好几年，而一般 APP 应用情景不可能连续开启几年，所以这两者都设为 0 就可以了。
+
+        // 以下现象在 Android 上测了许多次，在 iOS 测得少一点，但也有此现象：
+        // 0、不论之前 sno 是多少，再次用 sno 0 （会瞬间由手机上的 sdk store 变为 128）来打开手机，仍然能够连上蓝牙设备
+        // （然后设备的 sno 从 128 开始 store 回手机，然后每隔 17 秒 store + 129 ）。
+        // 1、代码中写死以 ivIndex 1 进行设备认领、连接，然后重启 APP 进行连接时从打印信息可以看到，先是 retrieve 了
+        // ivIndex 1 ，然后立即 store 了 ivIndex 1 （这次的 store 不用关心，因为这不是蓝牙设备发来的而是手机上的 sdk
+        // 发来的），然后稍等几秒，就 store 了蓝牙设备发来的 ivIndex 1 并且连接上蓝牙设备。
+        // 2、此时代码中写死以 ivIndex 0 连接，从打印信息可以看到，先是 retrieve 了 ivIndex 0 ，然后立即 store 了
+        // ivIndex 0 （这次的 store 不用关心，因为这不是蓝牙设备发来的而是手机上的 sdk 发来的），然后就再也没有然后了
+        // ……连不上蓝牙设备。
+        // 3、在上面 1 和 2 步骤中，如果是先以足够大的 ivIndex A 进行认领再以足够小的 ivIndex B 进行连接，且 A - B > 1，
+        // 那么是可以连接上的。
+        // 4、由于 3 中  A - B > 1 的现象，则可以预测，当 ivIndex 由 0 变为 1 时，那么另外一台很早之前以 ivIndex 0
+        // 分享出去且不在现场的手机，后续将永远连接不上蓝牙设备。
+        }), 0, 0);
     }
 
     static doDestroy() {
