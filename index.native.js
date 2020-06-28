@@ -381,7 +381,7 @@ class TelinkBtSig {
         return (status) === this.NODE_STATUS_ON;
     }
 
-    static changePower({
+    static async changePower({
         meshAddress,
         value,
         type,
@@ -401,6 +401,9 @@ class TelinkBtSig {
                         // 只有下面的开关命令 E0 额外返回的开关状态才能保证开关按钮的状态能够快速切换且能快速地开关灯。
                         NativeModule.sendCommand(0x0211E0, meshAddress, [0xE3, 0x02, value], immediate);
                         changed = true;
+                        // 测试发现还需要再次查看开关状态才能保证群发关闭 3 个设备后获得所有设备的关灯状态
+                        await this.sleepMs(this.DELAY_MS_COMMAND);
+                        NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], true);
                     }
                     break;
                 }
