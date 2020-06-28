@@ -629,9 +629,23 @@ class TelinkBtSig {
                             });
                         }
 
-                        // speed 所减的数值来自上层 APP 代码中的 speedOffset 的值
-                        // 不过如下所示没有使用 patchedSpeed 的就是那些无法使用跳帧（固件判断是负值的话就会跳帧）的效果
-                        let patchedSpeed = speed - 6;
+                        const speedOffset = 6;  // 要保持与上层 APP 代码中的 speedOffset 的值相同
+                        let patchedSpeed = speed;
+
+                        // 如下（+= 与后面的 -= 配合）抵消 speedOffset 的就是那些无法使用跳帧（固件判断是负值的话就会跳帧）的效果
+                        switch (scene) {
+                            case 1:
+                            case 3:
+                            case 5:
+                            case 8:
+                            case 9:
+                                patchedSpeed += speedOffset;
+                                break;
+                            default:
+                                break;
+                        }
+
+                        patchedSpeed -= speedOffset;
 
                         // 这里对 patchedSpeed 做特殊处理以不传 0 给固件，是因为固件代码 e12005a 提交点会使得 verticalWave
                         // 效果在速度为零时，第二轮效果飞快运行，找不到根本的解决方法，只能将错就错。
@@ -644,7 +658,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 1:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 2:
@@ -652,7 +666,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 3:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 4:
@@ -660,7 +674,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 5:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, 0, color3.r, color3.g, color3.b], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, 0, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
                             case 6:
@@ -672,11 +686,11 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 8:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
                             case 9:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
                             case 10:
