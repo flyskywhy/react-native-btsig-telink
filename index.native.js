@@ -514,6 +514,7 @@ class TelinkBtSig {
         r,
         g,
         b,
+        scene,
     }) {
         if (g > this.LED_GREEN_MAX) {
             return {
@@ -521,7 +522,7 @@ class TelinkBtSig {
                 g: this.LED_GREEN_MAX,
                 b: parseInt(b * this.LED_GREEN_MAX / g, 10),
             }
-        } else if (r === 0 && g === 0) {    // 因为当前使用的灯串的蓝色偏暗，而又受到白平衡和 LED_GREEN_MAX 的限制，所以这里单独将纯蓝亮度提高到客户满意的 2 倍
+        } else if (r === 0 && g === 0 && scene !== 45) {    // 因为当前使用的灯串的蓝色偏暗，而又受到白平衡和 LED_GREEN_MAX 的限制，所以这里单独将纯蓝亮度提高到客户满意的 2 倍
             let newB = b * 2;
             if (newB > 122) {
                 newB = 122;
@@ -612,7 +613,10 @@ class TelinkBtSig {
                 rgb.r = parseInt(this.gamma[rgb.r] * this.whiteBalance.r, 10);
                 rgb.g = parseInt(this.gamma[rgb.g] * this.whiteBalance.g, 10);
                 rgb.b = parseInt(this.gamma[rgb.b] * this.whiteBalance.b, 10);
-                let safeColor = this.ledFilterBurnGreen(rgb);
+                let safeColor = this.ledFilterBurnGreen({
+                    ...rgb,
+                    scene,
+                });
                 rgb.r = safeColor.r;
                 rgb.g = safeColor.g;
                 rgb.b = safeColor.b;
@@ -830,6 +834,10 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 44:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
+                                changed = true;
+                                break;
+                            case 45:
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
