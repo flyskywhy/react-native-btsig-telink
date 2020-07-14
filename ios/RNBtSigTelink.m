@@ -891,14 +891,21 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
         [Bluetooth.share cancelAllConnecttionWithComplete:nil];
         [Bluetooth.share clearCachelist];
         NSData *key = [SigDataSource.share curNetKey];
+        NSLog(@"TelinkBtSig AddNewDevice %@", [node objectForKey:@"macAddress"]);
+
+        SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithMac:[[node objectForKey:@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""]];
+        CBPeripheral *peripheral = [Bluetooth.share getPeripheralWithUUID:scanRspModel.uuid];
 
         // TODO: use getPeripheralWithUUID() instead of getDeviceModelWithMac(), and modify SigScanRspModel.isEqual()
         // in SigMeshOC/Model.m to the form of SigNodeModel.isEqual() in SigMeshOC/SigDataSource.m
         // then can remove getDeviceModelWithMac() and self.allDevices
-        // SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithMac:[[node objectForKey:@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""]];
-        // CBPeripheral *peripheral = Bluetooth.share getPeripheralWithUUID:scanRspModel.uuid];
-        deviceModel *device = [self getDeviceModelWithMac:[node objectForKey:@"macAddress"]];
-        if (device == nil) {
+//        deviceModel *device = [self getDeviceModelWithMac:[node objectForKey:@"macAddress"]];
+//        CBPeripheral *peripheral;
+//        if (device) {
+//            peripheral = device.peripheral;
+//        }
+
+        if (peripheral == nil) {
             reject(@"need rescan", @"AddNewDevice fail", nil);
             Bluetooth.share.commandHandle.responseVendorIDCallBack = onVendorResponse;
             return;
@@ -908,7 +915,7 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
 
         BOOL fastBind = true; // fastBind will be checked again in keybindAction() of SigMeshOC/Bluetooth.m , so true here
 
-        [Bluetooth.share.commandHandle startAddDeviceWithNextAddress:provisionAddress networkKey:key netkeyIndex:SigDataSource.share.curNetkeyModel.index peripheral:device.peripheral keyBindType:fastBind ? KeyBindTpye_Quick : KeyBindTpye_Normal provisionSuccess:^(NSString *identify, UInt16 address) {
+        [Bluetooth.share.commandHandle startAddDeviceWithNextAddress:provisionAddress networkKey:key netkeyIndex:SigDataSource.share.curNetkeyModel.index peripheral:peripheral keyBindType:fastBind ? KeyBindTpye_Quick : KeyBindTpye_Normal provisionSuccess:^(NSString *identify, UInt16 address) {
             if (identify && address != 0) {
                 NSLog(@"TelinkBtSig AddNewDevice %d provisionSuccess", provisionAddress);
             } else {
