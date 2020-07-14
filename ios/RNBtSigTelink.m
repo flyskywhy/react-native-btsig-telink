@@ -891,6 +891,7 @@ RCT_EXPORT_METHOD(changeColor:(NSInteger)meshAddress hue:(NSInteger)hue saturati
 RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     if (isToClaim) {
         [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(scanFinish) object:nil];
+        [Bluetooth.share stopScan]; // need this otherwise sometime will connectPeripheral() other node macAddress in blockState() of SigMeshOC/Bluetooth.m
         [Bluetooth.share setBleScanNewDeviceCallBack:nil];  // need this otherwise keyBindSuccess difficult
         Bluetooth.share.commandHandle.responseVendorIDCallBack = nil;
         [Bluetooth.share stopAutoConnect];
