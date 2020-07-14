@@ -301,6 +301,7 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     // self.configNode = NO;
     // self.HomePage = YES;
     // self.isStartOTA = NO;
+    self.connectMeshAddress = -1;
 
     //init SDK
 //    [SDKLibCommand startMeshSDK];
@@ -619,6 +620,7 @@ RCT_EXPORT_METHOD(autoConnect:(NSString *)networkKey) {
 
                 __weak typeof(self) weakSelf = self;
                 NSLog(@"TelinkBtSig deviceStatusLogin");
+                self.connectMeshAddress = [node address];
                 NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
                 [dict setObject:[NSNumber numberWithInt:[node address]] forKey:@"connectMeshAddress"];
                 [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
@@ -995,8 +997,12 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
         }];
     } else {
         __weak typeof(self) weakSelf = self;
-        NSString *macAddress = [[node objectForKey:@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""];
-        BOOL isDirect = [macAddress isEqualToString:[SigDataSource.share getCurrentConnectedNode].macAddress];
+
+//        NSString *macAddress = [[node objectForKey:@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""];
+//        BOOL isDirect = [macAddress isEqualToString:[SigDataSource.share getCurrentConnectedNode].macAddress];
+        // isDirect above sometime is not correct, so use isDirect below
+        BOOL isDirect = self.connectMeshAddress == [[node objectForKey:@"meshAddress"] unsignedShortValue];
+
         if (isDirect) {
             [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *peripheral) {
                 NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];

@@ -34,4 +34,6 @@
 @property (nonatomic, assign) BOOL Sending;
 @property (nonatomic, assign) BOOL isStartOTA;
 @property (nonatomic, strong) NSMutableArray *array;
+
+@property (nonatomic, assign) NSInteger connectMeshAddress; // 直连节点的 mesh 地址；
 @end
