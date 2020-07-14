@@ -180,6 +180,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public List<DeviceInfo> devices = new ArrayList<>();
 
     private boolean hasOnlineStatusNotifyRaw;
+    private int connectMeshAddress = -1;
     private boolean kickDirect; // is kicking out direct connected device?
     private int mConfigNodeResetMeshAddress;
     private String mConfigNodeResetMacAddress;
@@ -670,7 +671,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             mConfigNodeResetPromise = promise;
             mConfigNodeResetMacAddress = node.getString("macAddress");
             mConfigNodeResetMeshAddress = node.getInt("meshAddress");
+
             kickDirect = mConfigNodeResetMacAddress.equals(mService.getCurDeviceMac());
+            // kickDirect above sometime is not correct, so use kickDirect below
+            // kickDirect = connectMeshAddress == mConfigNodeResetMeshAddress;
+            TelinkLog.d("kickDirect: " + kickDirect);
+
             mService.resetNode(mConfigNodeResetMeshAddress, null);
 
             // startScan();
@@ -1797,8 +1803,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 //     }, 1 * 1000); // 测试得：当延时为 100 时无法触发对应的 EVENT ，而 500 是可以的，保险起见，这里可以使用 1000
                 // }
 
+                connectMeshAddress = getDeviceByMacAddress(mService.getCurDeviceMac()).meshAddress;
                 WritableMap params = Arguments.createMap();
-                params.putInt("connectMeshAddress", getDeviceByMacAddress(mService.getCurDeviceMac()).meshAddress);
+                params.putInt("connectMeshAddress", connectMeshAddress);
                 sendEvent(DEVICE_STATUS_LOGIN, params);
                 break;
             case MeshEvent.EVENT_TYPE_DISCONNECTED:
