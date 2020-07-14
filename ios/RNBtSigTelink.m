@@ -670,6 +670,22 @@ RCT_EXPORT_METHOD(idleMode:(BOOL)disconnect) {
 }
 
 RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingleNode) {
+    // need below to clean scanList, otherwise kickout sometime don't work
+    [SigDataSource.share.scanList removeAllObjects];
+    NSMutableArray *tem = [NSMutableArray array];
+    NSData *data = [NSKeyedArchiver archivedDataWithRootObject:tem];
+    [[NSUserDefaults standardUserDefaults] setObject:data forKey:kScanList_key];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+
+    NSMutableArray *matchsListTem = [NSMutableArray array];
+    NSData *matchsListData = [NSKeyedArchiver archivedDataWithRootObject:matchsListTem];
+    [[NSUserDefaults standardUserDefaults] setObject:matchsListData forKey:kMatchsList_key];
+    NSMutableArray *noMatchsListTem = [NSMutableArray array];
+    NSData *noMatchsListData = [NSKeyedArchiver archivedDataWithRootObject:noMatchsListTem];
+    [[NSUserDefaults standardUserDefaults] setObject:noMatchsListData forKey:kNoMatchsList_key];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+
+
     self.allDevices = [NSMutableArray array];
     __weak typeof(self) weakSelf = self;
     [Bluetooth.share cancelAllConnecttionWithComplete:^{
