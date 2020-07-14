@@ -729,7 +729,12 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
 
 - (void)scanFinish {
     [Bluetooth.share setBleScanNewDeviceCallBack:nil];  // need this otherwise keyBindSuccess if configNode to quickly just after startScan
-    [Bluetooth.share setNormalState];
+
+    // even cancelPreviousPerformRequestsWithTarget in configNode(),
+    // still sometime cause delayMeshProxyInit in readGattFinishWithPeripheral() of
+    // SigMeshOC/Bluetooth.m, so comment it, and worked well.
+    //    [Bluetooth.share setNormalState];
+
     [Bluetooth.share stopScan];
 }
 
@@ -885,6 +890,7 @@ RCT_EXPORT_METHOD(changeColor:(NSInteger)meshAddress hue:(NSInteger)hue saturati
 
 RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     if (isToClaim) {
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(scanFinish) object:nil];
         [Bluetooth.share setBleScanNewDeviceCallBack:nil];  // need this otherwise keyBindSuccess difficult
         Bluetooth.share.commandHandle.responseVendorIDCallBack = nil;
         [Bluetooth.share stopAutoConnect];
