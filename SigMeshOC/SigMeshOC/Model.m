@@ -441,8 +441,13 @@
 
 - (BOOL)isEqual:(id)object{
     if ([object isKindOfClass:[SigScanRspModel class]]) {
-//        return [_macAddress isEqualToString:[(SigScanRspModel *)object macAddress]];
-        return [_uuid isEqualToString:[(SigScanRspModel *)object uuid]];
+        SigScanRspModel *tem = (SigScanRspModel *)object;
+        if (_uuid && _uuid.length > 0 && tem.uuid && tem.uuid.length > 0) {
+            return [_uuid isEqualToString:tem.uuid];
+        }else if (_macAddress && _macAddress.length > 0 && tem.macAddress && tem.macAddress.length > 0) {
+            return [_macAddress.uppercaseString isEqualToString:tem.macAddress.uppercaseString];
+        }
+        return NO;
     } else {
         return NO;
     }

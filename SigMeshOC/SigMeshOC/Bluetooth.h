@@ -64,6 +64,8 @@
 /// Disconnect all CBPeripheral(断开所有设备的连接)
 - (void)cancelAllConnecttionWithComplete:(bleCancelConnectCallBack)complete;
 
+- (CBPeripheral *)getPeripheralWithUUID:(NSString *)uuidString;
+
 /// Set default block(修改默认的block)
 - (void)blockState;
 
