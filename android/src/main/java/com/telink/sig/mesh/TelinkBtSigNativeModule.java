@@ -1809,6 +1809,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 sendEvent(DEVICE_STATUS_LOGIN, params);
                 break;
             case MeshEvent.EVENT_TYPE_DISCONNECTED:
+                TelinkLog.d("kickDirect: " + kickDirect + " debug logout");
                 if (kickDirect) {
                     mHandler.postDelayed(new Runnable() {
                         @Override
@@ -1822,6 +1823,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 }
                 break;
             case NotificationEvent.EVENT_TYPE_KICK_OUT_CONFIRM:
+                TelinkLog.d("kickDirect: " + kickDirect + " confirm");
                 if (!kickDirect) {
                     mHandler.postDelayed(new Runnable() {
                         @Override
