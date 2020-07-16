@@ -675,9 +675,17 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             kickDirect = mConfigNodeResetMacAddress.equals(mService.getCurDeviceMac());
             // kickDirect above sometime is not correct, so use kickDirect below
             // kickDirect = connectMeshAddress == mConfigNodeResetMeshAddress;
-            TelinkLog.d("kickDirect: " + kickDirect);
 
-            mService.resetNode(mConfigNodeResetMeshAddress, null);
+            boolean kickCmdSend = mService.resetNode(mConfigNodeResetMeshAddress, null);
+            TelinkLog.d("kickDirect: " + kickDirect + " kickCmdSend: " + kickCmdSend);
+
+            // 如果发送删除设备命令失败，可能此时上层 JS 代码正在进行比如获取定时器信息等操作，而这个操作的定时器返回数据
+            // 可能会掩盖删除设备成功的返回数据，导致如下代码让上层 JS 代码再次发送删除设备命令必然成功，但又必然导致真实
+            // 设备被删除而上层 JS 代码却不知，反而对用户造成困扰，所以不使用如下代码更合适
+            // if (!kickCmdSend) {
+            //     mConfigNodeResetPromise.reject(new Exception("kickCmdSend false"));
+            //     mConfigNodeResetPromise = null;
+            // }
 
             // startScan();
         }
