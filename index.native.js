@@ -51,7 +51,8 @@ class TelinkBtSig {
     // 80%  149, 89,  35
     // 75%  127, 76,  30
     // 70%  109, 65,  26
-    static LED_GREEN_MAX = 103;
+    // static LED_GREEN_MAX = 103;
+    static LED_GREEN_MAX = 255;
 
     static COLOR_TEMP_MIN = 5;
     static COLOR_TEMP_MAX = 100;
