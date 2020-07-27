@@ -162,9 +162,15 @@ class TelinkBtSig {
 
     static netKey = 'netKey';
     static appKey = 'appKey';
+
     // 测试得：手机 mesh 地址不能设为 0 ，也不能设为 >= 32768
-    // 分享相同蓝牙设备数据的两台手机各自的 APP 需要不同的手机 mesh 地址，否则无法同时控制设备
+    // 分享相同蓝牙设备数据的两台手机各自的 APP 需要不同的手机 mesh 地址，否则无法同时控制设备。
+    // 而且这样得到了一个额外好处：本来如果每次启动 (仅有 Android ？) APP 时使用与上次连接时相同的 meshAddressOfApp ，则需要
+    // 很长时间才能连接上设备，除非将设备断电再上电才能不受相同 meshAddressOfApp 的影响，感觉好像设备中保存着上次连接的（或是
+    // mesh_proxy_filter_add_adr 增加的白名单）手机地址与这次想要连接的手机地址相同的话，就需要很长时间才能连接上设备，而现在
+    // 每次启动 APP 时使用一个随机 meshAddressOfApp 就能解决这个问题。
     static meshAddressOfApp = this.MESH_ADDRESS_MAX + parseInt(Math.random() * 10000, 10);
+
     static devices = [];
     static provisionerSno = 0;
     static provisionerIvIndex = 0;
