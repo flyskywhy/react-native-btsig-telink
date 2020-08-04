@@ -263,6 +263,14 @@ class TelinkBtSig {
         type,
         immediate = false,
     }) {
+        // 需要此处，否则在 1 个设备的情况下，走过
+        // 设置效果、删除设备、认领设备、设置效果
+        // 这 4 个步骤时，除非重启 APP ，否则因为
+        // 无法符合 selectNodeToResponseSceneId()
+        // 中 sceneSyncMeshAddress !== this.lastSceneSyncMeshAddress
+        // 的条件而导致 APP 一直没有发出设置同步的命令
+        this.lastSceneSyncMeshAddress = undefined;
+
         this.remind({
             meshAddress: 0xFFFF,
         })
