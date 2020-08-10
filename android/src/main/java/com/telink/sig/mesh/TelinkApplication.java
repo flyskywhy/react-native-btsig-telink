@@ -28,7 +28,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.telink.sig.mesh.ble.AdvertisingDevice;
 import com.telink.sig.mesh.event.CommandEvent;

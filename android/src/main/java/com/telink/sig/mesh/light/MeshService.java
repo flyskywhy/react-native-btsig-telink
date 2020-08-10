@@ -25,7 +25,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.telink.sig.mesh.lib.MeshLib;
 import com.telink.sig.mesh.light.parameter.AutoConnectParameters;

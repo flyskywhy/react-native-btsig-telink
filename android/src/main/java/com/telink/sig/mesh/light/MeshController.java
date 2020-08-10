@@ -29,7 +29,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelUuid;
 import android.os.Process;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.text.TextUtils;
 
 import com.telink.sig.mesh.TelinkApplication;

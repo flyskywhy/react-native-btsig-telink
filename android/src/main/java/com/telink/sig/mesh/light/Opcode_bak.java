@@ -21,7 +21,7 @@
  *******************************************************************************************************/
 package com.telink.sig.mesh.light;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 public enum Opcode_bak {
 
