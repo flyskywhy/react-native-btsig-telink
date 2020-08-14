@@ -1,24 +1,39 @@
 {
   "name": "react-native-btsig-telink",
   "version": "1.0.0",
-  "description": "Component implementation for Bluetooth SIG mesh SDK of Telink",
-  "main": "index.native.js",
+  "description": "Component implementation for Bluetooth SIG Mesh SDK of Telink",
+  "main": "index",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/flyskywhy/react-native-btsig-telink.git"
   },
   "keywords": [
+    "android",
     "ble",
     "bluetooth",
+    "bt",
+    "ios",
     "mesh",
     "react-native",
     "sig",
     "telink"
   ],
   "author": "Li Zheng",
+  "funding": [
+    {
+      "type": "individual",
+      "url": "https://Alipay/flyskywhy@gmail.com"
+    },
+    {
+      "type": "individual",
+      "url": "https://EthAddress/0xd02fa2738dcbba988904b5a9ef123f7a957dbb3e"
+    }
+  ],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/flyskywhy/react-native-btsig-telink/issues"

@@ -1,11 +1,38 @@
 # React Native Bluetooth SIG Telink
-Component implementation for Bluetooth SIG mesh SDK of Telink.
 
-## Usage
+[![npm version](http://img.shields.io/npm/v/react-native-btsig-telink.svg?style=flat-square)](https://npmjs.org/package/react-native-btsig-telink "View this project on npm")
+[![npm downloads](http://img.shields.io/npm/dm/react-native-btsig-telink.svg?style=flat-square)](https://npmjs.org/package/react-native-btsig-telink "View this project on npm")
+[![npm licence](http://img.shields.io/npm/l/react-native-btsig-telink.svg?style=flat-square)](https://npmjs.org/package/react-native-btsig-telink "View this project on npm")
+[![Platform](https://img.shields.io/badge/platform-ios%20%7C%20android-989898.svg?style=flat-square)](https://npmjs.org/package/react-native-btsig-telink "View this project on npm")
 
-    npm install react-native-btsig-telink --save
+Component implementation for Bluetooth SIG Mesh SDK of Telink.
 
-For RN < 0.60, run `react-native link react-native-btsig-telink`.
+## Install
+
+```shell
+npm i --save react-native-btsig-telink
+```
+
+### Android
+In `android/app/build.gradle`
+```
+dependencies {
+    implementation project(':react-native-btsig-telink')
+}
+```
+
+In `android/app/src/main/java/com/YourProject/MainApplication.java`
+```
+import com.telink.sig.mesh.TelinkBtSigPackage;
+...
+    new TelinkBtSigPackage(),
+```
+
+In `android/settings.gradle`
+```
+include ':react-native-btsig-telink'
+project(':react-native-btsig-telink').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-btsig-telink/android')
+```
 
 ### iOS
 Open `SigMeshOC/SigMeshOC.xcodeproj` by Xcode, in 'Signing & Capabilities' of Target 的 'SigMeshOC', choose `Team` to your Apple ID, then close Xcode and:
@@ -18,15 +45,56 @@ results:
 SigMeshOC/Build/Products/SigMeshOC/Release-iphoneos/SigMeshOC.framework/
 ```
 
-Add bellow (after `pod 'Folly'`) into `ios/Podfile`
+In `ios/Podfile`
 ```
   pod 'SigMeshOC', :path => '../node_modules/react-native-btsig-telink/SigMeshOC'
+  pod 'RNBtSigTelink', :path => '../node_modules/react-native-btsig-telink'
 ```
 
     cd ios
     pod install
 
-    import btsigTelink from 'react-native-btsig-telink';
-
 ## fastBind
 If you want fastBind, you need put the cpsData of your device into `android/src/main/java/com/telink/sig/mesh/PrivateDevice.java` and `DeviceTypeModel` in `SigMeshOC/SigMeshOC/Model.m`.
+
+## Usage
+
+```jsx
+import React from 'react';
+import { View } from 'react-native';
+import meshModule from 'react-native-btsig-telink';
+
+export default class MeshModuleExample extends React.Component {
+    constructor(props) {
+        super(props);
+        meshModule.passthroughMode = {
+            silan: [
+                1,
+                7,
+            ],
+            sllc: [
+                30848,
+            ],
+        };
+    }
+
+    componentDidMount() {
+        meshModule.addListener('leScan', this.onLeScan);
+        meshModule.doInit();
+    }
+
+    onLeScan = data => console.warn(data)
+
+    render() {
+        return (
+            <View/>
+        );
+    }
+}
+```
+
+## Sponsor
+
+Alipay: flyskywhy@gmail.com
+
+ETH: 0xd02fa2738dcbba988904b5a9ef123f7a957dbb3e
