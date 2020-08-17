@@ -8,9 +8,14 @@
 Component implementation for Bluetooth SIG Mesh SDK of Telink.
 
 ## Install
-
+For RN >= 0.60
 ```shell
 npm i --save react-native-btsig-telink
+```
+
+For RN < 0.60
+```shell
+npm i --save react-native-btsig-telink@1.0.x
 ```
 
 ### Android
