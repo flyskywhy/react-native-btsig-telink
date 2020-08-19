@@ -15,4 +15,5 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig   = { "GCC_PREPROCESSOR_DEFINITIONS" => "WIN32=1 IOS_APP_ENABLE=1"}
   s.dependency 'React'
   s.dependency 'SigMeshOC'
+  s.static_framework      = true
 end
