@@ -1083,7 +1083,10 @@ class TelinkBtSig {
             let timer = setTimeout(() => reject({errCode: 'getTime time out'}), 10000);
             NativeModule.getTime(meshAddress, relayTimes).then(payload => {
                 clearTimeout(timer);
-                resolve(payload);
+                resolve({
+                    ...payload,
+                    time: parseInt(payload.time, 10),
+                });
             }, reject);
         });
     }

@@ -1428,7 +1428,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
         if (mGetTimePromise != null) {
             WritableMap params = Arguments.createMap();
-            params.putString("time", notificationInfo.getTime().toString());
+            params.putString("time", String.valueOf(notificationInfo.getTime().getTime()));
             mGetTimePromise.resolve(params);
         }
         mGetTimePromise = null;
