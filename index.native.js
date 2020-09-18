@@ -1172,7 +1172,7 @@ class TelinkBtSig {
     static flashWriteAttr({ // 设置灯串信息
         meshAddress,
         timeSequence = 1, // 灯串时序，1 为短时序，0 为长时序
-        nodeBulbs = 96, // 灯串上激活灯的个数,最大值为255
+        nodeBulbs = 96, // 灯串上激活灯的个数,最大值为 65535
         collideCenter = 40, // 碰撞特效的碰撞位置，因为灯串摆成树形时，碰撞位置如果为总灯数的 1/2 的话不好看
         flagPercent = 100, // 国旗模式下相邻两个颜色所属灯串长度百分比
         immediate = false,
@@ -1180,10 +1180,11 @@ class TelinkBtSig {
         NativeModule.sendCommand(0x0211E8, meshAddress, [
             0,
             0,
-            nodeBulbs,
+            nodeBulbs & 0xFF,
             timeSequence,
             collideCenter,
             flagPercent,
+            (nodeBulbs >>> 8) & 0xFF,
         ], immediate);
     }
 
