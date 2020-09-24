@@ -830,6 +830,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 MeshScanRecord sr = MeshScanRecord.parseFromBytes(advDevice.scanRecord);
                 byte[] serviceData = sr.getServiceData(ParcelUuid.fromString(UuidInfo.PROVISION_SERVICE_UUID.toString()));
                 if ((serviceData[3] & 0xFF) == 0xFB ||
+                    (serviceData[3] & 0xFF) == 0xFC ||
                     (serviceData[3] & 0xFF) == 0xFA) {  // 如果 pid 的高位字节表明这是灯串
                     cpsData[2] = serviceData[2]; // 就将实际的灯珠数填进预定义好的灯串 cpsData 中 pid 的低位字节
                 }
