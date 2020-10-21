@@ -540,7 +540,9 @@ void anasislyResponseData(NSData *responseData) {
         case OpcodeSetTimeResponse:
         {
             //response of set time
-            
+            //currentValue is TAI_sec
+            NSData *data = [NSData dataWithBytes:(pu + 8) length:4]; // OpcodeSetTimeResponse as 0x5F is one byte opcode not two bytes, so 8 not 8+1
+            model.currentValue = [LibTools uint32FromBytes:data];
         }  break;
         case OpcodeSceneRegisterStatusResponse:
         {

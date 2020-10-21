@@ -1092,7 +1092,7 @@ class TelinkBtSig {
                 clearTimeout(timer);
                 resolve({
                     ...payload,
-                    time: parseInt(payload.time, 10),
+                    time: parseInt(payload.time, 10), // seconds from 1970
                 });
             }, reject);
         });

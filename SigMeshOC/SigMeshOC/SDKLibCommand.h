@@ -79,7 +79,7 @@ typedef void(^addSingleDeviceSuccessCallBack)(NSData *deviceKey,UInt16 address,U
 //response of delect device
 @property (nonatomic,copy) resultCallBack delectDeviceCallBack;
 //response of setTime
-@property (nonatomic,copy) resultCallBack setTimeCallBack;
+@property (nonatomic,copy) responseModelCallBack setTimeCallBack;
 //save scene
 @property (nonatomic,copy) responseModelCallBack saveSceneCallBack;
 //recall scene
@@ -201,8 +201,10 @@ typedef void(^addSingleDeviceSuccessCallBack)(NSData *deviceKey,UInt16 address,U
 ///sendCommandData
 - (int)sendCommandData:(UInt16)address rsp_max:(UInt8)rsp_max opcode:(UInt16)opcode data:(NSData *)data;
 
+- (void)getTimeWithComplete:(UInt16)address complete:(responseModelCallBack)complete;
+
 /// setNowTime
-- (void)setNowTimeWithComplete:(resultCallBack)complete;
+- (void)setNowTimeWithComplete:(responseModelCallBack)complete;
 /// status NowTime, without response
 - (void)statusNowTime;
 

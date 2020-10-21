@@ -668,9 +668,10 @@ static NSTimeInterval commentTime;
                 break;
             case OpcodeSetTimeResponse:
             {
+                tempResponseModel.currentValue = m.currentValue;
                 if (self.commandHandle.setTimeCallBack) {
                     dispatch_async(dispatch_get_main_queue(), ^{
-                        self.commandHandle.setTimeCallBack();
+                        self.commandHandle.setTimeCallBack(tempResponseModel);
                         self.commandHandle.setTimeCallBack = nil;
                     });
                 }

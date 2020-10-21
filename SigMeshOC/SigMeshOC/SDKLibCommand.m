@@ -558,8 +558,15 @@ response data like :
 }
 
 
+- (void)getTimeWithComplete:(UInt16)address complete:(responseModelCallBack)complete{
+    if (complete) {
+        self.setTimeCallBack = complete;
+    }
+    access_cmd_time_get(address,0);
+}
+
 /// setNowTime
-- (void)setNowTimeWithComplete:(resultCallBack)complete{
+- (void)setNowTimeWithComplete:(responseModelCallBack)complete{
     if (complete) {
         self.setTimeCallBack = complete;
     }
