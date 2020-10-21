@@ -591,7 +591,10 @@ response data like :
     time.zone_offset = offset/60/15+64;//时区=分/15+64
     time.time_auth = 1;//每次无条件接受这个时间指令。
     TeLog(@"设置秒数：%d，时区：%d",time.TAI_sec,time.zone_offset);
-    SendOpParaDebug(0xffff, 0, TIME_STATUS, (u8 *)&time, sizeof(time_status_t));
+
+    access_cmd_time_set(0xffff,0,&time);
+    // SendOpParaDebug() not work against some firmware, so use access_cmd_time_set() instead
+    // SendOpParaDebug(0xffff, 0, TIME_STATUS, (u8 *)&time, sizeof(time_status_t));
 }
 
 /// save scene
