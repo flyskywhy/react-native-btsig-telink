@@ -593,8 +593,31 @@ response data like :
     TeLog(@"设置秒数：%d，时区：%d",time.TAI_sec,time.zone_offset);
 
     access_cmd_time_set(0xffff,0,&time);
-    // SendOpParaDebug() not work against some firmware, so use access_cmd_time_set() instead
+    // TIME_STATUS not work against some firmware, so use access_cmd_time_set()
+    // which use TIME_SET instead
     // SendOpParaDebug(0xffff, 0, TIME_STATUS, (u8 *)&time, sizeof(time_status_t));
+    // Because in firmware, g_TAI_sec init to 0, and if no one set it from 0 once,
+    // it will not be increased 1 per second, for some firmware need it's increase
+    // and thus set it just after init, then TIME_STATUS invoked function below in
+    // telink_sig_mesh/vendor/common/time_model.c
+    // will not invoke mesh_time_set because (!g_TAI_sec) is not true in if().
+    // int mesh_cmd_sig_time_status(u8 *par, int par_len, mesh_cb_fun_par_t *cb_par)
+    // {
+    // #if MD_SERVER_EN
+    //     int err = 0;
+    //     if(cb_par->model){  // model may be Null for status message
+    //         #if (!(__PROJECT_MESH_PRO__ && (!DEBUG_SHOW_VC_SELF_EN)))   // don't update time for app
+    //         time_status_t *p_set = (time_status_t *)par;
+    //         if(p_set->TAI_sec && (!g_TAI_sec)){
+    //             mesh_time_set((time_status_t *)par);
+    //         }
+    //         #endif
+    //     }
+    //     return err;
+    // #else
+    //     return 0;
+    // #endif
+    // }
 }
 
 /// save scene
