@@ -871,6 +871,14 @@ class TelinkBtSig {
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, colorsLength, ...colors3], immediate);
                                 changed = true;
                                 break;
+                            case 46:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, reserve, color3.r, color3.g, color3.b], immediate);
+                                changed = true;
+                                break;
+                            case 47:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed, 1, reserve, color3.r, color3.g, color3.b], immediate);
+                                changed = true;
+                                break;
 
                             // [
                             //     // 以下是自定义效果命令参数中每个字节的含义
