@@ -1065,7 +1065,7 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
 // }
 
 RCT_EXPORT_METHOD(setTime:(NSInteger)meshAddress) {
-    [Bluetooth.share.commandHandle statusNowTime];
+    [Bluetooth.share.commandHandle setNowTimeWithComplete:nil];
 }
 
 RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
