@@ -454,9 +454,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
                     Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(getCurrentActivity(),
-                    Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(getCurrentActivity(),
-                    Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED;
+                    Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
             } else {
                 // If use above when running on Android 9 (SDK < 29), will frequently
                 // sendEvent(SYSTEM_LOCATION_ENABLED) to JS which cause APP stuck,
@@ -470,8 +468,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             if (reqPermLoc) {
                 ActivityCompat.requestPermissions(getCurrentActivity(),
                         new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_BACKGROUND_LOCATION},
+                            Manifest.permission.ACCESS_FINE_LOCATION},
                         ACCESS_COARSE_LOCATION_RESULT_CODE);
             }
             else if (ContextCompat.checkSelfPermission(getCurrentActivity(),
