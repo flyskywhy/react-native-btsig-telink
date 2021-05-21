@@ -414,6 +414,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mReactContext.registerReceiver(mBluetoothStateReceiver, intentFilter);
 
         sendEvent(DEVICE_STATUS_LOGOUT);
+
+        checkPermissions();
     }
 
     @ReactMethod
@@ -443,7 +445,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             return;
         }
 
-        checkPermissions();
+        // If user click `don't ask again`, will frequently
+        // sendEvent(SYSTEM_LOCATION_ENABLED) to JS which cause APP stuck,
+        // that's why need move checkPermissions() into doInit().
+        // checkPermissions();
+
         checkSystemLocation();
     }
 
@@ -456,7 +462,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 ContextCompat.checkSelfPermission(getCurrentActivity(),
                     Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
             } else {
-                // If use above when running on Android 9 (SDK < 29), will frequently
+                // If use above when running on Android 9 (SDK < 29), and use
+                // checkPermissions() in doResume(), will frequently
                 // sendEvent(SYSTEM_LOCATION_ENABLED) to JS which cause APP stuck,
                 // that's why need below to prevent it.
                 // If use below when running on Android 10 (SDK >= 29), will not
@@ -471,21 +478,20 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                             Manifest.permission.ACCESS_FINE_LOCATION},
                         ACCESS_COARSE_LOCATION_RESULT_CODE);
             }
-            else if (ContextCompat.checkSelfPermission(getCurrentActivity(),
+
+            if (ContextCompat.checkSelfPermission(getCurrentActivity(),
                     Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(getCurrentActivity(),
                         new String[]{Manifest.permission.BLUETOOTH},
                         BLUETOOTH_RESULT_CODE);
-            // }
-            // else if (ContextCompat.checkSelfPermission(getCurrentActivity(),
+            }
+
+            // if (ContextCompat.checkSelfPermission(getCurrentActivity(),
             //         Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             //     ActivityCompat.requestPermissions(getCurrentActivity(),
             //             new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
             //             STORAGE_RESULT_CODE);
-            }
-            else {
-                Log.d(TAG, "checkPermissions ok");
-            }
+            // }
         }
     }
 
