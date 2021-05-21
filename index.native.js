@@ -970,9 +970,14 @@ class TelinkBtSig {
                                     NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, patchedSpeed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 } else {
                                     NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, patchedSpeed], immediate);
-                                    await this.sleepMs(this.DELAY_MS_COMMAND);
+                                    // 这里之所以将数据命令 0xF4 注释掉，是为了解决效果间快速切换时，如果自定义效果散点较多也就是需
+                                    // 更多数据发送时间，而同时从自定义效果切出去时太快的话就会导致下一个效果的命令没生效的 BUG
+                                    // 至于灯串固件中已经保存了自定义数据，但切换时仍然再发一遍的原因，是如果不同用户手机上保存着自己
+                                    // 的与别人不同的自定义效果数据，此时只发效果切换命令的话，手机模拟显示与实际灯串不同，可能会被认
+                                    // 为是瑕疵，但这个瑕疵可以让用户在创建自定义页面重新保存到固件来解决，所以用户也不一定认为是 BUG
+                                    // await this.sleepMs(this.DELAY_MS_COMMAND);
                                     // 这里一定要先发上面的效果切换命令 0xE4 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
-                                    NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, patchedSpeed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
+                                    // NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, patchedSpeed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 }
                                 changed = true;
                                 break;
