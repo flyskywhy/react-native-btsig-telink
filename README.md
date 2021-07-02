@@ -46,6 +46,10 @@ include ':react-native-btsig-telink'
 project(':react-native-btsig-telink').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-btsig-telink/android')
 ```
 
+Sometimes will meet compile error `java.io.FileNotFoundException: SOME_PATH/.externalNativeBuild/cmake/SOME_PATH/android_gradle_build.json (The system cannot find the file specified)` after upgrade this pacakge by `npm install`, can solve it by [add ` --rerun-tasks` to your gradlew command](https://stackoverflow.com/a/68126063/6318705) like
+
+    ./android/gradlew assembleDebug --rerun-tasks -p ./android/
+
 ### iOS
 Open `SigMeshOC/SigMeshOC.xcodeproj` by Xcode, in 'Signing & Capabilities' of Target 的 'SigMeshOC', choose `Team` to your Apple ID, then close Xcode and:
 
