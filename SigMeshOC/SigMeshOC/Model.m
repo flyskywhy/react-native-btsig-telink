@@ -809,6 +809,10 @@ static Byte FC00[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0xFC, (Byte)
     , (Byte) 0x02, (Byte) 0x00, (Byte) 0x03, (Byte) 0x00, (Byte) 0x04, (Byte) 0x00, (Byte) 0x00, (Byte) 0xFE, (Byte) 0x01, (Byte) 0xFE, (Byte) 0x00, (Byte) 0xFF, (Byte) 0x01, (Byte) 0xFF, (Byte) 0x00, (Byte) 0x12
     , (Byte) 0x01, (Byte) 0x12, (Byte) 0x00, (Byte) 0x10, (Byte) 0x02, (Byte) 0x10, (Byte) 0x04, (Byte) 0x10, (Byte) 0x06, (Byte) 0x10, (Byte) 0x07, (Byte) 0x10, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12
     , (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x13, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00};
+static Byte FD00[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0xFD, (Byte) 0x31, (Byte) 0x32, (Byte) 0x69, (Byte) 0x00, (Byte) 0x07, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x00, (Byte) 0x00
+    , (Byte) 0x02, (Byte) 0x00, (Byte) 0x03, (Byte) 0x00, (Byte) 0x04, (Byte) 0x00, (Byte) 0x00, (Byte) 0xFE, (Byte) 0x01, (Byte) 0xFE, (Byte) 0x00, (Byte) 0xFF, (Byte) 0x01, (Byte) 0xFF, (Byte) 0x00, (Byte) 0x12
+    , (Byte) 0x01, (Byte) 0x12, (Byte) 0x00, (Byte) 0x10, (Byte) 0x02, (Byte) 0x10, (Byte) 0x04, (Byte) 0x10, (Byte) 0x06, (Byte) 0x10, (Byte) 0x07, (Byte) 0x10, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12
+    , (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x13, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00};
 
 - (instancetype)initWithCID:(UInt16)cid PID:(SigNodePID)pid{
     if (self = [super init]) {
@@ -834,6 +838,10 @@ static Byte FC00[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0xFC, (Byte)
                 //set default VC_node_info_t of FC00
                 _cpsDataLen = sizeof(FC00);
                 memcpy(&node_info.cps.page0_head.cid, FC00, _cpsDataLen);
+            } else if (pid == 0xFD00) {
+                //set default VC_node_info_t of FD00
+                _cpsDataLen = sizeof(FD00);
+                memcpy(&node_info.cps.page0_head.cid, FD00, _cpsDataLen);
             } else if (pid == 0xFA00) {
                 //set default VC_node_info_t of FA00
                 _cpsDataLen = sizeof(FA00);
@@ -860,6 +868,8 @@ static Byte FC00[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0xFC, (Byte)
             if ((_PID & 0xFF00) == 0xFB00 && ((DeviceTypeModel *)object).PID == 0xFB00) {
                 return YES;
             } else if ((_PID & 0xFF00) == 0xFC00 && ((DeviceTypeModel *)object).PID == 0xFC00) {
+                return YES;
+            } else if ((_PID & 0xFF00) == 0xFD00 && ((DeviceTypeModel *)object).PID == 0xFD00) {
                 return YES;
             } else if ((_PID & 0xFF00) == 0xFA00 && ((DeviceTypeModel *)object).PID == 0xFA00) {
                 return YES;
