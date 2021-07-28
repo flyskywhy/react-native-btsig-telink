@@ -311,6 +311,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void setDevices(ReadableArray devices) {
+        this.devices = new ArrayList<>();
+
         int size = devices.size();
         for(int i = 0; i < size; i++) {
             ReadableMap device = devices.getMap(i);
@@ -1663,33 +1665,36 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     /**
-     * JS 层导入（别人分享来）的配置后，可以调用此函数，但是是有条件的，详见下面 resetAppKey() 的注释
+     * JS 层导入（别人分享来的）配置后，可以调用此函数，但是是有条件的，详见下面 resetAppKey() 的注释
      */
     @ReactMethod
-    public void replaceMeshSetting() {
+    public void replaceMeshSetting(String netKey, String appKey, ReadableArray devices) {
         mService.idle(true);
+        mNetKey = Strings.stringToBytes(netKey);
+        mAppKey = Strings.stringToBytes(appKey);
+        setDevices(devices);
+
         byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, ivIndex, mMeshAddressOfApp);
         mService.meshProvisionParSetDir(pvData, pvData.length);
         mService.setLocalAddress(mMeshAddressOfApp);
         List<byte[]> nodeList = new ArrayList<>();
-        for (DeviceInfo node : devices) {
+        for (DeviceInfo node : this.devices) {
             nodeList.add(node.nodeInfo.toVCNodeInfo());
         }
         byte[][] nodeData = nodeList.toArray(new byte[][]{});
         mService.reattachNodes(nodeData);
 
-        // TODO: 由 fw/SIG_MESH_Release_V3.1/sdk/ble_lt_mesh/vendor/common/mesh_node.c
+        // 由 fw/SIG_MESH_Release_V3.1/sdk/ble_lt_mesh/vendor/common/mesh_node.c
         // 里面的 mesh_app_key_set() 里的 st = (same ? ST_SUCCESS : ST_KEYIDX_ALREADY_STORE);
         // 可以看出，这个 mAppKey 的 reset 并不能成功，可能要想办法修改 mesh_node.c 才行，所以目前
         // 还是只能由上面 doInit() 中的 TelinkApplication.onMeshInfoRequired() 来用 mAppKey
-        // 初始化，也就是说就算 JS 层导入（别人分享来）的配置后再调用此函数，也需要重启 APP 才行，
-        // 如果不重启 APP 的话，则会发现只能连接成功（因为 netKey 正确），但是无法进行开关灯等操
-        // 作（因为 appKey 不正确），这反而会加剧客户的困扰，所以最好不要调用本函数。
-        // 而 JS 层导入（别人分享来）的配置后不调用本函数的话，就连连接也不会成功（因为 netKey 不正确），
-        // 这反而能触发用户联想到导入配置后可能需要重启 APP 才行。
-        // 当然，如果 JS 层没有将 appKey 初始化为随机值而是真正意义上的一种类别的 APP 就是一个固定 appKey ，
-        // 那么， JS 层导入（别人分享来）的配置后调用本函数就无需重启 APP 也能正常连接和控制了。
-        // PS，之所以曾经在 JS 层将 appKey 初始化为随机值，是因为受到了 telink demo 代码的误导。
+        // 初始化，也就是说如果分享前后的 mAppKey 不同的话，就算 JS 层导入（别人分享来的）配置后再调用此
+        // 函数，也需要重启 APP 才行，否则会发现只能连接成功（因为 netKey 导入成功），但是无法进行开关灯
+        // 等操作（因为 appKey 导入不成功）。
+        // 如果 JS 层导入（别人分享来的）配置后不调用本函数而且也不重启 APP 的话，就连连接也不会成功（因为
+        // 没有导入新 netKey ）。
+        // 所以，请确保 JS 层没有将 appKey 初始化为随机值而是真正意义上的一种“类别”的 APP 就是一个“固定”
+        // appKey ，而不要受到 telink demo 中随机值相关代码的误导。
         mService.resetAppKey(0, 0, mAppKey);
     }
 

@@ -1313,6 +1313,18 @@ class TelinkBtSig {
         NativeModule.continueMeshOta();
     }
 
+    // after import data shared by others, to avoid restart APP and
+    // instantly connect to device, you should let your APP call
+    // replaceMeshSetting then call autoConnect
+    static replaceMeshSetting() {
+        NativeModule.replaceMeshSetting(this.netKey, this.appKey, this.devices.map(device => {
+            return { ...device,
+                dhmKey: this.hexString2ByteArray(device.dhmKey),
+                nodeInfo: this.hexString2ByteArray(device.nodeInfo),
+            };})
+        );
+    }
+
     static isValidFirmware(firmware) {
         return firmware[0] === 0x26 &&
             (firmware[1] & 0xFF) === 0x80 &&
