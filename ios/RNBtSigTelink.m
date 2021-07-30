@@ -144,7 +144,7 @@ RCT_EXPORT_MODULE()
 }
 
 // ref to configData() in SigMeshOC/SigDataSource.m
-- (void)initMesh:(NSString *)netKeyJS appKey:(NSString *)appKeyJS meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex {
+- (void)initMesh:(NSString *)netKeyJS appKey:(NSString *)appKeyJS meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex isReplaceMeshSetting:(BOOL)isReplaceMeshSetting {
     // Even exist mesh.json, still create a new one with data from JS and init mesh
     //1.netKeys
     SigNetkeyModel *netkey = [[SigNetkeyModel alloc] init];
@@ -155,12 +155,17 @@ RCT_EXPORT_MODULE()
     netkey.key = [LibTools convertDataToHexStr:[netKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
     netkey.name = @"";
     netkey.minSecurity = @"high";
+    if (isReplaceMeshSetting) {
+        [SigDataSource.share.netKeys removeAllObjects];
+    }
     [SigDataSource.share.netKeys addObject:netkey];
 
     // The first use of SigDataSource.share above will call init() in SigMeshOC/SigDataSource.m
     // and cause _ivIndex = @"11223344" , for share with android telink sdk which set
     // ivIndex to 0 as default, we need this
-    SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08lX",(long)provisionerIvIndex];
+    if (!isReplaceMeshSetting) {
+        SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08lX",(long)provisionerIvIndex];
+    }
 
     //2.appKeys
     SigAppkeyModel *appkey = [[SigAppkeyModel alloc] init];
@@ -169,44 +174,58 @@ RCT_EXPORT_MODULE()
     appkey.name = @"";
     appkey.boundNetKey = 0;
     appkey.index = 0;
+    if (isReplaceMeshSetting) {
+        [SigDataSource.share.appKeys removeAllObjects];
+    }
     [SigDataSource.share.appKeys addObject:appkey];
 
     //3.provisioners
     SigProvisionerModel *provisioner = [[SigProvisionerModel alloc] initWithExistProvisionerCount:0 andProvisionerUUID:[LibTools convertDataToHexStr:[LibTools initMeshUUID]]];
-    [SigDataSource.share.provisioners addObject:provisioner];
+    if (isReplaceMeshSetting) {
+        provisioner = SigDataSource.share.curProvisionerModel;
+    } else {
+        [SigDataSource.share.provisioners addObject:provisioner];
+    }
 
     //4.add new provisioner to nodes, ref to addLocationNodeWithProvisioner() in SigMeshOC/SigDataSource.m
     SigNodeModel *node = [[SigNodeModel alloc] init];
+    if (isReplaceMeshSetting) {
+        node = [SigDataSource.share.nodes firstObject];
+        [SigDataSource.share.nodes removeAllObjects];
+    } else {
+        //init defoult data
+        node.UUID = provisioner.UUID;
+        node.secureNetworkBeacon = YES;
+        node.defaultTTL = TTL_DEFAULT;
+        node.features.proxy = 2;
+        node.features.friend = 0;
+        node.features.relay = 2;
+        node.relayRetransmit.count = 3;
+        node.relayRetransmit.interval = 0;
+        node.networkTransmit.count = 5;
+        node.networkTransmit.interval = 2;
+        [SigDataSource.share saveCurrentProvisionerUUID:provisioner.UUID];
+        node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
+        NSData *devicekeyData = [LibTools createRandomDataWithLength:16];
+        node.deviceKey = [LibTools convertDataToHexStr:devicekeyData];
+        SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
+        nodeAppkey.index = appkey.index;
+        if (isReplaceMeshSetting) {
+            [SigDataSource.share.appKeys removeAllObjects];
+        }
+        if (![node.appKeys containsObject:nodeAppkey]) {
+            [node.appKeys addObject:nodeAppkey];
+        }
 
-    //init defoult data
-    node.UUID = provisioner.UUID;
-    node.secureNetworkBeacon = YES;
-    node.defaultTTL = TTL_DEFAULT;
-    node.features.proxy = 2;
-    node.features.friend = 0;
-    node.features.relay = 2;
-    node.relayRetransmit.count = 3;
-    node.relayRetransmit.interval = 0;
-    node.networkTransmit.count = 5;
-    node.networkTransmit.interval = 2;
-    [SigDataSource.share saveCurrentProvisionerUUID:provisioner.UUID];
-    node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
-    NSData *devicekeyData = [LibTools createRandomDataWithLength:16];
-    node.deviceKey = [LibTools convertDataToHexStr:devicekeyData];
-    SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
-    nodeAppkey.index = appkey.index;
-    if (![node.appKeys containsObject:nodeAppkey]) {
-        [node.appKeys addObject:nodeAppkey];
+        VC_node_info_t node_info = {};
+        //_nodeInfo默认赋值ff
+        memset(&node_info, 0xff, sizeof(VC_node_info_t));
+        node_info.node_adr = [LibTools uint16From16String:node.unicastAddress];
+        node_info.element_cnt = 1;
+        node_info.cps.len_cps = SIZE_OF_PAGE0_LOCAL;
+        memcpy(&node_info.cps.page0_head, gp_page0, SIZE_OF_PAGE0_LOCAL);
+        node.nodeInfo = node_info;
     }
-
-    VC_node_info_t node_info = {};
-    //_nodeInfo默认赋值ff
-    memset(&node_info, 0xff, sizeof(VC_node_info_t));
-    node_info.node_adr = [LibTools uint16From16String:node.unicastAddress];
-    node_info.element_cnt = 1;
-    node_info.cps.len_cps = SIZE_OF_PAGE0_LOCAL;
-    memcpy(&node_info.cps.page0_head, gp_page0, SIZE_OF_PAGE0_LOCAL);
-    node.nodeInfo = node_info;
 
     [SigDataSource.share.nodes addObject:node];
 
@@ -215,6 +234,9 @@ RCT_EXPORT_MODULE()
     group.address = [NSString stringWithFormat:@"%04X",0xffff];
     group.parentAddress = [NSString stringWithFormat:@"%04X",0];
     group.name = @"All";
+    if (isReplaceMeshSetting) {
+        [SigDataSource.share.groups removeAllObjects];
+    }
     [SigDataSource.share.groups addObject:group];
 
     SigDataSource.share.meshUUID = netkey.key;
@@ -265,7 +287,9 @@ RCT_EXPORT_MODULE()
 //    [SigDataSource.share loadEncryptedNodeIdentityList];
 
 //    [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
-    [[NSUserDefaults standardUserDefaults] setObject:@((UInt32)provisionerSno) forKey:kCurrenProvisionerSno_key];
+    if (!isReplaceMeshSetting) {
+        [[NSUserDefaults standardUserDefaults] setObject:@((UInt32)provisionerSno) forKey:kCurrenProvisionerSno_key];
+    }
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
@@ -284,7 +308,7 @@ RCT_EXPORT_MODULE()
 }
 
 - (void)startMeshSDK:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex {
-    [self initMesh:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex];
+    [self initMesh:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex isReplaceMeshSetting:false];
     [self initMeshLib];
     [Bluetooth.share.commandHandle provisionLocation:[netKey dataUsingEncoding:NSUTF8StringEncoding] withLocationAddress:(int)meshAddressOfApp netketIndex:0];
 }
@@ -1049,6 +1073,20 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
     if (resolve != nil) {
         resolve(dict);
+    }
+}
+
+RCT_EXPORT_METHOD(replaceMeshSetting:(NSString *)netKey appKey:(NSString *)appKey devices:(NSArray *)devices) {
+    [self initMesh:netKey appKey:appKey meshAddressOfApp:32768 devices:devices provisionerSno:129 provisionerIvIndex:0 isReplaceMeshSetting:true];
+    [SigDataSource.share checkExistLocationProvisioner];
+    [SigDataSource.share writeDataSourceToLib];
+    [SigDataSource.share.scanList removeAllObjects];
+    [SigDataSource.share.matchsNodeIdentityArray removeAllObjects];
+    [SigDataSource.share.noMatchsNodeIdentityArray removeAllObjects];
+    init_json();
+
+    if (Bluetooth.share.currentPeripheral) {
+        [Bluetooth.share cancelConnection:Bluetooth.share.currentPeripheral complete:nil];
     }
 }
 
