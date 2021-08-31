@@ -1195,6 +1195,7 @@ class TelinkBtSig {
         nodeBulbs = 96, // 灯串上激活灯的个数,最大值为 65535
         collideCenter = 40, // 碰撞特效的碰撞位置，因为灯串摆成树形时，碰撞位置如果为总灯数的 1/2 的话不好看
         flagPercent = 100, // 国旗模式下相邻两个颜色所属灯串长度百分比
+        gamma_enable = 0,  // 是否启用灯串固件内置 gamma 校正，一般不校正，否则（可能固件代码有 BUG 导致）颜色不正常
         immediate = false,
     }) {
         NativeModule.sendCommand(0x0211E8, meshAddress, [
@@ -1204,6 +1205,7 @@ class TelinkBtSig {
             timeSequence,
             collideCenter,
             flagPercent,
+            gamma_enable,
             (nodeBulbs >>> 8) & 0xFF,
         ], immediate);
     }
