@@ -1800,6 +1800,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 if (mConfigNodePromise != null) {
                     return;
                 }
+
+                if (getDeviceByMacAddress(mService.getCurDeviceMac()) == null) {
+                    return;
+                }
+
                 // 这里在 login 后自动进行“设置时间信息”的操作，
                 // 其实本来这些代码是当初移植时不知道具体用途而暂时遗留下来的，
                 // 按说现在“设置时间信息”放在 JavaScript 代码中进行后这些代码就没有必要存在了，
