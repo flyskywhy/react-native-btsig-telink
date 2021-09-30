@@ -155,6 +155,7 @@ class TelinkBtSig {
     static canConfigEvenDisconnected = true;
     static needClaimedBeforeConnect = true;
     static isClaiming = false;
+    static needSceneSync = true;
 
     static del4GroupStillSendOriginGroupAddress = true;
     static defaultAllGroupAddress = 0xFFFF;
@@ -981,7 +982,7 @@ class TelinkBtSig {
         sceneSyncMeshAddress,
         immediate = false,
     }) {
-        if (sceneSyncMeshAddress !== undefined && sceneSyncMeshAddress !== null && sceneSyncMeshAddress !== this.lastSceneSyncMeshAddress) {
+        if (this.needSceneSync && sceneSyncMeshAddress !== undefined && sceneSyncMeshAddress !== null && sceneSyncMeshAddress !== this.lastSceneSyncMeshAddress) {
             this.lastSceneSyncMeshAddress = sceneSyncMeshAddress;
             // 设置同步的消息里的参数里的 mesh 地址（不是消息本身的目的地址）需要传输两个字节，因为固件那里是按 u16 读取参数中的两个字节的
             let addrLowByte = sceneSyncMeshAddress & 0xFF;
