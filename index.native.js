@@ -339,8 +339,8 @@ class TelinkBtSig {
     }
 
     static startScan({
-        timeoutSeconds,
-        isSingleNode,
+        timeoutSeconds = 15,
+        isSingleNode = false,
     }) {
         this.isClaiming = false;
         return NativeModule.startScan(timeoutSeconds, isSingleNode);

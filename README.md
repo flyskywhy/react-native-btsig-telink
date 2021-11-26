@@ -104,6 +104,10 @@ export default class MeshModuleExample extends React.Component {
     componentDidMount() {
         meshModule.addListener('leScan', this.onLeScan);
         meshModule.doInit();
+        meshModule.startScan({
+            isSingleNode: false, // if true, will stop scan after found one device
+            timeoutSeconds: 10,
+        });
     }
 
     onLeScan = data => console.warn(data)
@@ -115,6 +119,8 @@ export default class MeshModuleExample extends React.Component {
     }
 }
 ```
+
+Please discover more in `index.native.js`.
 
 ## Donate
 To support my work, please consider donate.
