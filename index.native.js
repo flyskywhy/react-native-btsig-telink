@@ -1167,13 +1167,29 @@ class TelinkBtSig {
         ], immediate);
     }
 
-    static flashWriteAttr({ // 设置灯串信息
+    static rgbSequence = {
+        rgb: 1,
+        RGB: 1,
+        rbg: 2,
+        RBG: 2,
+        brg: 3,
+        BRG: 3,
+        bgr: 4,
+        BGR: 4,
+        grb: 5,
+        GRB: 5,
+        gbr: 6,
+        GBR: 6,
+    };
+
+    static flashWriteAttr({ // 设置灯串信息（工厂使用）
         meshAddress,
         timeSequence = 1, // 灯串时序，1 为短时序，0 为长时序
-        nodeBulbs = 96, // 灯串上激活灯的个数,最大值为 65535
+        nodeBulbs = 96, // 灯串上激活灯珠的个数,最大值为 65535
         collideCenter = 40, // 碰撞特效的碰撞位置，因为灯串摆成树形时，碰撞位置如果为总灯数的 1/2 的话不好看
         flagPercent = 100, // 国旗模式下相邻两个颜色所属灯串长度百分比
         gamma_enable = 0,  // 是否启用灯串固件内置 gamma 校正，一般不校正，否则（可能固件代码有 BUG 导致）颜色不正常
+        rgbSequence = 'rgb', // 灯珠的 rgb 顺序
         immediate = false,
     }) {
         NativeModule.sendCommand(0x0211E8, meshAddress, [
@@ -1184,6 +1200,20 @@ class TelinkBtSig {
             collideCenter,
             flagPercent,
             gamma_enable,
+            (nodeBulbs >>> 8) & 0xFF,
+            this.rgbSequence.hasOwnProperty(rgbSequence) ? this.rgbSequence[rgbSequence] : 1,
+        ], immediate);
+    }
+
+    static flashWriteAttrByUser({ // 设置灯串信息（普通用户使用）
+        meshAddress,
+        nodeBulbs = 96, // 灯串上激活灯珠的个数,最大值为 65535
+        immediate = false,
+    }) {
+        NativeModule.sendCommand(0x0211F7, meshAddress, [
+            0,
+            0,
+            nodeBulbs & 0xFF,
             (nodeBulbs >>> 8) & 0xFF,
         ], immediate);
     }
