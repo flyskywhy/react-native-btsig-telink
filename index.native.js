@@ -572,6 +572,7 @@ class TelinkBtSig {
         meshAddress,
         sceneSyncMeshAddress,
         scene,
+        gifName,
         hue = 0,
         saturation = 0,
         value,
@@ -957,6 +958,12 @@ class TelinkBtSig {
                                     // 这里一定要先发上面的效果切换命令 0xE4 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
                                     // NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 }
+                                changed = true;
+                                break;
+                            }
+                            case 0xa0: {
+                                                                                                // 这里的 1 是保留字节，也许后续有用         // 这里的 0 是用来表明字符串结尾以利于固件 C 语言之用？
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, ...Array.from(gifName).map((char) => char.charCodeAt()), 0], immediate);
                                 changed = true;
                                 break;
                             }
