@@ -572,7 +572,7 @@ class TelinkBtSig {
         meshAddress,
         sceneSyncMeshAddress,
         scene,
-        gifName,
+        text = 'flyskywhy',
         hue = 0,
         saturation = 0,
         value,
@@ -851,7 +851,7 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             case 46:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
                                 changed = true;
                                 break;
                             case 47:
@@ -962,8 +962,8 @@ class TelinkBtSig {
                                 break;
                             }
                             case 0xa0: {
-                                                                                                // 这里的 1 是保留字节，也许后续有用         // 这里的 0 是用来表明字符串结尾以利于固件 C 语言之用？
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, ...Array.from(gifName).map((char) => char.charCodeAt()), 0], immediate);
+                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 语言之用？
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
                                 changed = true;
                                 break;
                             }
