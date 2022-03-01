@@ -590,6 +590,13 @@ class TelinkBtSig {
         data = [],
         isEditingCustom = false,
         speed = -2,
+
+        bmpsIndex,
+        bmpsCount,
+        bmpChunksIndex,
+        bmpChunksCount,
+        bmpChunk,
+
         type,
         immediate = false,
     }) {
@@ -964,6 +971,15 @@ class TelinkBtSig {
                             case 0xa0: {
                                                                                                                                       // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 语言之用？
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
+                                changed = true;
+                                break;
+                            }
+                            case 0xa1: {
+                                let dataType = 0;                                       // 后续数据的压缩类型， 0 代表无压缩
+                                let dataLengthLowByte = bmpChunk.length & 0xFF;         // 后续数据压缩后的字节长度，由两个字节表示，本字节为低位字节，本字节并不计算在该长度之内
+                                let dataLengthHightByte = bmpChunk.length >> 8 & 0xFF;  // 后续数据压缩后的字节长度，由两个字节表示，本字节为高位字节，本字节并不计算在该长度之内
+                                                                                     // 这里的 speed 就是 gif 的 fps                                // 这里的 1 是保留字节，也许后续有用
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, bmpsIndex, bmpsCount, bmpChunksIndex, bmpChunksCount, 1, dataType, dataLengthLowByte, dataLengthHightByte, ...bmpChunk], immediate);
                                 changed = true;
                                 break;
                             }
