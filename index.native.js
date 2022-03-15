@@ -591,11 +591,13 @@ class TelinkBtSig {
         isEditingCustom = false,
         speed = -2,
 
-        bmpsIndex,
-        bmpsCount,
-        bmpChunksIndex,
-        bmpChunksCount,
-        bmpChunk,
+        bigDataAction,
+        bigDataType = 0,
+        datasIndex,
+        datasCount,
+        chunksIndex,
+        chunksCount,
+        chunk,
 
         type,
         immediate = false,
@@ -958,11 +960,11 @@ class TelinkBtSig {
                                     NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed], immediate);
                                     // 这里之所以将数据命令 0xF4 注释掉，是为了解决效果间快速切换时，如果自定义效果散点较多也就是需
                                     // 更多数据发送时间，而同时从自定义效果切出去时太快的话就会导致下一个效果的命令没生效的 BUG
-                                    // 至于灯串固件中已经保存了自定义数据，但切换时仍然再发一遍的原因，是如果不同用户手机上保存着自己
+                                    // 至于以前之所以灯串固件中已经保存了自定义数据，但切换时仍然 0xF4 再发一遍的原因，是如果不同用户手机上保存着自己
                                     // 的与别人不同的自定义效果数据，此时只发效果切换命令的话，手机模拟显示与实际灯串不同，可能会被认
                                     // 为是瑕疵，但这个瑕疵可以让用户在创建自定义页面重新保存到固件来解决，所以用户也不一定认为是 BUG
                                     // await this.sleepMs(this.DELAY_MS_COMMAND);
-                                    // 这里一定要先发上面的效果切换命令 0xE4 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
+                                    // 这里一定要先发上面的效果切换命令 0xE6 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
                                     // NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], immediate);
                                 }
                                 changed = true;
@@ -975,12 +977,92 @@ class TelinkBtSig {
                                 break;
                             }
                             case 0xa1: {
-                                let dataType = 0;                                       // 后续数据的压缩类型， 0 代表无压缩
-                                let dataLengthLowByte = bmpChunk.length & 0xFF;         // 后续数据压缩后的字节长度，由两个字节表示，本字节为低位字节，本字节并不计算在该长度之内
-                                let dataLengthHightByte = bmpChunk.length >> 8 & 0xFF;  // 后续数据压缩后的字节长度，由两个字节表示，本字节为高位字节，本字节并不计算在该长度之内
-                                                                                     // 这里的 speed 就是 gif 的 fps                                // 这里的 1 是保留字节，也许后续有用
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, bmpsIndex, bmpsCount, bmpChunksIndex, bmpChunksCount, 1, dataType, dataLengthLowByte, dataLengthHightByte, ...bmpChunk], immediate);
-                                changed = true;
+// 大数据传输协议，协议之所以如此制定的原因：
+
+// * telink sig mesh SDK 中发送一个消息的最大数据是 380 字节，而一幅 bmp 数据就要 1KB 多，一个消息肯定容不下，更不要说多幅 bmp 来表示 gif 了
+// * telink sig mesh SDK 未提供大数据传输 API ，虽说可以参考 OTA 传输大数据的 GATT 协议，但 GATT 需要单对单连接，而我们灯串的常用场景是单对多广播数据，而且就算我们自己定义一套往复传输协议，也很难解决单往多发送后多回复单的复杂处理问题
+// * 因此这里定的协议传输方式就是与以往效果切换一样的广播模式，然后由灯串固件自行将 datasIndex datasCount 和 chunksIndex chunksCount 所索引的数据拼接为多幅 bmp 或一个 gif 数据
+// * 这样的协议，也可以在 WiFi 灯串上实现，从而使得蓝牙和 WiFi 灯串可以维护基本相同的大数据发送代码
+// * 测试发现，发送 340 字节，需要花 8 秒才能在固件上接收完，这样算下来，数据传输率只有 42 Byte/S ，远低于 GATT 的 1KB/S ，不过还是考虑到上面提到的原因，再加上 gif 数据量是 bmp 的一半左右，所以我们仍然继续使用 mesh 进行传输，只不过在固件中内嵌 gif 解码功能，然后把传输几个 bmp 数据修改为传输一个 gif 数据
+
+// 每条消息会包含一段 chunk 数据，所谓 chunk 指的是一个数组内容的一部分，而整体上完整的数据则是一个二维数组：
+
+// * 当传输几个 bmp 数据时：[[bmp1][bmp2]...[bmpN]]
+// * 当传输一个 gif 数据时：[[gif]]
+
+// ### 传输数据的消息数据格式
+
+//     scene,          // 效果的 id
+//     action,         // 0: 传输数据。固件此时可以仅仅在内存中放置数据
+//     speed,          // 速度。 bmp 时指 gif 的 fps ； gif 时该值无所谓（因为 gif 文件内含 fps ）
+//     datasIndex,     // 当前 chunk 属于二维数组中的哪个数组。 bmp 时，表明当前 chunk 属于第 0...n 幅的 bmp ； gif 时，总为 0
+//     datasCount,     // 二维数组包含几个数组。 bmp 时，一共几幅 bmp ； gif 时，总为 1
+//     chunksIndex,    // 当前 chunk 属于当前数组的第 0...n 部分
+//     chunksCount,    // 当前数组一共几段 chunk
+//     rev,            // 保留字节，也许后续有用
+//     dataType,       // 数组中数据的类型， 0: 固件自己从数据头中判断，比如 bmp 数据头二个字节一般为 BM ， gif 为 GIF ； 1: 显式指定为 gif ； 2: 显式指定为 bmp
+//     chunkLengthLowByte,  // 当前 chunk 的字节长度，由两个字节表示，本字节为低位字节，本字节并不计算在该长度之内
+//     chunkLengthHightByte,// 当前 chunk 的字节长度，由两个字节表示，本字节为高位字节，本字节并不计算在该长度之内
+//     chunk[0],       // chunk 的第一个字节
+//     chunk[1],       // chunk 的第二个字节
+//     ...
+//     chunk[n],       // 以此类推
+
+// 考虑到用户操作 APP 修改 gif 时会希望灯串能及时响应， APP 的行为已设定为就算代表一个 gif 的多段 chunk 还没有发送完，只要用户一生成（或切换）新的 gif ， APP 就会停止发送之前还剩余的几段 chunk ，转而重新开始发送新 gif ，因而灯串固件只要发现新收到的消息中， datasIndex 和 chunksIndex 都为 0 ，就表明新的 gif 数据过来了，如果之前旧的 gif 数据已接收了一部分，也立即放弃旧数据。
+
+// ### 保存数据的消息数据格式
+
+//     scene,          // 效果的 id
+//     action,         // 1: 保存数据。固件将之前放置在内存中的数据以 fileName[] 的名义保存到 flash 中
+//     rev,            // 保留字节，也许后续有用
+//     fileName[0],    // fileName 字符串的第一个 ascii 字符值
+//     fileName[1],    // fileName 字符串的第二个 ascii 字符值
+//     ...
+//     fileName[n],    // 以此类推
+//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 语言之用
+
+// ### 在灯串上展示数据的消息数据格式
+
+//     scene,          // 效果的 id
+//     action,         // 2: 展示数据。固件将之前以 fileName[] 的名义保存在 flash 中的数据展示到灯串上
+//     speed,          // 速度。 bmp 时指 gif 的 fps ； gif 时，如果该值为 0 ，则使用 gif 文件内含的 fps ，否则用该值替代
+//     1,              // 颜色个数为 1
+//     reserve,        // 固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t
+//     color3.r,
+//     color3.g,
+//     color3.b;       // 颜色
+//     rev,            // 保留字节，也许后续有用
+//     fileName[0],    // fileName 字符串的第一个 ascii 字符值
+//     fileName[1],    // fileName 字符串的第二个 ascii 字符值
+//     ...
+//     fileName[n],    // 以此类推
+//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 语言之用
+
+// ### 删除数据的消息数据格式
+
+//     scene,          // 效果的 id
+//     action,         // 4: 删除数据。固件删除之前以 fileName[] 的名义保存在 flash 中的数据
+//     rev,            // 保留字节，也许后续有用
+//     fileName[0],    // fileName 字符串的第一个 ascii 字符值
+//     fileName[1],    // fileName 字符串的第二个 ascii 字符值
+//     ...
+//     fileName[n],    // 以此类推
+//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 语言之用
+
+                               switch (bigDataAction) {
+                                    case 0: {
+                                        let chunkLengthLowByte = chunk.length & 0xFF;
+                                        let chunkLengthHightByte = chunk.length >> 8 & 0xFF;
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, bigDataAction, speed, datasIndex, datasCount, chunksIndex, chunksCount, 1, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk], immediate);
+                                        changed = true;
+                                        break;
+                                    }
+                                    case 1: {
+                                        break;
+                                    }
+                                    default:
+                                        break;
+                                }
                                 break;
                             }
                             default:
