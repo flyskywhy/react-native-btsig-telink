@@ -1057,7 +1057,15 @@ class TelinkBtSig {
                                         changed = true;
                                         break;
                                     }
-                                    case 1: {
+                                    case 1:
+                                    case 4: {
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, bigDataAction, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
+                                        changed = true;
+                                        break;
+                                    }
+                                    case 2: {
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
+                                        changed = true;
                                         break;
                                     }
                                     default:
