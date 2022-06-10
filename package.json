@@ -1,6 +1,6 @@
 {
   "name": "react-native-btsig-telink",
-  "version": "1.3.23",
+  "version": "1.3.24",
   "description": "Component implementation for Bluetooth SIG Mesh SDK of Telink",
   "main": "index",
   "scripts": {
