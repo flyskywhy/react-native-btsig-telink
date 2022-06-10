@@ -572,6 +572,8 @@ class TelinkBtSig {
         meshAddress,
         sceneSyncMeshAddress,
         scene,
+        sceneMode = 0, // e.g. 二维图片的平移方向
+        sceneModeOpt = 0, // e.g. 二维图片斜向平移时是否填充空边
         text = 'flyskywhy',
         hue = 0,
         saturation = 0,
@@ -867,6 +869,26 @@ class TelinkBtSig {
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b], immediate);
                                 changed = true;
                                 break;
+                            case 49:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b], immediate);
+                                changed = true;
+                                break;
+                            case 50:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b], immediate);
+                                changed = true;
+                                break;
+                            case 51:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3], immediate);
+                                changed = true;
+                                break;
+                            case 52:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3], immediate);
+                                changed = true;
+                                break;
+                            case 53:
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3], immediate);
+                                changed = true;
+                                break;
 
                             // [
                             //     // 以下是自定义效果命令参数中每个字节的含义
@@ -971,7 +993,7 @@ class TelinkBtSig {
                                 break;
                             }
                             case 0xa0: {
-                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 语言之用？
+                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
                                 changed = true;
                                 break;
@@ -1019,7 +1041,7 @@ class TelinkBtSig {
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
 //     fileName[n],    // 以此类推
-//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 语言之用
+//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 代码判断之用
 
 // ### 在灯串上展示数据的消息数据格式
 
@@ -1036,7 +1058,7 @@ class TelinkBtSig {
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
 //     fileName[n],    // 以此类推
-//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 语言之用
+//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 代码判断之用
 
 // ### 删除数据的消息数据格式
 
@@ -1047,7 +1069,7 @@ class TelinkBtSig {
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
 //     fileName[n],    // 以此类推
-//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 语言之用
+//     0,              // 用来表明 fileName 字符串结尾以利于固件 C 代码判断之用
 
                                switch (bigDataAction) {
                                     case 0: {
@@ -1071,6 +1093,18 @@ class TelinkBtSig {
                                     default:
                                         break;
                                 }
+                                break;
+                            }
+                            case 0xa2: {
+                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
+                                changed = true;
+                                break;
+                            }
+                            case 0xa3: {
+                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, sceneMode, sceneModeOpt, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0], immediate);
+                                changed = true;
                                 break;
                             }
                             default:
