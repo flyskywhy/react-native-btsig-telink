@@ -1653,6 +1653,13 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 // after set cps_head in set_dev_uuid_for_simple_flow() of telink_sig_mesh/vendor/common/mesh_common.c
 // scanRecord: 02:01:06:03:03:27:18:15:16:27:18:11:02:78:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:78:FB:03:04:05:06:07:08:09:0A:0B:00:00
 
+        PrivateDevice prvDevice = getPrivateDevice(advDevice.scanRecord);
+
+        WritableArray rsvUser = Arguments.createArray();
+        for (int i = 49; i < 60; i++) {
+            rsvUser.pushInt(advDevice.scanRecord[i] & 0xFF);
+        }
+
         WritableMap params = Arguments.createMap();
         params.putString("macAddress", btDevice.getAddress());
         // params.putString("deviceName", btDevice.getName());
@@ -1661,6 +1668,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // params.putInt("meshUUID", btDevice.getUuids());
         params.putInt("productUUID", (advDevice.scanRecord[49] & 0xFF) + (((advDevice.scanRecord[50] & 0xFF) << 8)));
         // params.putInt("status", btDevice.getBondState());
+        params.putArray("rsvUser", rsvUser);
         sendEvent(LE_SCAN, params);
     }
 
