@@ -738,6 +738,14 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                     // [event setObject:[NSNumber numberWithInt:scanRspModel.uuid] forKey:@"meshUUID"];
                     [event setObject:[NSNumber numberWithInt:scanRspModel.PID] forKey:@"productUUID"];
                     // [event setObject:[NSNumber numberWithInt:scanRspModel.CID] forKey:@"status"];
+                    if (scanRspModel.rsvUser != nil) {
+                        char *buffer = (char *)scanRspModel.rsvUser.bytes;
+                        NSMutableArray *rsvUser = [[NSMutableArray alloc] init];
+                        for (int i = 0; i < scanRspModel.rsvUser.length; i++) {
+                            [rsvUser addObject:[NSNumber numberWithUnsignedChar:buffer[i]]];
+                        }
+                        [event setObject:rsvUser forKey:@"rsvUser"];
+                    }
                     [weakSelf sendEventWithName:@"leScan" body:event];
                 }
             }

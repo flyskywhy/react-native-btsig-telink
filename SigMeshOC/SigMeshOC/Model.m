@@ -326,6 +326,7 @@
         _macAddress = [coder decodeObjectForKey:kSigScanRspModel_mac_key];
         _CID = [coder decodeIntegerForKey:kSigScanRspModel_CID_key];
         _PID = [coder decodeIntegerForKey:kSigScanRspModel_PID_key];
+        _rsvUser = [coder decodeObjectForKey:kSigScanRspModel_rsvUser_key];
         _networkIDData = [coder decodeObjectForKey:kSigScanRspModel_nodeIdentityData_key];
         _nodeIdentityData = [coder decodeObjectForKey:kSigScanRspModel_networkIDData_key];
     }
@@ -339,6 +340,7 @@
     [coder encodeObject:_macAddress forKey:kSigScanRspModel_mac_key];
     [coder encodeInteger:_CID forKey:kSigScanRspModel_CID_key];
     [coder encodeInteger:_PID forKey:kSigScanRspModel_PID_key];
+    [coder encodeObject:_rsvUser forKey:kSigScanRspModel_rsvUser_key];
     [coder encodeObject:_networkIDData forKey:kSigScanRspModel_nodeIdentityData_key];
     [coder encodeObject:_nodeIdentityData forKey:kSigScanRspModel_networkIDData_key];
 }
@@ -391,6 +393,7 @@
             if (allData) {
                 if (allData.length >= 6) {
                     _macAddress = [LibTools convertDataToHexStr:[LibTools turnOverData:[allData subdataWithRange:NSMakeRange(0, 6)]]];
+                    _rsvUser = [allData subdataWithRange:NSMakeRange(18, 11)];
                 }
                 if (allData.length >= 8) {
                     _address = [LibTools uint16From16String:[LibTools convertDataToHexStr:[LibTools turnOverData:[allData subdataWithRange:NSMakeRange(6, 2)]]]];
@@ -398,6 +401,7 @@
             }
         }else{
             _macAddress = nil;
+            _rsvUser = nil;
             _address = 0;
         }
         if ([advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {

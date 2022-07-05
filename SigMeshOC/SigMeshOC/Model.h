@@ -221,6 +221,7 @@ typedef enum : UInt16 {
 @property (nonatomic, strong) NSString *macAddress;
 @property (nonatomic, assign) UInt16 CID;//企业ID，默认为0x0211，十进制为529.
 @property (nonatomic, assign) UInt16 PID;//产品ID，CT灯为1，面板panel为7.
+@property (nonatomic, strong) NSData *rsvUser;
 
 @property (nonatomic, strong) NSString *uuid;
 @property (nonatomic, assign) UInt16 address;

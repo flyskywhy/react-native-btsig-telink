@@ -159,6 +159,7 @@
 #define kSigScanRspModel_mac_key @"sigScanRspModel_mac_key"
 #define kSigScanRspModel_CID_key @"sigScanRspModel_CID_key"
 #define kSigScanRspModel_PID_key @"sigScanRspModel_PID_key"
+#define kSigScanRspModel_rsvUser_key @"sigScanRspModel_rsvUser_key"
 #define kSigScanRspModel_nodeIdentityData_key @"sigScanRspModel_nodeIdentityData_key"
 #define kSigScanRspModel_networkIDData_key @"sigScanRspModel_networkIDData_key"
 //SigEncryptedModel
