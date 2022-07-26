@@ -1486,7 +1486,8 @@ class TelinkBtSig {
     }
 
     static isValidFirmware(firmware) {
-        return firmware[0] === 0x26 &&
+        return (firmware[0] === 0x26 || // telink sdk 3.1.0
+            firmware[0] === 0x56) && // telink sdk 3.3.3.5
             (firmware[1] & 0xFF) === 0x80 &&
             firmware.length > 6;
     }
