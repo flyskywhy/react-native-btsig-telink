@@ -4,22 +4,15 @@ android {
     compileSdkVersion 29
 
     defaultConfig {
-        minSdkVersion 18
+        minSdkVersion 21
         targetSdkVersion 29
-        versionCode 15
-        versionName "3.1.0"
-        ndk {
-//            abiFilters 'x86', 'x86_64', 'armeabi', 'armeabi-v7a', 'arm64-v8a'
-//            abiFilters 'armeabi'
-        }
-        externalNativeBuild {
-            cmake {
-                cppFlags "-frtti -fexceptions"
-//                arguments "-DANDROID_NATIVE_API_LEVEL=android-19"
-            }
-        }
+        versionCode 3
+        versionName "3.3.3.5"
+
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
     }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -27,17 +20,17 @@ android {
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path "CMakeLists.txt"
-        }
-    }
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'androidx.appcompat:appcompat:1.0.2'
     implementation "com.facebook.react:react-native:+"
+
     implementation 'com.madgag.spongycastle:core:1.58.0.0'
     implementation 'com.madgag.spongycastle:prov:1.58.0.0'
+
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'com.android.support.test:runner:0.5'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:2.2.2'
 }
