@@ -982,7 +982,7 @@ class TelinkBtSig {
                                 if (isEditingCustom) {
                                     NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData, productCategory], immediate);
                                 } else {
-                                    NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, productCategory], immediate);
+                                    NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 0, productCategory], immediate);
                                     // 这里之所以将数据命令 0xF4 注释掉，是为了解决效果间快速切换时，如果自定义效果散点较多也就是需
                                     // 更多数据发送时间，而同时从自定义效果切出去时太快的话就会导致下一个效果的命令没生效的 BUG
                                     // 至于以前之所以灯串固件中已经保存了自定义数据，但切换时仍然 0xF4 再发一遍的原因，是如果不同用户手机上保存着自己
