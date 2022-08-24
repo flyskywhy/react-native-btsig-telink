@@ -1,4 +1,4 @@
-package com.telink.sig.mesh;
+package com.telink.ble.mesh;
 
 import android.app.Activity;
 

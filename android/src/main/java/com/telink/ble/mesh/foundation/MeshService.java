@@ -41,6 +41,7 @@ import com.telink.ble.mesh.foundation.parameter.ScanParameters;
 import com.telink.ble.mesh.util.MeshLogger;
 
 import java.security.Security;
+import java.util.Set;
 
 /**
  * Created by kee on 2019/8/26.
@@ -253,6 +254,10 @@ public class MeshService implements MeshController.EventCallback {
         return mController.getMtu();
     }
 
+    public void clearMeshMessage() {
+        mController.clearMeshMessage();
+    }
+
     /**
      * send mesh message
      * 1. if message is reliable (with ack), message.responseOpcode should be valued by message ack opcode
@@ -277,6 +282,10 @@ public class MeshService implements MeshController.EventCallback {
      */
     public boolean getOnlineStatus() {
         return mController.getOnlineStatus();
+    }
+
+    public Set getAdvDevices() {
+        return mController.getAdvDevices();
     }
 
 

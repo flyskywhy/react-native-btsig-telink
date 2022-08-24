@@ -17,13 +17,15 @@ class TelinkBtSig {
     // 或小米等相关产品的设备数都在 100 以内，由于设备数越多，需要设
     // 备上的 ram 越大，越贵，所以一般蓝牙模块提供商只会批量提供 ram
     // 刚够用 200 设备数左右的模块。
-    // 另外，在 `SIG Mesh iOS APP(OC版本)使用以及开发手册.docx`
+    // 另外，在 `telink_sig_mesh_sdk_v3.3.3.5/app/ios/document/TelinkSigMeshLib开放源代码版本SDK使用以及开发手册.docx`
     // 中提到地址范围是 1~0x7eff
     // static MESH_ADDRESS_MAX = 0x7EFF;
     // static MESH_ADDRESS_MAX = 0x7FFF;
 
     static GROUP_ADDRESS_MIN = 0xC001;
     static GROUP_ADDRESS_MAX = 0xC0FF;
+    // `telink_sig_mesh_sdk_v3.3.3.5/app/android/TelinkBleMesh/TelinkBleMesh/TelinkBleMeshDemo/src/main/java/com/telink/ble/mesh/model/Scene.java`
+    // 中提到组地址范围是 C000 - 0xFEFF ？
     // static GROUP_ADDRESS_MAX = 0xFEFF;
     static GROUP_ADDRESS_MASK = 0x00FF;
     static HUE_MIN = 0;
@@ -61,8 +63,9 @@ class TelinkBtSig {
     static NODE_STATUS_OFFLINE = -1;
     static RELAY_TIMES_MAX = 16;
     static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 500;
-    // telink sig mesh 的 SDK 中没有自带命令队列然后自动在命令间加入延时，所以需要
+    // telink_sig_mesh_sdk_v3.1.0 中没有自带命令队列然后自动在命令间加入延时，所以需要
     // 手动加入足够延时，否则比如连续两次设置开关，则第 2 个设备极有可能收不到开关命令
+    // 虽然 telink_sig_mesh_sdk_v3.3.3.5 中已经自带命令队列，但还是沿用该经验值吧
     static DELAY_MS_COMMAND = 500;
     static ALARM_CREATE = 0;
     static ALARM_REMOVE = 1;
@@ -89,6 +92,9 @@ class TelinkBtSig {
     static ALARM_ACTION_NO = 0xF;
     static ALARM_TYPE_DAY = 0;
     static ALARM_TYPE_WEEK = 1;
+
+    // ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
+    static OPCODE_INVALID = -1;
 
     static passthroughMode = undefined; // 通过串口或者说自定义发送数据来控制蓝牙节点
     static gamma = [  // gamma 2.4 ，normal color ，据说较暗时颜色经 gamma 校正后会比较准
@@ -178,6 +184,25 @@ class TelinkBtSig {
     static meshAddressOfApp = this.MESH_ADDRESS_MAX + parseInt(Math.random() * 10000, 10);
 
     static devices = [];
+
+    static EXTEND_BEARER_MODE = {
+        // no extension
+        // 42B/s
+        NONE: 0,
+
+        /// gatt only
+        // 42B/s
+        GATT: 1,
+
+        /// gatt and adv
+        // also need change firmware:
+        //     set EXTENDED_ADV_ENABLE to 1 in `vendor/common/mesh_config.h`
+        //     (maybe) let is_not_use_extend_adv() return 0 in `vendor/common/mesh_node.c`
+        // 8KB/s
+        GATT_ADV: 2,
+    };
+    static extendBearerMode = this.EXTEND_BEARER_MODE.NONE;
+
     static provisionerSno = 0;
     static provisionerIvIndex = 0;
 
@@ -193,12 +218,12 @@ class TelinkBtSig {
                 nodeInfo: this.hexString2ByteArray(device.nodeInfo),
             };
 
-        // }), this.provisionerSno, this.provisionerIvIndex);
-        // 实测发现，不管上面的 ivIndex ，甚至也不用管 sno ，而是每次打开 APP 时将这两者都设为 0 ，然后每次就都可以连接上了。
+        // }), this.provisionerSno, this.provisionerIvIndex,
+        // telink sdk 3.1.0 实测发现，不管上面的 ivIndex ，甚至也不用管 sno ，而是每次打开 APP 时将这两者都设为 0 ，然后每次就都可以连接上了。
         // 唯一的例外是如果 APP 一直开在那里足够长时间，然后 sno 足够大时让 ivIndex 变成 1 后，就再也连不上了，而按照
         // int sno 溢出计算，这个“足够长时间”是好几年，而一般 APP 应用情景不可能连续开启几年，所以这两者都设为 0 就可以了。
 
-        // 以下现象在 Android 上测了许多次，在 iOS 测得少一点，但也有此现象：
+        // telink sdk 3.1.0 以下现象在 Android 上测了许多次，在 iOS 测得少一点，但也有此现象：
         // 0、不论之前 sno 是多少，（上面随机 meshAddressOfApp 所提到的额外好处？）再次用 sno 0 （会瞬间由手机上的 sdk store 变为 128）来打开手机，仍然能够连上蓝牙设备
         // （然后设备的 sno 从 128 开始 store 回手机，然后每隔 17 秒 store + 129 ）。
         // 1、代码中写死以 ivIndex 1 进行设备认领、连接，然后重启 APP 进行连接时从打印信息可以看到，先是 retrieve 了
@@ -213,8 +238,10 @@ class TelinkBtSig {
         // 分享出去且不在现场的手机，后续将永远连接不上蓝牙设备。
         // }), 0, 0);
 
-        // 如果不设成 129 而设成 0 的话，有时候删除设备时会一直没有任何动静
-        }), 129, 0);
+        // telink sdk 3.1.0 上测得如果不设成 129 而设成 0 的话，有时候删除设备时会一直没有任何动静
+        // telink sdk 3.3.3.5 上懒得再把上面都测一遍了，就这样吧
+        }), 129, 0,
+        this.extendBearerMode);
     }
 
     static doDestroy() {
@@ -249,14 +276,16 @@ class TelinkBtSig {
         NativeModule.enableSystemLocation();
     }
 
+    static resetExtendBearerMode() {
+        NativeModule.resetExtendBearerMode(this.extendBearerMode);
+    }
+
     static notModeAutoConnectMesh() {
         return NativeModule.notModeAutoConnectMesh();
     }
 
-    static autoConnect({
-        userMeshPwd,
-    }) {
-        return NativeModule.autoConnect(userMeshPwd);
+    static autoConnect({}) {
+        NativeModule.autoConnect();
     }
 
     static async postConnected({
@@ -273,7 +302,7 @@ class TelinkBtSig {
         this.lastSceneSyncMeshAddress = undefined;
 
         this.remind({
-            meshAddress: 0xFFFF,
+            meshAddress: this.defaultAllGroupAddress,
         })
 
         await this.sleepMs(this.DELAY_MS_COMMAND);
@@ -285,21 +314,16 @@ class TelinkBtSig {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(preDefinedType)) {
                     if (mode === 'silan') {
-                        // 估计是 telink sig Android SDK 或固件的 bug ，在多个灯串时莫名
-                        // 返回离线，所以只能无视 public void saveOrUpdateJS() 中对
-                        // hasOnlineStatusNotifyRaw 的赋值，而强制给这里的 if 喂 true
-                        if (true /* !this.hasOnlineStatusNotifyRaw */) {
-                            // 它返回 的 onVendorResponse 的 opcode 是 0x0211E3
-                            NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
+                        // 因为上面的 this.remind() 爆闪时导致固件有几个瞬间是处于开灯状态的，所以等待爆闪结束时
+                        // 用 0x0211E1 发起开关灯状态查询，才能得到正确的开关灯状态。
+                        // sleepMs 等待爆闪结束的时间长短，可以通过在关灯情况下再打开 APP 看是否能获得 2 个设备
+                        // 的关灯状态的测试方式来调节
+                        await this.sleepMs(1000);
+                        // 我们项目的固件里将 0x0211E1 返回的 TelinkBtSigNativeModule.onVendorResponse 的 opcode 设为了 0x0211E3 ，
+                        // 这就是为何下面的 parseVendorResponse() 中有 0x0211E3 存在
+                        NativeModule.sendCommand(0x0211E1, this.defaultAllGroupAddress, [], this.OPCODE_INVALID, -1, false);
 
-                            // 可能因为上面的 this.remind 导致固件开灯了一会而需要再次查看开关状态
-                            await this.sleepMs(this.DELAY_MS_COMMAND);
-                            NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
-                            // 测试发现还需要再次查看开关状态才能保证关灯情况下 APP 打开时能获得 2 个设备的关灯状态
-                            await this.sleepMs(this.DELAY_MS_COMMAND);
-                            NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], immediate);
-                            changed = true;
-                        }
+                        changed = true;
                     }
                     break;
                 }
@@ -310,19 +334,22 @@ class TelinkBtSig {
             if (!this.hasOnlineStatusNotifyRaw) {
                 // 如果后续从蓝牙设备固件代码中得知 telink 也实现了（应该实现了） sig mesh 协议中
                 // model 之间关联功能，放到这里就是实现了亮度 modle 如果亮度为 <= 0 的话就会关联
-                // 开关灯 model 为关灯状态，则此处可以不再使用 getOnOff 而只用 getCtl 等代替
-                NativeModule.sendCommand(0x0182, 0xFFFF, [], immediate); // mService.getOnOff(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_ON_OFF_STATUS
+                // 开关灯 model 为关灯状态，则此处可以不再使用 Opcode.G_ONOFF_GET 而只用 Opcode.LIGHT_CTL_GET 等代替
+                                      // Opcode.G_ONOFF_GET                    // Opcode.G_ONOFF_STATUS
+                NativeModule.sendCommand(0x0182, this.defaultAllGroupAddress, [], 0x0482, -1, immediate);
 
-                // 测试得：如果紧接着上面 getOnOff 后立即进行其它 get ，则只会触发 getOnOff 对应的 EVENT，因此需要延迟进行
-                await this.sleepMs(this.DELAY_MS_COMMAND);
-                // 因为此处只会返回第一个 get 函数的结果，所以那些注释掉的 get 函数仅用于测试
-                // NativeModule.sendCommand(0x0582, 0xFFFF, [], immediate); // mService.getLevel(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_LEVEL_STATUS
-                // NativeModule.sendCommand(0x4B82, 0xFFFF, [], immediate); // mService.getLightness(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY
+                // 下面注释掉的 Get Opcode 仅用于测试
+                                         // Opcode.G_LEVEL_GET                    // Opcode.G_LEVEL_STATUS
+                // NativeModule.sendCommand(0x0582, this.defaultAllGroupAddress, [], 0x0882, -1, false);
+                                        // Opcode.LIGHTNESS_GET                   // Opcode.LIGHTNESS_STATUS
+                // NativeModule.sendCommand(0x4B82, this.defaultAllGroupAddress, [], 0x4E82, -1, false);
 
                 // 如 TelinkBtSigNativeModule.java 的 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
-                NativeModule.sendCommand(0x5D82, 0xFFFF, [], immediate); // mService.getCtl(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_CTL_STATUS_NOTIFY
+                                      // Opcode.LIGHT_CTL_GET                  // Opcode.LIGHT_CTL_STATUS
+                NativeModule.sendCommand(0x5D82, this.defaultAllGroupAddress, [], 0x6082, -1, false);
 
-                // NativeModule.sendCommand(0x6182, 0xFFFF, [], immediate); // mService.getTemperature(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_TEMP_STATUS_NOTIFY
+                                         // Opcode.LIGHT_CTL_TEMP_GET             // Opcode.LIGHT_CTL_TEMP_STATUS
+                // NativeModule.sendCommand(0x6182, this.defaultAllGroupAddress, [], 0x6682, -1, false);
             }
         }
     }
@@ -386,16 +413,19 @@ class TelinkBtSig {
         opcode,
         meshAddress,
         valueArray,
+        rspOpcode,
+        tidPosition = -1,
         immediate = false,
     }) {
-        NativeModule.sendCommand(opcode, meshAddress, valueArray, immediate);
+        NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, immediate);
     }
 
+    // 让灯爆闪几下
     static remind({
         meshAddress,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0x0211F0, meshAddress, [0x00, 0x00], immediate);
+        NativeModule.sendCommand(0x0211F0, meshAddress, [], this.OPCODE_INVALID, -1, immediate);
     }
 
     static isOnline(status) {
@@ -410,7 +440,7 @@ class TelinkBtSig {
         meshAddress,
         value,
         type,
-        productCategory = 0xFF, // 不可为 0 ，否则 E0 在固件收到后(BUG?)变成了 1、2、3、4 ... 而非 0 ， F3 之类的 vendor 命令不会如此，但统一起见，都 0xff 吧
+        productCategory = 0xFF, // 不可为 0 ，否则 E0 命令在固件收到后变成了 1、2、3、4 ... 而非 0 (BUG 或是没有 TODO: 设置好 tid?)，虽然 F3 之类的命令不会如此，但统一起见，都 0xFF 吧
         delaySec = 0,
         immediate = false,
     }) {
@@ -421,16 +451,17 @@ class TelinkBtSig {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(preDefinedType)) {
                     if (mode === 'silan') {
-                        // 测试得：不论这里是 [0, 0, value] 还是 [0xE3, 0x02, value] ，返回
-                        // 的 onVendorResponse 的 opcode 都是 0x0211E3
-                        // NativeModule.sendCommand(this.hasOnlineStatusNotifyRaw ? 0x0211E2 : 0x0211E0, meshAddress, [0xE3, 0x02, value], immediate);
+                        // 不论这里是 this.OPCODE_INVALID 还是 0x0211E3 ，返回的 TelinkBtSigNativeModule.onVendorResponse 的 opcode 都是 0x0211E3 ，
+                        // 究其根本原因其实是我们自己的固件代码中写成了只要收到开关灯命令，就一定通过 E3 返回开关灯状态
+                        // NativeModule.sendCommand(this.hasOnlineStatusNotifyRaw ? 0x0211E2 : 0x0211E0, meshAddress, [value], 0x0211E3, -1, immediate);
                         // 按说在 this.hasOnlineStatusNotifyRaw 的情况下，只要使用上面的无需返回开关灯的开关命令 E2 即可，但是发现当在界面上快速点击开关的情况下，
                         // 只有下面的开关命令 E0 额外返回的开关状态才能保证开关按钮的状态能够快速切换且能快速地开关灯。
-                        NativeModule.sendCommand(0x0211E0, meshAddress, [0xE3, 0x02, value, productCategory], immediate);
+                        NativeModule.sendCommand(0x0211E0, meshAddress, [value, productCategory], 0x0211E3, -1, immediate);
                         changed = true;
-                        // 测试发现还需要再次查看开关状态才能保证群发关闭 3 个设备后获得所有设备的关灯状态
+                        // react-native-btsig-telink@1.x 测试发现还需要再次查看开关状态才能保证群发关闭 3 个设备后获得所有设备的关灯状态
+                        // TODO: 在 react-native-btsig-telink@2.x 中进行测试
                         await this.sleepMs(this.DELAY_MS_COMMAND);
-                        NativeModule.sendCommand(0x0211E1, 0xFFFF, [0x00, 0x00], true);
+                        NativeModule.sendCommand(0x0211E1, this.defaultAllGroupAddress, [], this.OPCODE_INVALID, -1, false);
                     }
                     break;
                 }
@@ -460,7 +491,7 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         if (this.allowSceneCadence) {
                             this.isSceneCadenceBusy = true;
-                            NativeModule.sendCommand(0x0211F3, meshAddress, [0, 0, value, productCategory], immediate);
+                            NativeModule.sendCommand(0x0211F3, meshAddress, [value, productCategory], this.OPCODE_INVALID, -1, immediate);
                         }
                         changed = true;
                     }
@@ -680,223 +711,221 @@ class TelinkBtSig {
                         }
 
                         switch (scene) {
-                            case 0:                                                             //这里的 1 是颜色个数， reserve 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                            case 0:                                                    //这里的 1 是颜色个数， reserve 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 1:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 2:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 3:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 4:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 5:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 6:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 7:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 8:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 9:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 10:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 11:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 12:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 13:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 14:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 15:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 16:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 17:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 18:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 19:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 20:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 21:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 22:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 23:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 24:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 25:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 26:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 27:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 28:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 29:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 30:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 31:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 32:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 33:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 34:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 35:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 36:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 37:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 38:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 39:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 40:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 41:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 42:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 43:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 44:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 45:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 46:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 47:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 49:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 50:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 51:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 52:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             case 53:
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, colorsLength, ...colors3, productCategory], immediate);
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
 
                             // [
                             //     // 以下是自定义效果命令参数中每个字节的含义
-                            //     0,                  // telink sig mesh 的命令中必需的字节，表示固件返回的 opcode ，暂时发现可以为 0
-                            //     0,                  // telink sig mesh 的命令中必需的字节，表示消息返回的跳跃次数，暂时发现可以为 0
                             //     scene,              // 效果的 id
                             //     speed,              // 效果的整体速度，在目前自定义效果只有一帧的情况下，可以为 2
                             //     dataType,           // 后续数据的压缩类型， 0 代表无压缩
@@ -918,8 +947,6 @@ class TelinkBtSig {
 
                             // 下面是一段 NativeModule.sendCommand 命令参数数组的示例
                             // [
-                            //     0,
-                            //     0,
                             //     128,// 效果的 id 也就是 0x80
                             //     2,  // 速度 暂时无用
                             //     0,  // 0 代表无压缩
@@ -932,7 +959,7 @@ class TelinkBtSig {
                             //     255,// bulbsColorR
                             //     0,  // bulbsColorG
                             //     0,  // bulbsColorB
-                            //     7,  //下同
+                            //     7,  // 下同
                             //     0,
                             //     12,
                             //     1,
@@ -980,9 +1007,9 @@ class TelinkBtSig {
 
                                 // TODO: 后续将 0x0211F4 整合进 0x0211E6 中
                                 if (isEditingCustom) {
-                                    NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData, productCategory], immediate);
+                                    NativeModule.sendCommand(0x0211F4, meshAddress, [scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 } else {
-                                    NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 0, productCategory], immediate);
+                                    NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                     // 这里之所以将数据命令 0xF4 注释掉，是为了解决效果间快速切换时，如果自定义效果散点较多也就是需
                                     // 更多数据发送时间，而同时从自定义效果切出去时太快的话就会导致下一个效果的命令没生效的 BUG
                                     // 至于以前之所以灯串固件中已经保存了自定义数据，但切换时仍然 0xF4 再发一遍的原因，是如果不同用户手机上保存着自己
@@ -990,14 +1017,14 @@ class TelinkBtSig {
                                     // 为是瑕疵，但这个瑕疵可以让用户在创建自定义页面重新保存到固件来解决，所以用户也不一定认为是 BUG
                                     // await this.sleepMs(this.DELAY_MS_COMMAND);
                                     // 这里一定要先发上面的效果切换命令 0xE6 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
-                                    // NativeModule.sendCommand(0x0211F4, meshAddress, [0, 0, scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData, productCategory], immediate);
+                                    // NativeModule.sendCommand(0x0211F4, meshAddress, [scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 }
                                 changed = true;
                                 break;
                             }
                             case 0xa0: {
-                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], immediate);
+                                                                                                                                // 这里的 1 是保留字节，也许后续有用                          // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             }
@@ -1005,10 +1032,11 @@ class TelinkBtSig {
 // 大数据传输协议，协议之所以如此制定的原因：
 
 // * telink sig mesh SDK 中发送一个消息的最大数据是 380 字节，而一幅 bmp 数据就要 1KB 多，一个消息肯定容不下，更不要说多幅 bmp 来表示 gif 了
-// * telink sig mesh SDK 未提供大数据传输 API ，虽说可以参考 OTA 传输大数据的 GATT 协议，但 GATT 需要单对单连接，而我们灯串的常用场景是单对多广播数据，而且就算我们自己定义一套往复传输协议，也很难解决单往多发送后多回复单的复杂处理问题
+// * telink sig mesh SDK 3.1.0 未提供大数据传输 API ，虽说可以参考 OTA 传输大数据的 GATT 协议，但 GATT 需要单对单连接，而我们灯串的常用场景是单对多广播数据，而且就算我们自己定义一套往复传输协议，也很难解决单往多发送后多回复单的复杂处理问题
+// * telink sig mesh SDK 3.3.3.5 提供了 GATT 协议传输模式，说是可以让原来的传输命令自动变为大数据传输，但只是将原来 380 字节拆分为 11 字节方式改为不拆包，使得数据传输率从 42B/s 提升为 8KB/s ，但仍然受限 380 字节，所以实际上不是大数据传输 API
 // * 因此这里定的协议传输方式就是与以往效果切换一样的广播模式，然后由灯串固件自行将 datasIndex datasCount 和 chunksIndex chunksCount 所索引的数据拼接为多幅 bmp 或一个 gif 数据
 // * 这样的协议，也可以在 WiFi 灯串上实现，从而使得蓝牙和 WiFi 灯串可以维护基本相同的大数据发送代码
-// * 测试发现，发送 340 字节，需要花 8 秒才能在固件上接收完，这样算下来，数据传输率只有 42 Byte/S ，远低于 GATT 的 1KB/S ，不过还是考虑到上面提到的原因，再加上 gif 数据量是 bmp 的一半左右，所以我们仍然继续使用 mesh 进行传输，只不过在固件中内嵌 gif 解码功能，然后把传输几个 bmp 数据修改为传输一个 gif 数据
+// * gif 数据量是 bmp 的一半左右，我们在固件中内嵌 gif 解码功能，然后把传输几个 bmp 数据修改为传输一个 gif 数据
 
 // 每条消息会包含一段 chunk 数据，所谓 chunk 指的是一个数组内容的一部分，而整体上完整的数据则是一个二维数组：
 
@@ -1078,18 +1106,18 @@ class TelinkBtSig {
                                     case 0: {
                                         let chunkLengthLowByte = chunk.length & 0xFF;
                                         let chunkLengthHightByte = chunk.length >> 8 & 0xFF;
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, bigDataAction, speed, datasIndex, datasCount, chunksIndex, chunksCount, 1, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, datasIndex, datasCount, chunksIndex, chunksCount, 1, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 1:
                                     case 4: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, bigDataAction, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 2: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
@@ -1099,14 +1127,14 @@ class TelinkBtSig {
                                 break;
                             }
                             case 0xa2: {
-                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], immediate);
+                                                                                                                                // 这里的 1 是保留字节，也许后续有用                          // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             }
                             case 0xa3: {
-                                                                                                                                      // 这里的 1 是保留字节，也许后续有用     // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
-                                NativeModule.sendCommand(0x0211E6, meshAddress, [0, 0, scene, speed, sceneMode, sceneModeOpt, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], immediate);
+                                                                                                                                                         // 这里的 1 是保留字节，也许后续有用                          // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, sceneMode, sceneModeOpt, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                 changed = true;
                                 break;
                             }
@@ -1124,7 +1152,8 @@ class TelinkBtSig {
         }
 
         if (!changed) {
-            // NativeModule.sendCommand(0xEF, meshAddress, [scene], immediate);
+          // 0x4282(SCENE_RECALL) in is_cmd_with_tid() vendor/common/generic_model.c is 2
+            NativeModule.sendCommand(0x4282, meshAddress, [scene], this.OPCODE_INVALID, 2, immediate);
         }
     }
 
@@ -1137,8 +1166,8 @@ class TelinkBtSig {
             // 设置同步的消息里的参数里的 mesh 地址（不是消息本身的目的地址）需要传输两个字节，因为固件那里是按 u16 读取参数中的两个字节的
             let addrLowByte = sceneSyncMeshAddress & 0xFF;
             let addrHightByte = sceneSyncMeshAddress >> 8 & 0xFF;
-            NativeModule.sendCommand(0x0211F2, this.defaultAllGroupAddress, [0, 0, addrLowByte, addrHightByte], immediate);
-            await this.sleepMs(this.DELAY_MS_COMMAND);
+            NativeModule.sendCommand(0x0211F2, this.defaultAllGroupAddress, [addrLowByte, addrHightByte], this.OPCODE_INVALID, -1, immediate);
+            // await this.sleepMs(this.DELAY_MS_COMMAND);
         }
     }
 
@@ -1146,15 +1175,24 @@ class TelinkBtSig {
         meshAddress,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0x0211F5, meshAddress, [0, 0], immediate);
+        NativeModule.sendCommand(0x0211F5, meshAddress, [], this.OPCODE_INVALID, -1, immediate);
     }
 
     static getTypeFromUuid = uuid => uuid;
 
+    static removeDeviceByMesh(address) {
+        if (this.devices.length == 0) return false;
+        let index = this.devices.findIndex(device => device.meshAddress == address);
+        if (index !== -1) {
+            this.devices.splice(index, 1);
+            return true;
+        }
+        return false;
+    }
+
     static configNode({
         node,
         isToClaim,
-        immediate = false,
     }) {
         return new Promise((resolve, reject) => {
             if (isToClaim) {
@@ -1182,6 +1220,7 @@ class TelinkBtSig {
                     });
                 } else {
                     resolve(payload);
+                    this.removeDeviceByMesh(node.meshAddress);
                 }
             }, err => {
                 if (isToClaim) {
@@ -1306,7 +1345,7 @@ class TelinkBtSig {
         largestBulbs = 96, // 组中最多灯珠的灯串上的灯珠数
         immediate = false,
     }) {
-        NativeModule.sendCommand(0xF6, meshAddress, [
+        NativeModule.sendCommand(0x0211EE, meshAddress, [
             cascadeSeq,
             groupNodes,
             groupBulbs >>> 8 & 0xFF,
@@ -1314,7 +1353,7 @@ class TelinkBtSig {
             bulbOffset >>> 8 & 0xFF,
             bulbOffset & 0xFF,
             largestBulbs,
-        ], immediate);
+        ], this.OPCODE_INVALID, -1, immediate);
     }
 
     static rgbSequence = {
@@ -1343,8 +1382,6 @@ class TelinkBtSig {
         immediate = false,
     }) {
         NativeModule.sendCommand(0x0211E8, meshAddress, [
-            0,
-            0,
             nodeBulbs & 0xFF,
             timeSequence,
             collideCenter,
@@ -1352,7 +1389,7 @@ class TelinkBtSig {
             gamma_enable,
             (nodeBulbs >>> 8) & 0xFF,
             this.rgbSequence.hasOwnProperty(rgbSequence) ? this.rgbSequence[rgbSequence] : 1,
-        ], immediate);
+        ], this.OPCODE_INVALID, -1, immediate);
     }
 
     static flashWriteAttrByUser({ // 设置灯串信息（普通用户使用）
@@ -1361,11 +1398,9 @@ class TelinkBtSig {
         immediate = false,
     }) {
         NativeModule.sendCommand(0x0211F7, meshAddress, [
-            0,
-            0,
             nodeBulbs & 0xFF,
             (nodeBulbs >>> 8) & 0xFF,
-        ], immediate);
+        ], this.OPCODE_INVALID, -1, immediate);
     }
 
     static getNodeInfoWithNewType({
@@ -1404,12 +1439,24 @@ class TelinkBtSig {
         }
     }
 
+    // 为了保持兼容性，返回的 version 格式仍然沿用
+    // telink_sig_mesh_sdk_v3.1.0/firmware/vendor/common/version.h
+    // 中 FW_VERSION_TELINK_RELEASE 的 (VERSION_GET(0x31, 0x42)) 定义方法，所以请自行弃用
+    // telink_sig_mesh_sdk_v3.3.3.5/firmware/vendor/common/version.h
+    // 中 ((SW_VERSION_SPEC << 4) + (SW_VERSION_MAJOR << 0) 的定义方法
+    //
+    // after telink sig mesh sdk 3.2.1 , by default, not support
+    // FirmwareUpdateInfoGetMessage (0x01B6) and startMeshOta() , only support startGattOta() ,
+    // you should register on https://www.bluetooth.com/ then get mesh OTA code from telink,
+    // before that, use getFwVerInNodeInfo() above and NativeModule.startOta() below instead,
+    // and use getNodeInfoWithNewFwVer() above to update device.nodeInfo after NativeModule.startOta() resolved
     static getFirmwareVersion({
-        meshAddress = 0xFFFF,
+        meshAddress = this.defaultAllGroupAddress,
         relayTimes = 7,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0x01B6, meshAddress, [0, 0], immediate);
+        NativeModule.sendCommand(0x01B6, meshAddress, [0, 1], 0x02B6, -1, immediate);
+        // NativeModule.getFirmwareInfo(meshAddress);
     }
 
     // 是否是两个发布版本之间的测试版本
@@ -1420,17 +1467,19 @@ class TelinkBtSig {
         return 'a' <= fwVer[0] && fwVer[0] <= 'z';
     }
 
+    // 在 react-native-bt-telink 中曾用，现在 react-native-btsig-telink 中应该无用
     static getOtaState({
         meshAddress = 0x0000,
         relayTimes = 7,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0xC7, meshAddress, [
-            relayTimes,
-            5,  // 0xC7 的子命令，5 为获取 OTA 状态
-        ], immediate);
+        // NativeModule.sendCommand(0xC7, meshAddress, [
+        //     relayTimes,
+        //     5,  // 0xC7 的子命令，5 为获取 OTA 状态
+        // ], this.OPCODE_INVALID, -1, immediate);
     }
 
+    // 在 react-native-bt-telink 中曾用，现在 react-native-btsig-telink 中应该无用
     static setOtaMode({
         meshAddress = 0x0000,
         relayTimes = 7,     // 转发次数
@@ -1438,19 +1487,17 @@ class TelinkBtSig {
         type = 0xFB00,      // 设备类型（gatt OTA 模式请忽略此字段）
         immediate = false,
     }) {
-        NativeModule.sendCommand(0xC7, meshAddress, [
-            relayTimes,
-            6,  // 0xC7 的子命令，6 为设置 OTA 模式(OTA mode)与设备类型(Device type)
-            otaMode === 'mesh' ? 1 : 0,
-            type & 0xFF,
-            type >>> 8 & 0xFF,
-        ], immediate);
+        // NativeModule.sendCommand(0xC7, meshAddress, [
+        //     relayTimes,
+        //     6,  // 0xC7 的子命令，6 为设置 OTA 模式(OTA mode)与设备类型(Device type)
+        //     otaMode === 'mesh' ? 1 : 0,
+        //     type & 0xFF,
+        //     type >>> 8 & 0xFF,
+        // ], this.OPCODE_INVALID, -1, immediate);
     }
 
-    static stopMeshOta({
-        tag = 'dist_stop',
-    }) {
-        NativeModule.stopMeshOTA(tag);
+    static stopMeshOta({}) {
+        NativeModule.stopMeshOTA();
     }
 
     static startOta({
@@ -1465,13 +1512,11 @@ class TelinkBtSig {
         }
     }
 
-    static pauseMeshOta() {
-        NativeModule.pauseMeshOta();
-    }
+    // 在 react-native-bt-telink 中曾用，现在 react-native-btsig-telink 中应该无用
+    static pauseMeshOta() {}
 
-    static continueMeshOta() {
-        NativeModule.continueMeshOta();
-    }
+    // 在 react-native-bt-telink 中曾用，现在 react-native-btsig-telink 中应该无用
+    static continueMeshOta() {}
 
     // after import data shared by others, to avoid restart APP and
     // instantly connect to device, you should let your APP call

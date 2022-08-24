@@ -1243,13 +1243,7 @@ public class NetworkingController {
         }
     }
 
-    /**
-     * reliable command complete
-     *
-     * @param success if command response received
-     */
-    private void onReliableMessageComplete(boolean success) {
-
+    public void clearMeshMessage(boolean success) {
         // clear networking packet sending queue
         log("clear network buffer");
         synchronized (mNetworkingQueue) {
@@ -1259,10 +1253,6 @@ public class NetworkingController {
         }
 
         mDelayHandler.removeCallbacks(reliableMessageTimeoutTask);
-        int opcode = mSendingReliableMessage.getOpcode();
-        int rspMax = mSendingReliableMessage.getResponseMax();
-        int rspCount = mResponseMessageBuffer.size();
-        log(String.format("Reliable Message Complete: %06X success?: %b", opcode, success));
         mResponseMessageBuffer.clear();
         synchronized (RELIABLE_SEGMENTED_LOCK) {
             reliableBusy = false;
@@ -1274,9 +1264,22 @@ public class NetworkingController {
                 }
             }
         }
+    }
 
+
+    /**
+     * reliable command complete
+     *
+     * @param success if command response received
+     */
+    public void onReliableMessageComplete(boolean success) {
+        this.clearMeshMessage(success);
 
         if (mNetworkingBridge != null) {
+            int opcode = mSendingReliableMessage.getOpcode();
+            int rspMax = mSendingReliableMessage.getResponseMax();
+            int rspCount = mResponseMessageBuffer.size();
+            log(String.format("Reliable Message Complete: %06X success?: %b", opcode, success));
             mNetworkingBridge.onReliableMessageComplete(success, opcode, rspMax, rspCount);
         }
     }

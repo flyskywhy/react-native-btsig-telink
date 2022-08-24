@@ -514,6 +514,10 @@ public final class MeshController implements ProvisioningBridge, NetworkingBridg
         mBleScanner.startScan(filter, scanSetting);
     }
 
+    public Set getAdvDevices() {
+        return this.advDevices;
+    }
+
 
     boolean startProvisioning(ProvisioningParameters parameters) {
         log("start provision");
@@ -867,6 +871,9 @@ public final class MeshController implements ProvisioningBridge, NetworkingBridg
         }
     }
 
+    public void clearMeshMessage() {
+        mNetworkingController.clearMeshMessage(true);
+    }
 
     /**
      * send mesh message

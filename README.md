@@ -118,6 +118,12 @@ export default class MeshModuleExample extends React.Component {
         // // }];
         // meshModule.devices = devicesSavedInRedux;
 
+        // if you want 8KB/s not 42B/s
+        // also need change firmware:
+        //     set EXTENDED_ADV_ENABLE to 1 in `vendor/common/mesh_config.h`
+        //     (maybe) let is_not_use_extend_adv() return 0 in `vendor/common/mesh_node.c`
+        // meshModule.extendBearerMode = meshModule.EXTEND_BEARER_MODE.GATT_ADV;
+
         meshModule.doInit();
         meshModule.startScan({
             isSingleNode: false, // if true, will stop scan after found one device
@@ -136,6 +142,61 @@ export default class MeshModuleExample extends React.Component {
 ```
 
 Please discover more in `index.native.js`.
+
+## version
+`react-native-btsig-telink@1.x` is based on telink sdk `3.1.0`.
+
+`react-native-btsig-telink@2.x` is based on telink sdk `3.3.3.5`.
+
+## compatibility
+
+When device A is `3.1.0` and device B is `3.3.3.5`, direct connected is device B, if APP is `3.1.0`, then `sendCommand({meshAddress: 0xFFFF})` can't affect (mesh to) device B, but it's OK if APP is `3.3.3.5`.
+
+Below table: despite `is_not_use_extend_adv()` return 0 or not; "delay_while" means user business code use `while` loop as precise delay; "bytes" means `MeshMessage.params`; "2nd device" means not direct connected device; 8KB/s and 42B/s tested by 300 bytes, no 8KB/s or 42B/s means "2 devices" not controlled.
+
+PS: test also found, despite `is_not_use_extend_adv()` return 0 or not, not only not affect 8KB/s test result with 300 bytes, but also not affect OTA speed is still so high.
+
+2 devices\APP                       | 3.3.3.5 GATT_ADV                                                                                 | 3.3.3.5 GATT_NONE                                                                                  | 3.1.0
+:-:                                 |-                                                                                                 |-                                                                                                   |-
+3.3.3.5 without EXTENDED_ADV_ENABLE | 8KB/s; 2nd device not controlled if delay_while too often                                        | 42B/s; 2nd device delay 3s if delay_while too often                                                | 2 devices not controlled if == 300 bytes; 2nd device not controlled even delay_while not often
+3.3.3.5 with EXTENDED_ADV_ENABLE    | 8KB/s; 2nd device delay 3s if delay_while too often                                              | 42B/s; 2nd device delay 3s if delay_while too often, and 2nd device not controlled if == 300 bytes | 2 devices not controlled if == 300 bytes; 2nd device not controlled even delay_while not often
+3.1.0                               | 2nd device not controlled if delay_while too often, and 2 devices not controlled if == 300 bytes | 42B/s                                                                                              | 42B/s
+
+如下表格: 无关乎 `is_not_use_extend_adv()` 是否返回 0 ；"delay_while" 意为用户业务代码中用 `while` 死循环作为精确延时； “字节”意为 `MeshMessage.params` ；“第 2 个设备”意指非直连设备； 8KB/s 和 42B/s 都是使用 300 字节来测试的，如果不存在 8KB/s 或 42B/s 则表明“ 2 个设备”都不受控。
+
+2 个设备\APP                     | 3.3.3.5 GATT_ADV                                                             | 3.3.3.5 GATT_NONE                                                                       | 3.1.0
+:-:                             |-                                                                             |-                                                                                        |-
+3.3.3.5 禁用 EXTENDED_ADV_ENABLE | 8KB/s; 如果 delay_while 太频繁则第 2 个设备不受控                                | 42B/s; 如果 delay_while 太频繁则第 2 个设备延后 3s 受控                                      | 如果 == 300 字节则 2 个设备都不受控; 甚至 delay_while 不频繁时第 2 个设备也不受控
+3.3.3.5 使用 EXTENDED_ADV_ENABLE | 8KB/s; 如果 delay_while 太频繁则第 2 个设备延后 3s 受控                          | 42B/s; 如果 delay_while 太频繁则第 2 个设备延后 3s 受控，且如果此时 == 300 字节则第 2 个设备不受控 | 如果 == 300 字节则 2 个设备都不受控; 甚至 delay_while 不频繁时第 2 个设备也不受控
+3.1.0                           | 如果 delay_while 太频繁则第 2 个设备不受控，且如果此时 == 300 字节则 2 个设备都不受控 | 42B/s                                                                                    | 42B/s
+
+另：测试还发现，无关乎 `is_not_use_extend_adv()` 是否返回 0 ，除了不会影响 300 字节时测得 8KB/s ，而且也不会影响 OTA 速度仍然那么快。
+
+To solve the problem of "2nd device delay 3s if delay_while too often", you should put
+
+    blt_sdk_main_loop();
+
+besides your delay_while code.
+
+Because `blt_sdk_main_loop()` itself also cost some time, maybe you prefer `mesh_send_adv_in_connected()`:
+
+    mesh_send_adv_in_connected();
+
+    extern u32 adv_in_conn_tick;
+    extern u32 blt_advExpectTime;
+    void mesh_send_adv_in_connected()
+    {
+        if (BLS_LINK_STATE_CONN == blt_state) {
+            if (clock_time_exceed(adv_in_conn_tick, 10 * 1000)) {
+                adv_in_conn_tick = clock_time();
+                mesh_send_adv2scan_mode(1);
+            }
+        } else if ((u32)(clock_time() - blt_advExpectTime) < BIT(31) && !blc_tlkEvent_pending ) {
+            blt_send_adv2scan_mode(1);
+        }
+    }
+
+
 
 ## Donate
 To support my work, please consider donate.

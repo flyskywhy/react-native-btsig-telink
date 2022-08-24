@@ -1,4 +1,4 @@
-package com.telink.sig.mesh;
+package com.telink.ble.mesh;
 
 import javax.annotation.Nullable;
 
@@ -6,10 +6,8 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import android.Manifest;
 import android.app.Activity;
@@ -17,28 +15,20 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
 import android.os.ParcelUuid;
 import android.provider.Settings;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import android.text.TextUtils;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewGroup;
+import android.util.SparseArray;
 import android.widget.Toast;
 
-import com.facebook.react.uimanager.SimpleViewManager;
-import com.facebook.react.uimanager.ThemedReactContext;
-import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.LifecycleEventListener;
@@ -52,49 +42,80 @@ import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
-// import com.telink.bluetooth.event.DeviceEvent;
-import com.telink.sig.mesh.ble.AdvertisingDevice;
-import com.telink.sig.mesh.ble.MeshScanRecord;
-import com.telink.sig.mesh.ble.UnprovisionedDevice;
-import com.telink.sig.mesh.event.CommandEvent;
-import com.telink.sig.mesh.event.Event;
-import com.telink.sig.mesh.event.EventListener;
-import com.telink.sig.mesh.event.MeshEvent;
-import com.telink.sig.mesh.event.MeshOtaApplyStatusEvent;
-import com.telink.sig.mesh.event.MeshOtaEvent;
-import com.telink.sig.mesh.event.MeshOtaProgressEvent;
-import com.telink.sig.mesh.event.NotificationEvent;
-import com.telink.sig.mesh.event.OnlineStatusEvent;
-import com.telink.sig.mesh.event.OtaEvent;
-import com.telink.sig.mesh.event.ScanEvent;
-import com.telink.sig.mesh.light.CtlStatusNotificationParser;
-import com.telink.sig.mesh.light.LeBluetooth;
-import com.telink.sig.mesh.light.MeshController;
-import com.telink.sig.mesh.light.MeshService;
-import com.telink.sig.mesh.light.ScanParameters;
-import com.telink.sig.mesh.light.ProvisionDataGenerator;
-import com.telink.sig.mesh.light.parameter.AutoConnectParameters;
-import com.telink.sig.mesh.light.parameter.KeyBindParameters;
-import com.telink.sig.mesh.light.parameter.ProvisionParameters;
-import com.telink.sig.mesh.light.parser.OnlineStatusInfoParser;
-import com.telink.sig.mesh.light.UuidInfo;
-import com.telink.sig.mesh.model.DeviceBindState;
-import com.telink.sig.mesh.model.DeviceInfo;
-import com.telink.sig.mesh.model.MeshCommand;
-import com.telink.sig.mesh.model.NodeInfo;
-import com.telink.sig.mesh.model.NotificationInfo;
-import com.telink.sig.mesh.model.Scheduler;
-import com.telink.sig.mesh.model.SigMeshModel;
-import com.telink.sig.mesh.model.OtaDeviceInfo;
-import com.telink.sig.mesh.util.ContextUtil;
-import com.telink.sig.mesh.util.MeshUtils;
-import com.telink.sig.mesh.util.Strings;
-import com.telink.sig.mesh.util.TelinkLog;
-import com.telink.sig.mesh.util.UnitConvert;
+import com.telink.ble.mesh.core.MeshUtils;
+import com.telink.ble.mesh.core.access.BindingBearer;
+import com.telink.ble.mesh.core.access.fu.BlobTransferType;
+import com.telink.ble.mesh.core.access.fu.DistributorType;
+import com.telink.ble.mesh.core.access.fu.FUCallback;
+import com.telink.ble.mesh.core.access.fu.FUState;
+import com.telink.ble.mesh.core.access.fu.UpdatePolicy;
+import com.telink.ble.mesh.core.message.MeshMessage;
+import com.telink.ble.mesh.core.message.MeshSigModel;
+import com.telink.ble.mesh.core.message.NotificationMessage;
+import com.telink.ble.mesh.core.message.OpcodeType;
+import com.telink.ble.mesh.core.message.config.ModelSubscriptionSetMessage;
+import com.telink.ble.mesh.core.message.config.ModelSubscriptionStatusMessage;
+import com.telink.ble.mesh.core.message.config.NodeResetMessage;
+import com.telink.ble.mesh.core.message.config.NodeResetStatusMessage;
+import com.telink.ble.mesh.core.message.config.ConfigStatus;
+import com.telink.ble.mesh.core.message.firmwareupdate.FirmwareUpdateInfoGetMessage;
+import com.telink.ble.mesh.core.message.firmwareupdate.FirmwareUpdateInfoStatusMessage;
+import com.telink.ble.mesh.core.message.generic.LevelStatusMessage;
+import com.telink.ble.mesh.core.message.generic.OnOffSetMessage;
+import com.telink.ble.mesh.core.message.generic.OnOffStatusMessage;
+import com.telink.ble.mesh.core.message.lighting.CtlStatusMessage;
+import com.telink.ble.mesh.core.message.lighting.CtlTemperatureSetMessage;
+import com.telink.ble.mesh.core.message.lighting.CtlTemperatureStatusMessage;
+import com.telink.ble.mesh.core.message.lighting.HslSetMessage;
+import com.telink.ble.mesh.core.message.lighting.LightnessSetMessage;
+import com.telink.ble.mesh.core.message.lighting.LightnessStatusMessage;
+import com.telink.ble.mesh.core.message.scheduler.SchedulerActionGetMessage;
+import com.telink.ble.mesh.core.message.scheduler.SchedulerActionSetMessage;
+import com.telink.ble.mesh.core.message.scheduler.SchedulerActionStatusMessage;
+import com.telink.ble.mesh.core.message.time.TimeGetMessage;
+import com.telink.ble.mesh.core.message.time.TimeSetMessage;
+import com.telink.ble.mesh.core.message.time.TimeStatusMessage;
+import com.telink.ble.mesh.core.networking.ExtendBearerMode;
+import com.telink.ble.mesh.entity.AdvertisingDevice;
+import com.telink.ble.mesh.entity.BindingDevice;
+import com.telink.ble.mesh.entity.CompositionData;
+import com.telink.ble.mesh.entity.ConnectionFilter;
+import com.telink.ble.mesh.entity.FirmwareUpdateConfiguration;
+import com.telink.ble.mesh.entity.MeshUpdatingDevice;
+import com.telink.ble.mesh.entity.OnlineStatusInfo;
+import com.telink.ble.mesh.entity.ProvisioningDevice;
+import com.telink.ble.mesh.entity.Scheduler;
+import com.telink.ble.mesh.foundation.Event;
+import com.telink.ble.mesh.foundation.EventHandler;
+import com.telink.ble.mesh.foundation.MeshConfiguration;
+import com.telink.ble.mesh.foundation.MeshController;
+import com.telink.ble.mesh.foundation.MeshService;
+import com.telink.ble.mesh.foundation.event.AutoConnectEvent;
+import com.telink.ble.mesh.foundation.event.BindingEvent;
+import com.telink.ble.mesh.foundation.event.GattOtaEvent;
+import com.telink.ble.mesh.foundation.event.MeshEvent;
+import com.telink.ble.mesh.foundation.event.NetworkInfoUpdateEvent;
+import com.telink.ble.mesh.foundation.event.OnlineStatusEvent;
+import com.telink.ble.mesh.foundation.event.ProvisioningEvent;
+import com.telink.ble.mesh.foundation.event.ScanEvent;
+import com.telink.ble.mesh.foundation.event.StatusNotificationEvent;
+import com.telink.ble.mesh.foundation.parameter.AutoConnectParameters;
+import com.telink.ble.mesh.foundation.parameter.BindingParameters;
+import com.telink.ble.mesh.foundation.parameter.GattOtaParameters;
+import com.telink.ble.mesh.foundation.parameter.MeshOtaParameters;
+import com.telink.ble.mesh.foundation.parameter.ProvisioningParameters;
+import com.telink.ble.mesh.foundation.parameter.ScanParameters;
+import com.telink.ble.mesh.DeviceInfo;
+import com.telink.ble.mesh.NodeInfo;
+import com.telink.ble.mesh.UnitConvert;
+import com.telink.ble.mesh.util.ContextUtil;
+import com.telink.ble.mesh.util.MeshLogger;
+import com.telink.ble.mesh.util.Strings;
 
-import static com.telink.sig.mesh.TelinkBtSigPackage.TAG;
+import static com.telink.ble.mesh.TelinkBtSigPackage.TAG;
 
-public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implements ActivityEventListener, LifecycleEventListener, EventListener<String> {
+public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implements ActivityEventListener,
+        LifecycleEventListener, EventHandler, FUCallback {
 
     // Debugging
     private static final boolean D = true;
@@ -102,6 +123,13 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private static final int REQUEST_CODE_LOCATION_SETTINGS = 2;
     private static final int ACCESS_COARSE_LOCATION_RESULT_CODE = 4;
     private static final int BLUETOOTH_RESULT_CODE = 5;
+
+    // TODO: why telink_sig_mesh_sdk_v3.3.3.5/app/android/TelinkBleMesh/TelinkBleMesh/TelinkBleMeshDemo/src/main/java/com/telink/ble/mesh/ui/MeshOTAActivity.java
+    // use 0xC00F ?
+    /**
+     * group mesh address used in mesh-OTA procedure
+     */
+    private static final int MESH_OTA_GROUP_ADDRESS = 0xC00F;
 
     // Event names
     public static final String BT_ENABLED = "bluetoothEnabled";
@@ -152,35 +180,31 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public static final String MESH_OFFLINE = "meshOffline";
     public static final String SAVE_OR_UPDATE_JS = "saveOrUpdateJS";
 
-    // TAG_CMD
-    private static final String TAG_CMD_SET_NODE_GROUP = "TAG_CMD_SET_NODE_GROUP";
-
     // Members
     private static TelinkBtSigNativeModule mThis;
     private static MeshService mService;
-    private TelinkApplication mTelinkApplication;
     private BluetoothAdapter mBluetoothAdapter;
     private ReactApplicationContext mReactContext;
     protected Context mContext;
     private Handler mHandler = new Handler(Looper.getMainLooper());
-    protected boolean isServiceStarted = false;
-    private SigMeshModel[] models = SigMeshModel.getDefaultSubList();
+    private MeshSigModel[] models = MeshSigModel.getDefaultSubList();
 
-    // 为了让 ./TelinkApplication.java 中的 MeshLib.StorageHelper 的
-    // onMeshStorageRetrieve() 和 onMeshStorageUpdate() 两个回调函数
-    // 能够正常运行，这里不得不猥琐地存在与 JS 层一样的数据，特别是较大的 devices :(
+    // 这里猥琐地存在与 JS 层一样的数据，特别是较大的 devices :(
     // 不过好处是 JS 层只需保存紧凑的 nodeInfo 数组数据而有利于减少分享配置
     // 时的数据量，而且 element 的处理也在这里 NodeInfo.from() 后进行，有
     // 利于与其它没有 element 概念的 react-native-bt* 一起兼容于同一份 JS
     public byte[] mNetKey;
+    // 大部分简单用途的蓝牙 APP 只会控制一种类型蓝牙设备比如灯泡，所以本 JAVA 文件只
+    // 使用了一个 mAppKey ，如果有复杂用途的比如同时控制灯泡和门锁之类的，请自行修改
     public byte[] mAppKey;
+    public int mAppKeyIndex = 0;
     public int sno = 0; // provisioner sequence number
     public int ivIndex = 0;
     public int mMeshAddressOfApp; // localAddress in telink demo
     public List<DeviceInfo> devices = new ArrayList<>();
+    DistributorType otaDistributorType = DistributorType.PHONE;
 
     private boolean hasOnlineStatusNotifyRaw;
-    private int connectMeshAddress = -1;
     private boolean kickDirect; // is kicking out direct connected device?
     private int mConfigNodeResetMeshAddress;
     private String mConfigNodeResetMacAddress;
@@ -274,7 +298,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     @Override
     public void onHostResume() {
         if (D) Log.d(TAG, "Host resume");
-        if (mTelinkApplication != null) {
+        if (mService != null) {
             this.doResume();
         }
     }
@@ -288,7 +312,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public void onHostDestroy() {
         if (D) Log.d(TAG, "Host destroy");
         // APP 切到后台时也会调用此处，导致切回前台 Resume 时无法再正常使用本组件，因此使不在此处调用 doDestroy
-        // if (mTelinkApplication != null) {
+        // if (mService != null) {
         //     this.doDestroy();
         // }
     }
@@ -297,7 +321,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public void onCatalystInstanceDestroy() {
         if (D) Log.d(TAG, "Catalyst instance destroyed");
         super.onCatalystInstanceDestroy();
-        if (mTelinkApplication != null) {
+        if (mService != null) {
             this.doDestroy();
         }
     }
@@ -321,82 +345,41 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             deviceInfo.macAddress = device.getString("macAddress");
             deviceInfo.elementCnt = device.getInt("elementCnt");
             deviceInfo.deviceKey = readableArray2ByteArray(device.getArray("dhmKey"));
-
-            // deviceInfo.bindState = (node.appKeys != null && node.appKeys.size() != 0)
-            //         ? DeviceBindState.BOUND : DeviceBindState.UNBIND;
-            // 如上 telink sdk demo 是曾经在绑定过程中向设备发送了一个或多个 appKey ，同时在手机
-            // APP 中保存了这些 appKey ，而后续过程中应该不可能用某个命令从设备获取这些 appKey
-            // TODO: 大部分简单用途的蓝牙 APP 只会控制一种类型蓝牙设备比如灯泡，所以本 JAVA 文件只
-            // 使用了一个 mAppKey ，如果有复杂用途的比如同时控制灯泡和门锁之类的，则需要在 JS 层每个
-            // node 数据结构中都记录这些 appKey ，然后在这里用 device.getString("appKey") 来
-            // 判定 deviceInfo.bindState 。此时还需弄清 ./TelinkApplication.java 中
-            // getMeshKey() 怎么折腾
-            deviceInfo.bindState = DeviceBindState.BOUND;
-
             deviceInfo.nodeInfo = NodeInfo.from(readableArray2ByteArray(device.getArray("nodeInfo")));
-            // TelinkLog.d("readableArray2ByteArray: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(readableArray2ByteArray(device.getArray("nodeInfo")), ":"));
+            // MeshLogger.d("readableArray2ByteArray: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(readableArray2ByteArray(device.getArray("nodeInfo")), ":"));
             insertDevice(deviceInfo);
         }
     }
 
+    /**
+     * init and setup mesh network
+     */
+    private void startMeshService(int extendBearerMode) {
+        // init
+        mService.init(getCurrentActivity().getApplication(), this);
+
+        mService.setupMeshNetwork(convertToConfiguration());
+
+        // set DLE enable
+        mService.resetExtendBearerMode(ExtendBearerMode.values()[extendBearerMode]);
+    }
+
     @ReactMethod
-    public void doInit(String netKey, String appKey, int meshAddressOfApp, ReadableArray devices, int provisionerSno, int provisionerIvIndex) {
+    public void doInit(String netKey, String appKey, int meshAddressOfApp, ReadableArray devices, int provisionerSno, int provisionerIvIndex, int extendBearerMode) {
         mNetKey = Strings.stringToBytes(netKey);
         mAppKey = Strings.stringToBytes(appKey);
         mMeshAddressOfApp = meshAddressOfApp;
         sno = provisionerSno;
         ivIndex = provisionerIvIndex;
         setDevices(devices);
-        if (mTelinkApplication == null) {
-            mTelinkApplication = new TelinkApplication(getCurrentActivity().getApplication(), this);
+
+        if (mService != null) {
+            return;
         }
 
-        // 在 TelinkApplication.doInit() -> initMeshLib() -> Java_com_telink_sig_mesh_lib_MeshLib_meshInitAll()
-        // 中调用的 C 函数 mesh_init_all() 会触发回调 mesh_par_retrieve_store_win32() -> loadMeshInfo()
-        // 而进入 (*jniEnv)->GetMethodID(jniEnv, cls, "onMeshStorageRetrieve", "(II)[B")
-        // 所指明的 JAVA 函数 TelinkApplication.onMeshStorageRetrieve() -> TelinkApplication.onMeshInfoRequired()
-        // 从而读取这些从 JS 层传过来的 netKey appKey meshAddressOfApp devices provisionerSno
-        // 另外，这里的 provisionerSno 还将会在不定时被触发的回调 mesh_par_retrieve_store_win32() -> saveMeshInfo()
-        // 最终在 JAVA 函数 TelinkApplication.saveMisc() 中保存回 JS 层
-        mTelinkApplication.doInit();
-
-        // 监听各种事件
-        mTelinkApplication.addEventListener(OnlineStatusEvent.ONLINE_STATUS_NOTIFY, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_VENDOR_RESPONSE, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_DEVICE_ON_OFF_STATUS, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_DEVICE_LEVEL_STATUS, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_CTL_STATUS_NOTIFY, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_TEMP_STATUS_NOTIFY, this);
-        mTelinkApplication.addEventListener(CommandEvent.EVENT_TYPE_CMD_COMPLETE, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_INFO_STATUS, this);
-        mTelinkApplication.addEventListener(MeshOtaEvent.EVENT_TYPE_PROGRESS_UPDATE, this);
-        mTelinkApplication.addEventListener(MeshOtaEvent.EVENT_TYPE_APPLY_STATUS, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS, this);
-        mTelinkApplication.addEventListener(OtaEvent.EVENT_TYPE_OTA_SUCCESS, this);
-        mTelinkApplication.addEventListener(OtaEvent.EVENT_TYPE_OTA_FAIL, this);
-        mTelinkApplication.addEventListener(OtaEvent.EVENT_TYPE_OTA_PROGRESS, this);
-        // mTelinkApplication.addEventListener(DeviceEvent.STATUS_CHANGED, this);
-        // mTelinkApplication.addEventListener(NotificationEvent.GET_DEVICE_STATE, this);
-        mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_AUTO_CONNECT_LOGIN, this);
-        mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_DISCONNECTED, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_KICK_OUT_CONFIRM, this);
-        mTelinkApplication.addEventListener(ScanEvent.DEVICE_FOUND, this);
-        mTelinkApplication.addEventListener(ScanEvent.SCAN_TIMEOUT, this);
-        mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_PROVISION_SUCCESS, this);
-        mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_PROVISION_FAIL, this);
-        mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_KEY_BIND_SUCCESS, this);
-        mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_KEY_BIND_FAIL, this);
-        mTelinkApplication.addEventListener(MeshEvent.EVENT_TYPE_DEVICE_OFFLINE, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_TIME_STATUS, this);
-        mTelinkApplication.addEventListener(NotificationEvent.EVENT_TYPE_SCHEDULER_STATUS, this);
-
-        if (isServiceStarted)
-            return;
-
-        isServiceStarted = true;
-        Intent bindIntent = new Intent(mContext, MeshService.class);
-        mContext.bindService(bindIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+        mService = MeshService.getInstance();
+        this.startMeshService(extendBearerMode);
+        sendEvent(SERVICE_CONNECTED);
 
         if (mBluetoothAdapter == null) {
             mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -422,30 +405,21 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void doDestroy() {
-        if (mTelinkApplication != null) {
-            mHandler.removeCallbacksAndMessages(null);
-            mReactContext.unregisterReceiver(mBluetoothStateReceiver);
-            mTelinkApplication.doDestroy();
-            mTelinkApplication = null;
-        }
-
-        if (isServiceStarted) {
-            isServiceStarted = false;
-            if (mService != null) {
-                mContext.unbindService(mServiceConnection);
-                mService = null;
-            }
+        if (mService != null) {
+            mService.clear();
+            mService = null;
+            sendEvent(SERVICE_DISCONNECTED);
         }
     }
 
     @ReactMethod
     public void doResume() {
         Log.d(TAG, "onResume");
-        //检查是否支持蓝牙设备
-        if (!LeBluetooth.getInstance().isSupport(mContext)) {
-            Toast.makeText(mContext, "ble not support", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // 检查是否支持蓝牙设备
+        // if (!LeBluetooth.getInstance().isSupport(mContext)) {
+        //     Toast.makeText(mContext, "ble not support", Toast.LENGTH_SHORT).show();
+        //     return;
+        // }
 
         // If user click `don't ask again`, will frequently
         // sendEvent(SYSTEM_LOCATION_ENABLED) to JS which cause APP stuck,
@@ -520,10 +494,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         getCurrentActivity().startActivityForResult(locationIntent, REQUEST_CODE_LOCATION_SETTINGS);
     }
 
+
+    @ReactMethod
+    public void resetExtendBearerMode(int extendBearerMode) {
+        mService.resetExtendBearerMode(ExtendBearerMode.values()[extendBearerMode]);
+    }
+
     @ReactMethod
     public void notModeAutoConnectMesh(Promise promise) {
         if (mService != null) {
-            if (mService.getMode() != MeshController.MODE_AUTO_CONNECT) {
+            if (mService.getCurrentMode() != MeshController.Mode.AUTO_CONNECT) {
                 promise.resolve(true);
             } else {
                 promise.reject(new Exception("Already in mode AutoConnectMesh"));
@@ -534,15 +514,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
-    public void autoConnect(String networkKey) {
-        int size = devices.size();
-        int[] unicastAddresses = new int[size];
-        for(int i = 0; i < size; i++) {
-            unicastAddresses[i] = devices.get(i).meshAddress;
-        }
-        AutoConnectParameters connectParams = AutoConnectParameters.getDefault(unicastAddresses, mNetKey);
-        connectParams.setScanMinPeriod(1000);
-        mService.autoConnect(connectParams);
+    public void autoConnect() {
+        mService.autoConnect(new AutoConnectParameters());
     }
 
     @ReactMethod
@@ -608,10 +581,25 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
-    public void sendCommand(int opcode, int meshAddress, ReadableArray value, boolean immediate) {
-        MeshCommand command = MeshCommand.newInstance(0, 0, 0, meshAddress, opcode);
-        command.params = readableArray2ByteArray(value);
-        mService.sendMeshCommand(command);
+    public void sendCommand(int opcode, int meshAddress, ReadableArray value, int rspOpcode, int tidPosition, boolean immediate) {
+        // telink sdk 3.1.0 do not but 3.3.3.5 do has a queue to cache commands,
+        // so let immediate make sense in 3.3.3.5
+        if (immediate) {
+            mService.clearMeshMessage();
+        }
+
+        MeshMessage meshMessage = new MeshMessage();
+        meshMessage.setDestinationAddress(meshAddress);
+        meshMessage.setOpcode(opcode);
+        meshMessage.setParams(readableArray2ByteArray(value));
+        meshMessage.setAppKeyIndex(mAppKeyIndex);
+        meshMessage.setTidPosition(tidPosition);
+        // meshMessage.setAccessType(accessType);
+        meshMessage.setResponseOpcode(rspOpcode);
+
+        // meshMessage.setResponseMax(2);
+
+        mService.sendMeshMessage(meshMessage);
     }
 
     @ReactMethod
@@ -619,12 +607,13 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_G_ONOFF_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_G_ONOFF_S.modelId);
             if (elementAddr == -1) {
                 elementAddr = meshAddress;
             }
         }
-        mService.setOnOff(elementAddr, (byte) value, true, 0, 0, (byte) 0, null);
+        OnOffSetMessage onOffSetMessage = OnOffSetMessage.getSimple(elementAddr, mAppKeyIndex, value, true, 0);
+        mService.sendMeshMessage(onOffSetMessage);
     }
 
     @ReactMethod
@@ -632,12 +621,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_LIGHTNESS_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_LIGHTNESS_S.modelId);
             if (elementAddr == -1) {
                 elementAddr = meshAddress;
             }
         }
-        mService.setLum(elementAddr, value, false, 0, 0, (byte) 0, null);
+        LightnessSetMessage message = LightnessSetMessage.getSimple(elementAddr,
+                mAppKeyIndex,
+                UnitConvert.lum2lightness(value),
+                false, 0);
+        mService.sendMeshMessage(message);
     }
 
     @ReactMethod
@@ -645,12 +638,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_LIGHT_CTL_TEMP_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_LIGHT_CTL_TEMP_S.modelId);
             if (elementAddr == -1) {
                 elementAddr = meshAddress;
             }
         }
-        mService.setTemperature100(elementAddr, value, false, 0, 0, (byte) 0, null);
+        CtlTemperatureSetMessage temperatureSetMessage =
+                CtlTemperatureSetMessage.getSimple(elementAddr,
+                        mAppKeyIndex, UnitConvert.temp100ToTemp(value),
+                        0, false, 0);
+        mService.sendMeshMessage(temperatureSetMessage);
     }
 
     @ReactMethod
@@ -658,12 +655,17 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_LIGHT_HSL_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_LIGHT_HSL_S.modelId);
             if (elementAddr == -1) {
                 elementAddr = meshAddress;
             }
         }
-        mService.setHSL(elementAddr, hue, saturation, lightness, false, 0, 0, (byte) 0, null);
+        HslSetMessage hslSetMessage = HslSetMessage.getSimple(elementAddr, mAppKeyIndex,
+                lightness,
+                hue,
+                saturation,
+                false, 0);
+        mService.sendMeshMessage(hslSetMessage);
     }
 
     @ReactMethod
@@ -672,7 +674,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             mConfigNodePromise = promise;
             String macAddress = node.getString("macAddress");
             int address = node.getInt("meshAddress");
-            TelinkLog.d("alloc address: " + address);
+            MeshLogger.d("alloc address: " + address);
 
             List<AdvertisingDevice> advDevices = new ArrayList<AdvertisingDevice>(mService.getAdvDevices());
             AdvertisingDevice advDevice = null;
@@ -687,10 +689,81 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 return;
             }
 
-            UnprovisionedDevice targetDevice = new UnprovisionedDevice(advDevice, address);
-            byte[] provisionData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, ivIndex, address);
-            ProvisionParameters parameters = ProvisionParameters.getDefault(provisionData, targetDevice);
-            mService.startProvision(parameters);
+            byte[] serviceData = MeshUtils.getMeshServiceData(advDevice.scanRecord, true);
+            if (serviceData == null || serviceData.length < 16) {
+                MeshLogger.log("serviceData error", MeshLogger.LEVEL_ERROR);
+                return;
+            }
+            final int uuidLen = 16;
+            byte[] deviceUUID = new byte[uuidLen];
+
+            System.arraycopy(serviceData, 0, deviceUUID, 0, uuidLen);
+// MeshLogger.d("serviceData: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(serviceData, ":"));
+// MeshLogger.d("deviceUUID: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(deviceUUID, ":"));
+// 如果打印出的如下信息中没有 11:02:01:00 ，就会导致后面 PrivateDevice.filter() 返回的是 null
+// 所以无法进行 fastBind 或者叫 defaultBound
+// telink 的工程师回答说需要在设备固件代码中打开 fastbind 宏 PROVISION_FLOW_SIMPLE_EN
+// 在 fastbind 模式下 deviceUUID 前两个字节是 vid(0x0211) （即 vendor identifier ，在 CompositionData
+// 中也称为 cid 即 company identifier），第三、四个字节是 pid ，果然
+// before set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
+// serviceData: D3:7C:64:89:C3:03:A0:3B:92:CB:6C:C5:D6:38:C1:A4:00:00
+// deviceUUID:  D3:7C:64:89:C3:03:A0:3B:92:CB:6C:C5:D6:38:C1:A4
+// after set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
+// serviceData: 11:02:00:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00
+// deviceUUID:  11:02:00:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4
+// 这里 deviceUUID 中的 00:FB 要如何变成 78:FB 详见 onLeScan() 中的注释
+//
+// 在 telink sdk 3.1.0 中如果 APP 不使用 privateMode 固件不使用 PROVISION_FLOW_SIMPLE_EN 的话，认领
+// 过程需要 20 秒，否则可以降低为 6 秒；
+// 在 telink sdk 3.3.3.5 中不论 APP 是否使用 privateMode 固件是否使用 PROVISION_FLOW_SIMPLE_EN ，认领
+// 过程皆为 6 秒，所以现在使用 react-native-btsig-telink@2.x 时也可以不再关心 privateMode
+
+            final int oobInfo = MeshUtils.bytes2Integer(serviceData, 16, 2, ByteOrder.LITTLE_ENDIAN);
+
+            mService.stopScan();
+
+            ProvisioningDevice provisioningDevice = new ProvisioningDevice(advDevice.device, deviceUUID, address);
+
+            // TODO: modify oob related code comes from telink demo
+            // if (AppSettings.DRAFT_FEATURES_ENABLE) {
+            //     provisioningDevice.setOobInfo(oobInfo);
+            // }
+
+            // check if oob exists
+            // byte[] oob = TelinkMeshApplication.getInstance().getMeshInfo().getOOBByDeviceUUID(deviceUUID);
+            // if (oob != null) {
+            //     provisioningDevice.setAuthValue(oob);
+            // } else {
+            //     final boolean autoUseNoOOB = SharedPreferenceHelper.isNoOOBEnable(this);
+            //     provisioningDevice.setAutoUseNoOOB(autoUseNoOOB);
+            // }
+
+            provisioningDevice.setAutoUseNoOOB(true);
+
+            // for static oob test
+            /*provisioningDevice.setAuthValue(new byte[]{
+                    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                    0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
+            });*/
+
+            // TODO: modify cert related code comes from telink demo
+            // provisioningDevice.setRootCert(CertCacheService.getInstance().getRootCert());
+
+            ProvisioningParameters provisioningParameters = new ProvisioningParameters(provisioningDevice);
+            if (mService.startProvisioning(provisioningParameters)) {
+                DeviceInfo device = new DeviceInfo();
+                device.meshAddress = address;
+                // if (AppSettings.DRAFT_FEATURES_ENABLE) {
+                //     device.oobInfo = oobInfo;
+                // }
+                device.deviceUUID = deviceUUID;
+                // device.macAddress = mService.getCurDeviceMac().toUpperCase();
+                device.macAddress = advDevice.device.getAddress();
+
+                insertDevice(device);
+            } else {
+                MeshLogger.d("provisioning busy");
+            }
         } else {
             mConfigNodeResetPromise = promise;
             mConfigNodeResetMacAddress = node.getString("macAddress");
@@ -698,32 +771,18 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
             kickDirect = mConfigNodeResetMacAddress.equals(mService.getCurDeviceMac());
             // kickDirect above sometime is not correct, so use kickDirect below
-            // kickDirect = connectMeshAddress == mConfigNodeResetMeshAddress;
+            // kickDirect = mService.getDirectConnectedNodeAddress() == mConfigNodeResetMeshAddress;
 
-            boolean kickCmdSend = mService.resetNode(mConfigNodeResetMeshAddress, null);
-            TelinkLog.d("kickDirect: " + kickDirect + " kickCmdSend: " + kickCmdSend);
-
-            // 如果发送删除设备命令失败，可能此时上层 JS 代码正在进行比如获取定时器信息等操作，而这个操作的定时器返回数据
-            // 可能会掩盖删除设备成功的返回数据，导致如下代码让上层 JS 代码再次发送删除设备命令必然成功，但又必然导致真实
-            // 设备被删除而上层 JS 代码却不知，反而对用户造成困扰，所以不使用如下代码更合适
-            // if (!kickCmdSend) {
-            //     mConfigNodeResetPromise.reject(new Exception("kickCmdSend false"));
-            //     mConfigNodeResetPromise = null;
-            // }
-
-            // startScan();
+            mService.sendMeshMessage(new NodeResetMessage(mConfigNodeResetMeshAddress));
+            MeshLogger.d("kickDirect: " + kickDirect);
         }
     }
 
     private void onKickOutFinish() {
         kickDirect = false;
 
-        if (mService == null) {
-            Log.e(TAG, "xxxxxxx onKickOutFinish mService == null");
-        }
-
         if (mConfigNodeResetPromise != null) {
-            mService.removeNodeInfo(mConfigNodeResetMeshAddress);
+            mService.removeDevice(mConfigNodeResetMeshAddress);
             this.removeDeviceByMesh(mConfigNodeResetMeshAddress);
             WritableMap params = Arguments.createMap();
             mConfigNodeResetPromise.resolve(params);
@@ -793,88 +852,57 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         return null;
     }
 
-    private PrivateDevice getPrivateDevice(byte[] scanRecord) {
-        if (scanRecord == null) return null;
-        MeshScanRecord sr = MeshScanRecord.parseFromBytes(scanRecord);
-        byte[] serviceData = sr.getServiceData(ParcelUuid.fromString(UuidInfo.PROVISION_SERVICE_UUID.toString()));
-        if (serviceData == null) return null;
-// 认领成功时 MeshController.java 的 onMeshEvent() 中 nodeInfoData 的数据是
-// 02:00:02:FF:8E:E7:40:5C:38:96:8C:1B:D1:EF:DB:5E:09:8C:05:A0:3C:00:11:02:01:00:33:30:69:00:07:00:00:00:11:01:00:00:02:00:03:00:04:00:00:FE:01:FE:00:FF:01:FF:00:10:02:10:04:10:06:10:07:10:00:13:01:13:03:13:04:13:11:02:00:00:00:00:02:00:02:10:06:13
-// 可以看到里面是有 11:02:01:00 的，也就是说应该是符合 PrivateDevice.java 中的 CT(0x0211, 0x01
-// 但为什么在认领刚开始调用的 getPrivateDevice() 中打印如下信息中没有 11:02:01:00 ，反而代之以 FE:E2:D6:E1 ？（这也是为何 PrivateDevice.filter() 返回的是 null 所以无法进行 fastBind 的原因）
-// scanRecord: 02:01:06:03:03:27:18:15:16:27:18:FE:E2:D6:E1:A4:A2:02:3A:A3:B0:3F:2A:4C:C4:CD:AB:00:00:1E:FF:3F:2A:4C:C4:CD:AB:3F:2A:00:00:00:00:00:00:00:00:00:00:01:02:03:04:05:06:07:08:09:0A:0B:00:00
-// serviceData: FE:E2:D6:E1:A4:A2:02:3A:A3:B0:3F:2A:4C:C4:CD:AB:00:00
-// telink 的工程师回答说需要在设备固件代码中打开 fastbind 宏 PROVISION_FLOW_SIMPLE_EN
-// 在 fastbind 模式下 service data 前两个字节是 vid(0x0211) （即 vendor identifier ，在 NodeInfo.CompositionData
-// 中也称为 cid 即 company identifier），第三、四个字节是 pid ，果然打开 PROVISION_FLOW_SIMPLE_EN 后
-// TelinkLog.d("serviceData: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(serviceData, ":"));
-// before set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
-// 03-02 13:35:18.095: D/TelinkBluetoothSDK(20615): serviceData: D3:7C:64:89:C3:03:A0:3B:92:CB:6C:C5:D6:38:C1:A4:00:00
-// 03-02 13:35:31.962: D/TelinkBluetoothSDK(20615): nodeInfoData: 01:00:01:FF:E0:16:18:B5:4C:C0:C2:6D:A2:29:C2:8D:30:51:85:BF:38:00:11:02:78:FB:31:31:69:00:07:00:00:00:13:01:00:00:02:00:03:00:04:00:00:FE:01:FE:00:FF:01:FF:00:12:01:12:00:10:02:10:04:10:06:10:07:10:06:12:07:12:00:13:01:13:11:02:00:00
-// after set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
-// 03-02 13:50:03.273: D/TelinkBluetoothSDK(23149): serviceData: 11:02:00:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00
-// 03-02 13:50:17.004: D/TelinkBluetoothSDK(23149): nodeInfoData: 01:00:01:FF:A4:85:7F:7E:AE:9A:64:63:E7:DC:EF:B1:A1:60:BE:EB:38:00:11:02:78:FB:31:32:69:00:07:00:00:00:13:01:00:00:02:00:03:00:04:00:00:FE:01:FE:00:FF:01:FF:00:12:01:12:00:10:02:10:04:10:06:10:07:10:06:12:07:12:00:13:01:13:11:02:00:00
-// 这里 serviceData 中的 00:FB 要如何变成 78:FB 详见 onLeScan() 中的注释
-
-        return PrivateDevice.filter(serviceData);
-    }
-
-    private void onProvisionSuccess(MeshEvent event) {
+    private void onProvisionSuccess(ProvisioningEvent event) {
         if (D) Log.d(TAG, "onProvisionSuccess");
-        DeviceInfo device = event.getDeviceInfo();
-        device.bindState = DeviceBindState.BINDING;
+        ProvisioningDevice provisioningDevice = event.getProvisioningDevice();
 
-        insertDevice(device);
+        DeviceInfo device = getDeviceByMeshAddress(provisioningDevice.getUnicastAddress());
+        device.elementCnt = provisioningDevice.getDeviceCapability().eleNum;
+        device.deviceKey = provisioningDevice.getDeviceKey();
+
 
         // check if private mode opened
+        // TODO: js to this.privateMode
         // final boolean privateMode = SharedPreferenceHelper.isPrivateMode(this);
         final boolean privateMode = true;
 
-        AdvertisingDevice advDevice = this.getAdvDeviceByMacAddress(device.macAddress);
-
         // check if device support fast bind
-        boolean fastBind = false;
-        if (privateMode && advDevice != null && advDevice.scanRecord != null) {
-            PrivateDevice prvDevice = getPrivateDevice(advDevice.scanRecord);
-
+        boolean defaultBound = false;
+        byte[] deviceUUID = provisioningDevice.getDeviceUUID();
+        if (privateMode && deviceUUID != null) {
+            PrivateDevice prvDevice = PrivateDevice.filter(deviceUUID);
             if (prvDevice != null) {
-                TelinkLog.d("private device");
+                MeshLogger.d("private device");
                 NodeInfo nodeInfo = new NodeInfo();
-
                 nodeInfo.nodeAdr = device.meshAddress;
                 nodeInfo.elementCnt = device.elementCnt;
                 nodeInfo.deviceKey = device.deviceKey;
                 byte[] cpsData = prvDevice.getCpsData();
-                MeshScanRecord sr = MeshScanRecord.parseFromBytes(advDevice.scanRecord);
-                byte[] serviceData = sr.getServiceData(ParcelUuid.fromString(UuidInfo.PROVISION_SERVICE_UUID.toString()));
-                if ((serviceData[3] & 0xFF) == 0xFB ||
-                    (serviceData[3] & 0xFF) == 0xFC ||
-                    (serviceData[3] & 0xFF) == 0xFD ||
-                    (serviceData[3] & 0xFF) == 0xFA) {  // 如果 pid 的高位字节表明这是灯串
-                    cpsData[2] = serviceData[2]; // 就将实际的灯珠数填进预定义好的灯串 cpsData 中 pid 的低位字节
+                if ((deviceUUID[3] & 0xFF) == 0xFB ||
+                    (deviceUUID[3] & 0xFF) == 0xFC ||
+                    (deviceUUID[3] & 0xFF) == 0xFD ||
+                    (deviceUUID[3] & 0xFF) == 0xFA) { // 如果 pid 的高位字节表明这是灯串
+                    cpsData[2] = deviceUUID[2]; // 就将实际的灯珠数填进预定义好的灯串 cpsData 中 pid 的低位字节
                 }
-                cpsData[4] = serviceData[4];    // PrivateDevice 中预定义的版本号不一
-                cpsData[5] = serviceData[5];    // 定与固件中的相同，所以需要在此处替换
-                nodeInfo.cpsData = NodeInfo.CompositionData.from(cpsData);
+                cpsData[4] = deviceUUID[4]; // PrivateDevice 中预定义的版本号不一
+                cpsData[5] = deviceUUID[5]; // 定与固件中的相同，所以需要在此处替换
+                nodeInfo.cpsData = CompositionData.from(cpsData);
                 nodeInfo.cpsDataLen = cpsData.length;
                 device.nodeInfo = nodeInfo;
-                fastBind = true;
+
+                defaultBound = true;
             } else {
-                TelinkLog.d("private device null");
+                MeshLogger.d("private device null");
             }
         }
 
-        KeyBindParameters parameters = KeyBindParameters.getDefault(device,
-                mAppKey, 0, 0, fastBind);
-
-        if (mService == null) {
-            Log.e(TAG, "xxxxxxx onProvisionSuccess mService == null");
-        }
-
-        mService.startKeyBind(parameters);
+        BindingDevice bindingDevice = new BindingDevice(device.meshAddress, device.deviceUUID, mAppKeyIndex);
+        bindingDevice.setDefaultBound(defaultBound);
+        bindingDevice.setBearer(BindingBearer.GattOnly);
+        mService.startBinding(new BindingParameters(bindingDevice));
     }
 
-    private void onProvisionFail(MeshEvent event) {
+    private void onProvisionFail(ProvisioningEvent event) {
         if (D) Log.d(TAG, "onProvisionFail");
         if (mConfigNodePromise != null) {
             mConfigNodePromise.reject(new Exception("onProvisionFail"));
@@ -882,155 +910,53 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mConfigNodePromise = null;
     }
 
-// 后续如果有需要在 JS 中用 json 而非数组保存 element 等信息，可以参考如下 telink sdk demo 代码
-    // mesh中的deviceInfo 转成 json 中的 node
-//     public MeshStorage.Node convertDeviceInfoToNode(DeviceInfo deviceInfo, int appKeyIndex) {
-//         MeshStorage.Node node = new MeshStorage.Node();
-//         node.macAddress = deviceInfo.macAddress.replace(":", "").toUpperCase();
-//         node.unicastAddress = String.format("%04X", deviceInfo.meshAddress);
-
-//         if (deviceInfo.deviceKey != null) {
-//             node.deviceKey = Arrays.bytesToHexString(deviceInfo.deviceKey, "").toUpperCase();
-//         }
-//         node.elements = new ArrayList<>(deviceInfo.elementCnt);
-
-//         if (deviceInfo.nodeInfo != null) {
-//             node.deviceKey = Arrays.bytesToHexString(deviceInfo.nodeInfo.deviceKey, "").toUpperCase();
-//             node.cid = String.format("%04X", deviceInfo.nodeInfo.cpsData.cid);
-//             node.pid = String.format("%04X", deviceInfo.nodeInfo.cpsData.pid);
-//             node.vid = String.format("%04X", deviceInfo.nodeInfo.cpsData.vid);
-//             node.crpl = String.format("%04X", deviceInfo.nodeInfo.cpsData.crpl);
-//             int features = deviceInfo.nodeInfo.cpsData.features;
-//             // 支持的节点默认都是打开的， 即为1， 不支持的节点 composition 数据是0， 传到 node 中为2
-//             // 已关闭相关判断
-//             /*node.features = new MeshStorage.Features((features & 0b0001) == 0 ? 2 : 1,
-//                     (features & 0b0010) == 0 ? 2 : 1,
-//                     (features & 0b0100) == 0 ? 2 : 1,
-//                     (features & 0b1000) == 0 ? 2 : 1);*/
-//             node.features = new MeshStorage.Features(features & 0b0001,
-//                     features & 0b0010,
-//                     features & 0b0100,
-//                     features & 0b1000);
-
-//             PublishModel publishModel = deviceInfo.getPublishModel();
-
-//             if (deviceInfo.nodeInfo.cpsData.elements != null) {
-//                 List<NodeInfo.Element> elements = deviceInfo.nodeInfo.cpsData.elements;
-//                 MeshStorage.Element element;
-//                 for (int i = 0; i < elements.size(); i++) {
-//                     NodeInfo.Element ele = elements.get(i);
-//                     element = new MeshStorage.Element();
-//                     element.index = i;
-//                     element.location = String.format("%04X", ele.location);
-
-//                     element.models = new ArrayList<>();
-//                     MeshStorage.Model model;
-
-//                     if (ele.sigNum != 0 && ele.sigModels != null) {
-//                         for (int modelId : ele.sigModels) {
-//                             model = new MeshStorage.Model();
-//                             model.modelId = String.format("%04X", modelId);
-//                             model.bind = new ArrayList<>();
-//                             model.bind.add(appKeyIndex);
-
-//                             model.subscribe = new ArrayList<>();
-//                             if (inDefaultSubModel(modelId)) {
-//                                 for (int subAdr : deviceInfo.subList) {
-//                                     model.subscribe.add(String.format("%04X", subAdr));
-//                                 }
-//                             }
-
-//                             if (publishModel != null && publishModel.modelId == modelId) {
-//                                 final MeshStorage.Publish publish = new MeshStorage.Publish();
-//                                 publish.address = String.format("%04X", publishModel.address);
-//                                 publish.index = 0;
-
-//                                 publish.ttl = publishModel.ttl;
-//                                 publish.period = publishModel.period;
-//                                 publish.credentials = publishModel.credential;
-//                                 publish.retransmit = new MeshStorage.Transmit(publishModel.getTransmitCount()
-//                                         , publishModel.getTransmitInterval());
-
-//                                 model.publish = publish;
-//                             }
-
-//                             element.models.add(model);
-//                         }
-//                     }
-
-//                     if (ele.vendorNum != 0 && ele.vendorModels != null) {
-
-//                         for (int modelId : ele.vendorModels) {
-//                             model = new MeshStorage.Model();
-//                             model.modelId = String.format("%08X", modelId);
-//                             model.bind = new ArrayList<>();
-//                             model.bind.add(appKeyIndex);
-//                             element.models.add(model);
-//                         }
-//                     }
-//                     node.elements.add(element);
-//                 }
-//             }
-//         } else {
-
-//             // 创建空的element对象， 用于同步element个数
-//             for (int i = 0; i < deviceInfo.elementCnt; i++) {
-//                 node.elements.add(new MeshStorage.Element());
-//             }
-//         }
-//         node.netKeys = new ArrayList<>();
-//         node.netKeys.add(new MeshStorage.NodeKey(0, false));
-//         node.configComplete = true;
-//         node.name = "Common Node";
-
-//         //目前根据appKey列表是否存在判断设备是否绑定成功
-//         if (deviceInfo.bindState == DeviceBindState.BOUND) {
-//             node.appKeys = new ArrayList<>();
-//             node.appKeys.add(new MeshStorage.NodeKey(0, false));
-//         }
-
-//         node.security = MeshSecurity.High.getDesc();
-
-//         if (deviceInfo.schedulers != null) {
-//             node.schedulers = new ArrayList<>();
-//             for (Scheduler deviceScheduler : deviceInfo.schedulers) {
-//                 node.schedulers.add(MeshStorage.NodeScheduler.fromScheduler(deviceScheduler));
-//             }
-//         }
-
-//         return node;
-//     }
-
-    private void onUpdateMeshCompleted(MeshEvent event) {
-        DeviceInfo deviceInfo = event.getDeviceInfo();
-        if (D) Log.d(TAG, "onUpdateMeshCompleted");
-        DeviceInfo local = getDeviceByMacAddress(deviceInfo.macAddress);
-        if (local == null) {
+    private void onUpdateMeshCompleted(BindingEvent event) {
+        BindingDevice bindingDevice = event.getBindingDevice();
+        DeviceInfo device = getDeviceByMeshAddress(bindingDevice.getMeshAddress());
+        if (device == null) {
             if (D) Log.d(TAG, "can't find device in devices of native");
-            mConfigNodePromise.reject(new Exception("can't find device in devices of native"));
+            if (mConfigNodePromise != null) {
+                mConfigNodePromise.reject(new Exception("can't find device in devices of native"));
+                mConfigNodePromise = null;
+            }
+            return;
         };
 
-        local.bindState = DeviceBindState.BOUND;
-        local.nodeInfo = deviceInfo.nodeInfo;
+        // if is default bound, composition data has been valued ahead of binding action
+        if (!bindingDevice.isDefaultBound()) {
+            NodeInfo nodeInfo = new NodeInfo();
+            nodeInfo.nodeAdr = device.meshAddress;
+            nodeInfo.elementCnt = device.elementCnt;
+            nodeInfo.deviceKey = device.deviceKey;
+            nodeInfo.cpsData = bindingDevice.getCompositionData();
+            byte[] cpsData = NodeInfo.cpsDataToBytes(nodeInfo.cpsData);
+            nodeInfo.cpsDataLen = cpsData.length;
+            device.nodeInfo = nodeInfo;
+        }
 
         if (mConfigNodePromise != null) {
             WritableMap params = Arguments.createMap();
 
-            // 来自 MeshController.java 中 type.equals(MeshEvent.EVENT_TYPE_KEY_BIND_SUCCESS) 处
+            // 来自 MeshController.java 中 BindingEvent.EVENT_TYPE_BIND_SUCCESS 处
             WritableArray nodeInfo = Arguments.createArray();
-            byte[] nodeInfoArray = deviceInfo.nodeInfo.toVCNodeInfo();
-            // TelinkLog.d("nodeInfoArray: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(nodeInfoArray, ":"));
+            byte[] nodeInfoArray = device.nodeInfo.toVCNodeInfo();
+            // MeshLogger.d("nodeInfoArray: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(nodeInfoArray, ":"));
             int nodeInfoWithoutCpsDataLength = 22;
-            int nodeInfoValidLength = nodeInfoWithoutCpsDataLength + deviceInfo.nodeInfo.cpsDataLen;
+            int nodeInfoValidLength = nodeInfoWithoutCpsDataLength + device.nodeInfo.cpsDataLen;
             for (int i = 0; i < nodeInfoValidLength; i++) {
                 nodeInfo.pushInt(nodeInfoArray[i]);
             }
+
+            // telink sdk 3.2.1 内含 NodeInfo.java ，当时发给 JS 的是 nodeInfo 数组来保存 element 等信息，
+            // telink sdk 3.3.3.5 不再内含 NodeInfo.java ，但为了兼容性考虑以及数组更容易发送给 JS （并在
+            // index.native.js 中使用 byteArray2HexString() 转换为字符串返回给 APP ），予以保留
             params.putArray("nodeInfo", nodeInfo);
-            params.putInt("elementCnt", deviceInfo.elementCnt);
-            params.putInt("type", deviceInfo.nodeInfo.cpsData.pid);
+
+            params.putInt("elementCnt", device.elementCnt);
+            params.putInt("type", device.nodeInfo.cpsData.pid);
             WritableArray array = Arguments.createArray();
-            byte[] dhmKey = deviceInfo.deviceKey;
-            // TelinkLog.d("dhmKey: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(dhmKey, ":"));
+            byte[] dhmKey = device.deviceKey;
+            // MeshLogger.d("dhmKey: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(dhmKey, ":"));
             for (int i = 0; i < dhmKey.length; i++) {
                 array.pushInt(dhmKey[i]);
             }
@@ -1041,11 +967,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mConfigNodePromise = null;
     }
 
-    private void onUpdateMeshFailure(MeshEvent event) {
-        DeviceInfo deviceInfo = event.getDeviceInfo();
+    private void onUpdateMeshFailure(BindingEvent event) {
+        BindingDevice bindingDevice = event.getBindingDevice();
         if (D) Log.d(TAG, "onUpdateMeshFailure");
         kickDirect = true;
-        mService.resetNode(deviceInfo.meshAddress, null);
+        mService.sendMeshMessage(new NodeResetMessage(bindingDevice.getMeshAddress()));
+        // mConfigNodePromise 将在 onKickOutFinish() 中被置 null
     }
 
     private void onUpdateMeshFailure() {
@@ -1056,57 +983,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mConfigNodePromise = null;
     }
 
-    // private void onNError(final DeviceEvent event) {
-    //     TelinkLightService.Instance().idleMode(true);
-    //     TelinkLog.d("DeviceScanningActivity#onNError");
-    //     sendEvent(DEVICE_STATUS_ERROR_N);
-    // }
-
-    // private void onDeviceStatusChanged(DeviceEvent event) {
-    //     DeviceInfo deviceInfo = event.getArgs();
-    //     switch (deviceInfo.status) {
-    //         case LightAdapter.STATUS_CONNECTING:
-    //             break;
-    //         case LightAdapter.STATUS_LOGOUT:
-    //             sendEvent(DEVICE_STATUS_LOGOUT);
-    //             break;
-    //         case LightAdapter.STATUS_UPDATE_MESH_COMPLETED:
-    //             onUpdateMeshCompleted(deviceInfo);
-    //             break;
-    //         case LightAdapter.STATUS_UPDATE_MESH_FAILURE:
-    //             onUpdateMeshFailure(deviceInfo);
-    //             break;
-    //         case LightAdapter.STATUS_ERROR_N:
-    //             onNError(event);
-    //             break;
-    //         case LightAdapter.STATUS_OTA_PROGRESS:
-    //             OtaDeviceInfo otaDeviceInfo = (OtaDeviceInfo) event.getArgs();
-    //             WritableMap map = Arguments.createMap();
-    //             map.putInt("otaMasterProgress", otaDeviceInfo.progress);
-    //             sendEvent(DEVICE_STATUS_OTA_MASTER_PROGRESS, map);
-    //             break;
-    //         case LightAdapter.STATUS_OTA_COMPLETED:
-    //             TelinkLog.i("ota master complete");
-    //             sendEvent(DEVICE_STATUS_OTA_MASTER_COMPLETE);
-    //             break;
-    //         case LightAdapter.STATUS_OTA_FAILURE:
-    //             TelinkLog.i("ota master fail");
-    //             sendEvent(DEVICE_STATUS_OTA_MASTER_FAIL);
-    //             break;
-    //         default:
-    //             break;
-    //     }
-    // }
-
-    /**
-     * 处理{@link OnlineStatusEvent#ONLINE_STATUS_NOTIFY}事件
-     */
-    private synchronized void onOnlineStatusNotify(OnlineStatusEvent event) {
-        TelinkLog.i("MainActivity#onOnlineStatusNotify#Thread ID : " + Thread.currentThread().getId());
-        List<OnlineStatusInfoParser.OnlineStatusInfo> infoList = OnlineStatusInfoParser.create().parseInfo(event.rawData);
+    private synchronized void onOnlineStatusNotify(OnlineStatusEvent onlineStatusEvent) {
+        List<OnlineStatusInfo> infoList = onlineStatusEvent.getOnlineStatusInfoList();
         if (infoList != null) {
             WritableArray params = Arguments.createArray();
-            for (OnlineStatusInfoParser.OnlineStatusInfo onlineStatusInfo : infoList) {
+            for (OnlineStatusInfo onlineStatusInfo : infoList) {
                 if (onlineStatusInfo.status == null || onlineStatusInfo.status.length < 3) break;
                 WritableMap map = Arguments.createMap();
                 map.putInt("meshAddress", onlineStatusInfo.address);
@@ -1130,79 +1011,51 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
     }
 
-    private synchronized void onMeshOffline(MeshEvent event) {
-        // onUpdateMeshFailure();
-        sendEvent(MESH_OFFLINE);
-    }
+    // private synchronized void onMeshOffline(MeshEvent event) {
+    //     // onUpdateMeshFailure();
+    //     sendEvent(MESH_OFFLINE);
+    // }
 
-    private synchronized void onVendorResponse(NotificationEvent event) {
-// Log.d(TAG, "onVendorResponse: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
-// Log.d(TAG, "onVendorResponse: " + event.getNotificationInfo().toString());
-// 上面两个测试语句会得到如下信息
-// onVendorResponse: F0:08:01:00:FF:00:E3:11:02:00
-// onVendorResponse: NotificationInfo{srcAdr=0001, destAdr=00FF, opcode=0211E3, isVendor=true, params=00}
-
-        NotificationInfo notificationInfo = event.getNotificationInfo();
-
+    private synchronized void onVendorResponse(NotificationMessage notificationMessage) {
         WritableMap params = Arguments.createMap();
-        params.putInt("meshAddress", notificationInfo.srcAdr);
-        params.putInt("opcode", notificationInfo.opcode);
-        params.putArray("params", byteArray2WritableArray(notificationInfo.params));
+        params.putInt("meshAddress", notificationMessage.getSrc());
+        params.putInt("opcode", notificationMessage.getOpcode());
+        params.putArray("params", byteArray2WritableArray(notificationMessage.getParams()));
         sendEvent(NOTIFICATION_VENDOR_RESPONSE, params);
     }
 
-    private synchronized void onGetOnOffNotify(NotificationEvent event) {
-// Log.d(TAG, "onGetOnOffNotify: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
-// Log.d(TAG, "onGetOnOffNotify: " + event.getNotificationInfo().toString());
-// 上面两个测试语句会得到如下信息
-// onGetOnOffNotify: F0:07:02:00:01:00:82:04:00
-// onGetOnOffNotify: NotificationInfo{srcAdr=0002, destAdr=0001, opcode=000482, isVendor=false, params=00}
-
-        NotificationInfo notificationInfo = event.getNotificationInfo();
+    private synchronized void onGetOnOffNotify(NotificationMessage message) {
+        OnOffStatusMessage onOffStatusMessage = (OnOffStatusMessage) message.getStatusMessage();
 
         WritableMap params = Arguments.createMap();
-        params.putInt("meshAddress", notificationInfo.srcAdr);
-        params.putInt("onOff", notificationInfo.params.length == 1 ? notificationInfo.params[0] : notificationInfo.params[1]);
+        params.putInt("meshAddress", message.getSrc());
+        params.putInt("onOff", onOffStatusMessage.isComplete() ? onOffStatusMessage.getTargetOnOff() : onOffStatusMessage.getPresentOnOff());
         sendEvent(NOTIFICATION_DATA_GET_ON_OFF, params);
     }
 
-    private synchronized void onGetLevelNotify(NotificationEvent event) {
-// Log.d(TAG, "onGetLevelNotify: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
-// Log.d(TAG, "onGetLevelNotify: " + event.getNotificationInfo().toString());
-// 上面两个测试语句会得到如下信息
-// onGetLevelNotify: F0:08:02:00:01:00:82:08:FF:7F
-// onGetLevelNotify: NotificationInfo{srcAdr=0002, destAdr=0001, opcode=000882, isVendor=false, params=FF:7F}
-// 本函数在此次测试中之所以会被自动调用 2 次，是因为该 device 中有两个 element ，所以还会得到如下第 2 次信息
-// onGetLevelNotify: F0:08:03:00:01:00:82:08:FF:7F
-// onGetLevelNotify: NotificationInfo{srcAdr=0003, destAdr=0001, opcode=000882, isVendor=false, params=FF:7F}
+    private synchronized void onGetLevelNotify(NotificationMessage message) {
+        LevelStatusMessage levelStatusMessage = (LevelStatusMessage) message.getStatusMessage();
 
-        NotificationInfo notificationInfo = event.getNotificationInfo();
-        short status;
-        // 是否带有目标值
-        if (notificationInfo.params.length >= 4) {
-            status = (short) ((notificationInfo.params[2] & 0xFF) | ((notificationInfo.params[3] & 0xFF) << 8));
-        } else {
-            status = (short) ((notificationInfo.params[0] & 0xFF) | ((notificationInfo.params[1] & 0xFF) << 8));
-        }
-
-        byte tarVal = mTelinkApplication.getMeshLib().level2Lum(status); // 测试得：上面 status 为 0x7FFF 时， level2Lum 会转换为 100
+        int srcAdr = message.getSrc();
+        int level = levelStatusMessage.isComplete() ? levelStatusMessage.getTargetLevel() : levelStatusMessage.getPresentLevel();
+        int tarVal = UnitConvert.level2lum((short) level); // 测试得： level 为 0x7FFF 时， level2Lum 会转换为 100
 
         WritableMap params = Arguments.createMap();
         // 如下这么折腾 element ，而且还可能会调用多次 sendEvent ，则还不如直接使用 onGetCtlNotify 更简洁
-        // TelinkLog.d("lightness status val: " + tarVal + " -- " + status);
+        // MeshLogger.d("lightness status val: " + tarVal);
         for (DeviceInfo device : devices) {
             if (device.nodeInfo == null) {
                 continue;
             }
             int deviceAdr = -1;
             int elementAddr = device.meshAddress;
-            for (NodeInfo.Element element : device.nodeInfo.cpsData.elements) {
-                if (elementAddr == notificationInfo.srcAdr) {
-                    if (element.containModel(SigMeshModel.SIG_MD_LIGHTNESS_S.modelId)) {
+            for (CompositionData.Element element : device.nodeInfo.cpsData.elements) {
+                if (elementAddr == srcAdr) {
+                    if (element.containModel(MeshSigModel.SIG_MD_LIGHTNESS_S.modelId)) {
                         params.putInt("brightness", tarVal);
                         deviceAdr = device.meshAddress;
                         break;
-                    } else if (element.containModel(SigMeshModel.SIG_MD_LIGHT_CTL_TEMP_S.modelId)) {
+                    } else if (element.containModel(MeshSigModel.SIG_MD_LIGHT_CTL_TEMP_S.modelId)) {
                         params.putInt("colorTemp", tarVal);
                         deviceAdr = device.meshAddress;
                         break;
@@ -1219,120 +1072,46 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
     }
 
-    private synchronized void onGetLightnessNotify(NotificationEvent event) {
-// Log.d(TAG, "onGetLightnessNotify: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
-// Log.d(TAG, "onGetLightnessNotify: " + event.getNotificationInfo().toString());
-// 上面两个测试语句会得到如下信息
-// onGetLightnessNotify: F0:08:02:00:01:00:82:4E:FF:FF
-// onGetLightnessNotify: NotificationInfo{srcAdr=0002, destAdr=0001, opcode=004E82, isVendor=false, params=FF:FF}
+    private synchronized void onGetLightnessNotify(NotificationMessage message) {
+        LightnessStatusMessage lightnessStatusMessage = (LightnessStatusMessage) message.getStatusMessage();
 
-        NotificationInfo notificationInfo = event.getNotificationInfo();
-        int liStatus;
-        if (notificationInfo.params.length >= 4) {
-            liStatus = (notificationInfo.params[2] & 0xFF) | ((notificationInfo.params[3] & 0xFF) << 8);
-        } else {
-            liStatus = (notificationInfo.params[0] & 0xFF) | ((notificationInfo.params[1] & 0xFF) << 8);
-        }
-
-        int lightness = mTelinkApplication.getMeshLib().lightness2Lum(liStatus); // 测试得：上面 liStatus 为 0xFFFF 时， lightness2Lum 会转换为 100
+        int srcAdr = message.getSrc();
+        int lum = lightnessStatusMessage.isComplete() ? lightnessStatusMessage.getTargetLightness() : lightnessStatusMessage.getPresentLightness();
+        int lightness = UnitConvert.lightness2lum(lum); // 测试得：上面 lum 为 0xFFFF 时， lightness2lum 会转换为 100
 
         WritableMap params = Arguments.createMap();
-        params.putInt("meshAddress", notificationInfo.srcAdr);
+        params.putInt("meshAddress", srcAdr);
         params.putInt("brightness", lightness);
         sendEvent(NOTIFICATION_DATA_GET_LIGHTNESS, params);
     }
 
-    private synchronized void onGetCtlNotify(NotificationEvent event) {
-// Log.d(TAG, "onGetCtlNotify: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
-// Log.d(TAG, "onGetCtlNotify: " + event.getNotificationInfo().toString());
-// 上面两个测试语句会得到如下信息
-// onGetCtlNotify: F0:0A:02:00:01:00:82:60:FF:FF:20:4E
-// onGetCtlNotify: NotificationInfo{srcAdr=0002, destAdr=0001, opcode=006082, isVendor=false, params=FF:FF:20:4E}
+    private synchronized void onGetCtlNotify(NotificationMessage message) {
+        CtlStatusMessage ctlStatusMessage = (CtlStatusMessage) message.getStatusMessage();
 
-        NotificationInfo notificationInfo = event.getNotificationInfo();
-        CtlStatusNotificationParser ctlParser = CtlStatusNotificationParser.create();
-        CtlStatusNotificationParser.CtlInfo ctlInfo = ctlParser.parse(notificationInfo.params);
-        if (ctlInfo == null) return;
+        MeshLogger.d("ctl : " + ctlStatusMessage.toString());
+        int srcAdr = message.getSrc();
+        int lum = ctlStatusMessage.isComplete() ? ctlStatusMessage.getTargetLightness() : ctlStatusMessage.getPresentLightness();
+        int temp = ctlStatusMessage.isComplete() ? ctlStatusMessage.getTargetTemperature() : ctlStatusMessage.getPresentTemperature();
 
         WritableMap params = Arguments.createMap();
-        params.putInt("meshAddress", notificationInfo.srcAdr);
-        params.putInt("brightness", ctlInfo.lum);
-        params.putInt("colorTemp", ctlInfo.temp);
+        params.putInt("meshAddress", srcAdr);
+        params.putInt("brightness", UnitConvert.lightness2lum(lum));
+        params.putInt("colorTemp", UnitConvert.tempToTemp100(temp));
         sendEvent(NOTIFICATION_DATA_GET_CTL, params);
     }
 
-    private synchronized void onGetTempNotify(NotificationEvent event) {
-// Log.d(TAG, "onGetTempNotify: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(event.getRawData(), ":"));
-// Log.d(TAG, "onGetTempNotify: " + event.getNotificationInfo().toString());
-// 上面两个测试语句会得到如下信息
-// onGetTempNotify: F0:0A:03:00:01:00:82:66:20:4E:00:00
-// onGetTempNotify: NotificationInfo{srcAdr=0003, destAdr=0001, opcode=006682, isVendor=false, params=20:4E:00:00}
+    private synchronized void onGetTempNotify(NotificationMessage message) {
+        CtlTemperatureStatusMessage ctlTemperatureStatusMessage = (CtlTemperatureStatusMessage) message.getStatusMessage();
 
-        NotificationInfo notificationInfo = event.getNotificationInfo();
-        int tempStatus = (notificationInfo.params[0] & 0xFF) | ((notificationInfo.params[1] & 0xFF) << 8);
-        int colorTemp = mTelinkApplication.getMeshLib().tempToTemp100(tempStatus); // 测试得：上面 tempStatus 为 0x4E20 时， tempToTemp100 会转换为 100
+        int srcAdr = message.getSrc();
+        int temp = ctlTemperatureStatusMessage.isComplete() ? ctlTemperatureStatusMessage.getTargetTemperature() : ctlTemperatureStatusMessage.getPresentTemperature();
+        int colorTemp = UnitConvert.lightness2lum(temp);
 
         WritableMap params = Arguments.createMap();
-        params.putInt("meshAddress", notificationInfo.srcAdr);
+        params.putInt("meshAddress", srcAdr);
         params.putInt("colorTemp", colorTemp);
         sendEvent(NOTIFICATION_DATA_GET_TEMP, params);
     }
-
-    // private synchronized void onGetDeviceState(NotificationEvent event) {
-    //     byte[] data = event.getArgs().params;
-    //     WritableMap params = Arguments.createMap();
-    //     params.putInt("meshAddress", event.getArgs().src);
-    //     switch (data[0]) {
-    //         case NotificationEvent.DATA_GET_VERSION:
-    //             params.putString("version", Strings.bytesToString(Arrays.copyOfRange(data, 1, 5)));
-    //             sendEvent(NOTIFICATION_DATA_GET_VERSION, params);
-    //             break;
-    //         case NotificationEvent.DATA_GET_MESH_OTA_PROGRESS:
-    //             params.putInt("OtaSlaveProgress", (int) data[1]);
-    //             sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_PROGRESS, params);
-    //             break;
-    //         case NotificationEvent.DATA_GET_OTA_STATE:
-    //             int otaState = data[1];
-    //             switch (otaState) {
-    //                 case NotificationEvent.OTA_STATE_IDLE:
-    //                     TelinkLog.i("otaState: idle");
-    //                     params.putString("otaState", "idle");
-    //                     break;
-    //                 case NotificationEvent.OTA_STATE_SLAVE:
-    //                     TelinkLog.i("otaState: slave");
-    //                     params.putString("otaState", "slave");
-    //                     break;
-    //                 case NotificationEvent.OTA_STATE_MASTER:
-    //                     TelinkLog.i("otaState: master");
-    //                     params.putString("otaState", "master");
-    //                     break;
-    //                 case NotificationEvent.OTA_STATE_ONLY_RELAY:
-    //                     TelinkLog.i("otaState: onlyRelay");
-    //                     params.putString("otaState", "onlyRelay");
-    //                     break;
-    //                 case NotificationEvent.OTA_STATE_COMPLETE:
-    //                     TelinkLog.i("otaState: complete");
-    //                     params.putString("otaState", "complete");
-    //                     break;
-    //                 default:
-    //                     break;
-    //             }
-    //             sendEvent(NOTIFICATION_DATA_GET_OTA_STATE, params);
-    //             break;
-    //         case NotificationEvent.DATA_SET_OTA_MODE_NOTIFY:
-    //             if (data[1] == 0) {
-    //                 TelinkLog.i("setOtaModeRes: ok");
-    //                 params.putString("setOtaModeRes", "ok");
-    //             } else {
-    //                 TelinkLog.i("setOtaModeRes: err");
-    //                 params.putString("setOtaModeRes", "err");
-    //             }
-    //             sendEvent(NOTIFICATION_DATA_SET_OTA_MODE_RES, params);
-    //             break;
-    //         default:
-    //             break;
-    //     }
-    // }
 
     @ReactMethod
     public void setNodeGroupAddr(boolean toDel, int meshAddress, int groupAddress, Promise promise) {
@@ -1364,7 +1143,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 setNextModel();
                 return;
             }
-            if (!mService.setSubscription(mSetNodeGroupAddrType, mSetNodeGroupAddrDevice.meshAddress, elementAddr, mSetNodeGroupAddrGroupAddr, models[mSetNodeGroupAddrModelIndex].modelId, true, TAG_CMD_SET_NODE_GROUP)) {
+
+            MeshMessage groupingMessage = ModelSubscriptionSetMessage.getSimple(mSetNodeGroupAddrDevice.meshAddress, mSetNodeGroupAddrType, elementAddr, mSetNodeGroupAddrGroupAddr, models[mSetNodeGroupAddrModelIndex].modelId, true);
+            if (!mService.sendMeshMessage(groupingMessage)) {
                 if (mSetNodeGroupAddrPromise != null) {
                     mSetNodeGroupAddrPromise.reject(new Exception("setSubscription return false"));
                 }
@@ -1374,21 +1155,20 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
     }
 
-    private synchronized void onCmdComplete(CommandEvent event) {
-        MeshCommand meshCommand = event.getMeshCommand();
-        if (meshCommand != null) {
-            if (TAG_CMD_SET_NODE_GROUP.equals(meshCommand.tag)) {
-                if (meshCommand.rspCnt >= 1) {
-                    mSetNodeGroupAddrModelIndex++;
-                    setNextModel();
-                } else {
-                    if (mSetNodeGroupAddrPromise != null) {
-                        mSetNodeGroupAddrPromise.reject(new Exception("setSubscription rspCnt < 1"));
-                    }
-                    mSetNodeGroupAddrDevice = null;
-                    mSetNodeGroupAddrPromise = null;
-                    TelinkLog.e("set group sub error");
+    private synchronized void onGetModelSubscription(NotificationMessage message) {
+        ModelSubscriptionStatusMessage modelSubscriptionStatusMessage = (ModelSubscriptionStatusMessage) message.getStatusMessage();
+        if (mSetNodeGroupAddrPromise != null) {
+            if (modelSubscriptionStatusMessage.getStatus() == ConfigStatus.SUCCESS.code) {
+                MeshLogger.d("group address: " + modelSubscriptionStatusMessage.getAddress());
+                mSetNodeGroupAddrModelIndex++;
+                setNextModel();
+            } else {
+                if (mSetNodeGroupAddrPromise != null) {
+                    mSetNodeGroupAddrPromise.reject(new Exception("grouping status fail!"));
                 }
+                mSetNodeGroupAddrDevice = null;
+                mSetNodeGroupAddrPromise = null;
+                MeshLogger.e("set group sub error");
             }
         }
     }
@@ -1401,12 +1181,27 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_TIME_SETUP_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_TIME_SETUP_S.modelId);
             if (elementAddr == -1) {
                 elementAddr = meshAddress;
             }
         }
-        mService.setTime(elementAddr, 0, time, offset, null);
+        TimeSetMessage timeSetMessage = TimeSetMessage.getSimple(elementAddr, mAppKeyIndex,
+                time, offset, 0);
+
+        // 由于 TimeSetMessage 的 getOpcode() 中 `ack ? Opcode.TIME_SET.value : Opcode.TIME_STATUS.value`
+        // 在 ack 为默认 false 时的 Opcode.TIME_STATUS.value 会触发固件代码中的 mesh_cmd_sig_time_status() ，
+        // 但打印发现其内 `if(p_set->TAI_sec && (!g_TAI_sec)){` 中 g_TAI_sec 不为 0 (而是一个随时间递增的值) ,
+        // 导致无法进入 mesh_time_set() ，因而并不会象 telink 人员说的那样 Opcode.TIME_STATUS.value 也能顺带设置
+        // 固件内置的时间，估计是一个 BUG ，所以这里需要显式 setAck(true) 来明确使用 Opcode.TIME_SET.value
+        timeSetMessage.setAck(true);
+
+        boolean re = mService.sendMeshMessage(timeSetMessage);
+        if (re) {
+            MeshLogger.d("setTime time: " + time + " zone " + offset);
+        } else {
+            MeshLogger.d("setTime fail");
+        }
     }
 
     @ReactMethod
@@ -1414,7 +1209,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_TIME_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_TIME_S.modelId);
             if (elementAddr == -1) {
                 promise.reject(new Exception("GetTime no time model in device elements"));
                 return;
@@ -1425,11 +1220,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
 
         mGetTimePromise = promise;
-        mService.getTime(meshAddress, 0, null);
+        TimeGetMessage timeGetMessage = TimeGetMessage.getSimple(elementAddr, mAppKeyIndex, 0);
+        mService.sendMeshMessage(timeGetMessage);
     }
 
-    private synchronized void onGetTimeNotify(NotificationEvent event) {
-        byte[] data = event.getRawData();
+    private synchronized void onGetTimeNotify(NotificationMessage message) {
 // typedef struct{
 //     u32 TAI_sec;     // 32bit is enough for 2000 ~ 2099 year
 //     u8 TAI_sec_rsv;
@@ -1439,22 +1234,22 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 //     u16 TAI_UTC_delta   :15;
 //     u8 zone_offset;
 // }time_status_t;
-        TelinkLog.d("time: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(data, ":"));
+        TimeStatusMessage timeStatusMessage = (TimeStatusMessage) message.getStatusMessage();
 
-        int taiSec = MeshUtils.bytes2Integer(Arrays.copyOfRange(data, 7, 11), ByteOrder.LITTLE_ENDIAN);
-        TelinkLog.d("taiSec: " + taiSec);
-        long sec = (long)taiSec + MeshUtils.TAI_OFFSET_SECOND;
-        Calendar notificationInfo = Calendar.getInstance();
-        notificationInfo.setTimeInMillis(sec * 1000);
+        long taiSec = timeStatusMessage.getTaiSeconds();
+        MeshLogger.d("taiSec: " + taiSec);
+        long sec = taiSec + MeshUtils.TAI_OFFSET_SECOND;
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(sec * 1000);
 
-        if (notificationInfo == null) {
+        if (calendar == null) {
             mGetTimePromise.reject(new Exception("GetTime return null"));
             return;
         }
 
         if (mGetTimePromise != null) {
             WritableMap params = Arguments.createMap();
-            params.putString("time", String.valueOf(notificationInfo.getTime().getTime()));
+            params.putString("time", String.valueOf(calendar.getTime().getTime()));
             mGetTimePromise.resolve(params);
         }
         mGetTimePromise = null;
@@ -1476,18 +1271,20 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 .setAction((byte) action)
                 .setTransTime((byte) transitionTime)
                 .setSceneId((short) sceneId).build();
-        long register = scheduler.getRegisterParam0();
-        // TelinkLog.d("scheduler register: " + Long.toBinaryString(register));
+        byte[] schedulerData = scheduler.toBytes();
+        MeshLogger.log("scheduler data: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(schedulerData, ""));
 
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_SCHED_SETUP_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_SCHED_SETUP_S.modelId);
             if (elementAddr == -1) {
                 elementAddr = meshAddress;
             }
         }
-        mService.setSchedulerAction(elementAddr, true, 0, scheduler, null);
+        SchedulerActionSetMessage schedulerActionSetMessage = SchedulerActionSetMessage.getSimple(elementAddr,
+                mAppKeyIndex, scheduler, true, 0);
+        mService.sendMeshMessage(schedulerActionSetMessage);
     }
 
     @ReactMethod
@@ -1495,7 +1292,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         int elementAddr = meshAddress;
         DeviceInfo device = this.getDeviceByMeshAddress(meshAddress);
         if (device != null) {
-            elementAddr = device.getTargetEleAdr(SigMeshModel.SIG_MD_SCHED_S.modelId);
+            elementAddr = device.getTargetEleAdr(MeshSigModel.SIG_MD_SCHED_S.modelId);
             if (elementAddr == -1) {
                 promise.reject(new Exception("getAlarm no sched model in device elements"));
                 return;
@@ -1506,27 +1303,14 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
 
         mGetAlarmPromise = promise;
-        mService.getSchedulerAction(meshAddress, 0, alarmId, null);
+        SchedulerActionGetMessage schedulerActionGetMessage = SchedulerActionGetMessage.getSimple(elementAddr,
+                mAppKeyIndex, (byte) alarmId, 0);
+        mService.sendMeshMessage(schedulerActionGetMessage);
     }
 
-    private synchronized void onGetAlarmNotify(NotificationEvent event) {
-        byte[] data = event.getRawData();
-        //        F0:13:02:00:01:00:5F: 20:F9:FF:8C:FB:FE:1F:00:00:00: 00:00:00:00
-        // TelinkLog.d("scheduler get: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(data, ":"));
-
-        Scheduler scheduler = Scheduler.fromBytes(Arrays.copyOfRange(data, 7, 17));
-        // Scheduler scheduler = Scheduler.fromBytes([
-        //     data[7],
-        //     data[8],
-        //     data[9],
-        //     data[10],
-        //     data[11],
-        //     data[12],
-        //     data[13],
-        //     data[14],
-        //     data[15],
-        //     data[16]
-        // ]);
+    private synchronized void onGetAlarmNotify(NotificationMessage message) {
+        SchedulerActionStatusMessage schedulerActionStatusMessage = (SchedulerActionStatusMessage) message.getStatusMessage();
+        Scheduler scheduler = schedulerActionStatusMessage.getScheduler();
         if (scheduler == null) {
             mGetAlarmPromise.reject(new Exception("GetAlarm return null"));
             return;
@@ -1551,99 +1335,224 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mGetAlarmPromise = null;
     }
 
-    private synchronized void onGetFirmwareInfo(NotificationEvent event) {
-        /*
-        u16 cid，  (vendor id)
-        u16 pid,   (设备类型)
-        u16 vid    (版本id)
-         */
-        final NotificationInfo notificationInfo = event.getNotificationInfo();
-        if (notificationInfo.params.length < 6) {
+    @ReactMethod
+    public void getFirmwareInfo(int meshAddress) {
+        FirmwareUpdateInfoGetMessage infoGetMessage = FirmwareUpdateInfoGetMessage.getSimple(meshAddress,
+                mAppKeyIndex);
+        infoGetMessage.setResponseMax(0);
+        if (mService.sendMeshMessage(infoGetMessage)) {
+            MeshLogger.d("getFirmwareInfo success");
+        } else {
+            MeshLogger.d("getFirmwareInfo fail");
+        }
+    }
+
+    private synchronized void onGetFirmwareInfo(NotificationMessage message) {
+// 在 telink_sig_mesh_sdk_v3.1.0/firmware/vendor/common/mesh_ota.h 里的
+// typedef struct{
+//    u16 cid;
+//    u32 fw_id;
+// }fw_cid_fwid_t;
+//
+// typedef struct{
+//    fw_cid_fwid_t id;
+// }fw_info_status_t;
+// fw_info_status_t 结构体对应着 3.1.0 里 onGetFirmwareInfo() 收到的数据，这也是
+// sig_mesh_sdk_v3.1.0/app/Android/TelinkSigMeshRelease/TelinkSigMeshDemo/src/main/java/com/telink/sig/mesh/demo/ui/MeshOTAActivity.java 中
+//        /*
+//        u16 cid，  (vendor id)
+//        u16 pid,   (设备类型)
+//        u16 vid    (版本id)
+//         */
+// 这句注释的由来。
+//
+// 而在 telink_sig_mesh_sdk_v3.2.1/firmware/vendor/common/mesh_ota.h 里的
+// typedef struct{
+//    u16 pid;
+//    u16 vid;
+// }fw_id_t;
+//
+// typedef struct{
+//     u8 list_count;
+//     u8 first_index;
+// #if 1   // only one firmware for telink SDK
+//     u8 fw_id_len;
+//     fw_id_t fw_id;
+//     u8 uri_len; // set 0 now.
+//     // uri[];
+// #endif
+// }fw_update_info_status_t;
+// fw_update_info_status_t 结构体对应着这里 onGetFirmwareInfo() 收到的数据
+
+        FirmwareUpdateInfoStatusMessage firmwareUpdateInfoStatusMessage = (FirmwareUpdateInfoStatusMessage) message.getStatusMessage();
+
+        FirmwareUpdateInfoStatusMessage.FirmwareInformationEntry firstEntry = firmwareUpdateInfoStatusMessage.getFirstEntry();
+        if (firstEntry == null) {
             return;
         }
+
         WritableMap params = Arguments.createMap();
-        params.putInt("meshAddress", notificationInfo.srcAdr);
-        params.putString("version", Strings.bytesToString(Arrays.copyOfRange(notificationInfo.params, 4, 6)));
+        params.putInt("meshAddress", message.getSrc());
+        params.putString("version", Strings.bytesToString(Arrays.copyOfRange(firstEntry.currentFirmwareID, 2, 4)));
         sendEvent(NOTIFICATION_DATA_GET_VERSION, params);
     }
 
     @ReactMethod
     public void startMeshOTA(ReadableArray meshAddresses, ReadableArray firmware) {
-        mService.startMeshOTA(readableArray2IntArray(meshAddresses), readableArray2ByteArray(firmware));
+        final int directAddress = mService.getDirectConnectedNodeAddress();
+
+        // for test - start
+//        firmwareData = new byte[4 * 1024];
+//        for (int i = 0; i < firmwareData.length; i++) {
+//            firmwareData[i] = (byte) (i % 0x0F);
+//        }
+        // for test - end
+
+        List<MeshUpdatingDevice> meshUpdatingDevices = new ArrayList<>();
+        MeshUpdatingDevice device;
+        MeshUpdatingDevice directDevice = null;
+        int size = meshAddresses.size();
+        for(int i = 0; i < size; i++) {
+            if (directAddress == meshAddresses.getInt(i)) {
+                directDevice = new MeshUpdatingDevice();
+            } else {
+                device = new MeshUpdatingDevice();
+                meshUpdatingDevices.add(device);
+            }
+        }
+        // put direct device to last
+        if (directDevice != null) {
+            meshUpdatingDevices.add(directDevice);
+        }
+
+        byte[] firmwareData = readableArray2ByteArray(firmware);
+        byte[] metadata = new byte[8];
+        System.arraycopy(firmwareData, 2, metadata, 0, 4);
+
+        FirmwareUpdateConfiguration configuration = new FirmwareUpdateConfiguration(meshUpdatingDevices,
+                firmwareData, metadata,
+                mAppKeyIndex, MESH_OTA_GROUP_ADDRESS);
+        configuration.setUpdatePolicy(UpdatePolicy.VerifyAndApply);
+        configuration.setDistributorType(otaDistributorType);
+        configuration.setDistributorAddress(otaDistributorType == DistributorType.DEVICE ? directAddress : MeshUtils.LOCAL_MESSAGE_ADDRESS);
+        if (otaDistributorType == DistributorType.PHONE) {
+            configuration.setProxyAddress(directAddress);
+        }
+        configuration.setCallback(this);
+        byte[] firmwareId = new byte[4];
+        System.arraycopy(firmwareData, 2, firmwareId, 0, 4);
+        configuration.setFirmwareId(firmwareId);
+
+        MeshOtaParameters meshOtaParameters = new MeshOtaParameters(configuration);
+        mService.startMeshOta(meshOtaParameters);
     }
 
     @ReactMethod
-    public void pauseMeshOta() {
-        mTelinkApplication.getMeshLib().pauseMeshOta();
+    public void stopMeshOTA() {
+        mService.stopMeshOta();
     }
 
-    @ReactMethod
-    public void continueMeshOta() {
-        mTelinkApplication.getMeshLib().continueMeshOta();
-    }
-
-    @ReactMethod
-    public void stopMeshOTA(String tag) {
-        mService.stopMeshOTA(tag);
-    }
-
-    private synchronized void onGetMeshOtaProgress(MeshOtaProgressEvent event) {
+    private synchronized void onGetMeshOtaProgress(int progress) {
         WritableMap params = Arguments.createMap();
-        params.putInt("OtaSlaveProgress", event.getProgress());
+        params.putInt("OtaSlaveProgress", progress);
         sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_PROGRESS, params);
     }
 
-    private synchronized void onGetMeshOtaApplyStatus(MeshOtaApplyStatusEvent event) {
-        byte[] status = event.getStatus();
-        if (status != null && status.length > 0) {
+    private synchronized void onGetMeshOtaApplyStatus(MeshUpdatingDevice device) {
+        if (device.state == MeshUpdatingDevice.STATE_SUCCESS || device.state == MeshUpdatingDevice.STATE_FAIL) {
             WritableMap params = Arguments.createMap();
-            params.putInt("meshAddress", event.getSrc());
-            params.putString("status", status[0] == 0 ? "success" : "failure");
+            params.putInt("meshAddress", device.meshAddress);
+            params.putString("status", device.state == MeshUpdatingDevice.STATE_SUCCESS ? "success" : "failure");
             sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_APPLY_STATUS, params);
         }
     }
 
-    private synchronized void onGetMeshOtaFirmwareDistributionStatus(NotificationEvent event) {
-        final NotificationInfo notificationInfo = event.getNotificationInfo();
-        if (notificationInfo.params != null && notificationInfo.params.length > 0) {
-            WritableMap params = Arguments.createMap();
-            params.putInt("meshAddress", notificationInfo.srcAdr);
-            if (notificationInfo.params[0] == 1) {
-                params.putString("status", "start");
-            } else if (notificationInfo.params[0] == 0) {
-                params.putString("status", "stop");
-            } else {
-                params.putString("status", "error");
-            }
-            sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS, params);
+    private synchronized void onGetMeshOtaFirmwareDistributionStatus(FUState state) {
+        WritableMap params = Arguments.createMap();
+        params.putInt("meshAddress", mMeshAddressOfApp);
+        if (state == FUState.TRANSFER_START) {
+            params.putString("status", "start");
+        }
+        if (state == FUState.UPDATE_COMPLETE) {
+            params.putString("status", "stop");
+        }
+        if (state == FUState.INITIATE_FAIL || state == FUState.UPDATE_FAIL) {
+            params.putString("status", "error");
+        }
+
+        sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS, params);
+    }
+
+    /****************************************************************
+     * FUCallback start
+     ****************************************************************/
+
+    @Override
+    public void onLog(String tag, String log, int logLevel) {
+        MeshLogger.log(log, tag, logLevel);
+    }
+
+    @Override
+    public void onStateUpdated(FUState state, String extraInfo) {
+        MeshLogger.d("onStateUpdated - state: " + state.desc + " - " + extraInfo);
+        this.onGetMeshOtaFirmwareDistributionStatus(state);
+    }
+
+    @Override
+    public void onDeviceStateUpdate(MeshUpdatingDevice device, String desc) {
+        MeshLogger.d("onDeviceStateUpdate - adr: " + device.meshAddress + " - state: " + device.state + " - " + desc);
+
+        // if (device.state == MeshUpdatingDevice.STATE_SUCCESS) {
+        //     final AdditionalInformation addInfo = device.additionalInformation;
+        //     if (addInfo == AdditionalInformation.NODE_UNPROVISIONED) {
+        //         MeshLogger.d("device will be removed : " + device.meshAddress);
+        //         removeDeviceByMesh(device.meshAddress);
+        //         saveOrUpdateJS(this);
+        //     } else if (addInfo == AdditionalInformation.CPS_CHANGED_1 || addInfo == AdditionalInformation.CPS_CHANGED_2) {
+        //     }
+        // }
+
+        this.onGetMeshOtaApplyStatus(device);
+    }
+
+    @Override
+    public void onTransferProgress(int progress, BlobTransferType transferType) {
+        onLog("null", "transfer progress update: " + progress + " type - " + transferType, MeshLogger.DEFAULT_LEVEL);
+        if (transferType == BlobTransferType.MESH_DIST) {
+            this.onGetMeshOtaProgress(progress);
         }
     }
 
+    /****************************************************************
+     * FUCallback end
+     ****************************************************************/
+
     @ReactMethod
     public void startOta(String mac, ReadableArray firmware, Promise promise) {
+        ConnectionFilter connectionFilter = new ConnectionFilter(ConnectionFilter.TYPE_MAC_ADDRESS, mac);
+        GattOtaParameters parameters = new GattOtaParameters(connectionFilter, readableArray2ByteArray(firmware));
         mStartOtaPromise = promise;
-        mService.startOta(mac, readableArray2ByteArray(firmware));
+        mService.startGattOta(parameters);
     }
 
-    private synchronized void onGetOtaProgress(OtaEvent event) {
-        OtaDeviceInfo otaDeviceInfo = event.getDeviceInfo();
+    private synchronized void onGetOtaProgress(GattOtaEvent event) {
         WritableMap params = Arguments.createMap();
-        params.putInt("otaMasterProgress", otaDeviceInfo.progress);
+        params.putInt("otaMasterProgress", event.getProgress());
         sendEvent(DEVICE_STATUS_OTA_MASTER_PROGRESS, params);
     }
 
     private void onLeScan(ScanEvent event) {
-        AdvertisingDevice advDevice = event.advertisingDevice;
+        AdvertisingDevice advDevice = event.getAdvertisingDevice();
         BluetoothDevice btDevice = advDevice.device;
-        // TelinkLog.w("name" + btDevice.getName());                       // null
-        // TelinkLog.w("addr" + btDevice.getAddress());                    // AB:CD:4F:03:CA:80
-        // TelinkLog.w("type" + btDevice.getType());                       // 0
-        // TelinkLog.w("uuid" + btDevice.getUuids());                      // null
-        // TelinkLog.w("desc" + btDevice.describeContents());              // 0
-        // TelinkLog.w("bond" + btDevice.getBondState());                  // 10
-        // TelinkLog.w("clas" + btDevice.getBluetoothClass().toString());  // 0
-        // TelinkLog.w("hash" + btDevice.hashCode());                      // 1098112549
-// TelinkLog.d("scanRecord: " + com.telink.sig.mesh.util.Arrays.bytesToHexString(advDevice.scanRecord, ":"));
+        // MeshLogger.w("name" + btDevice.getName());                       // null
+        // MeshLogger.w("addr" + btDevice.getAddress());                    // AB:CD:4F:03:CA:80
+        // MeshLogger.w("type" + btDevice.getType());                       // 0
+        // MeshLogger.w("uuid" + btDevice.getUuids());                      // null
+        // MeshLogger.w("desc" + btDevice.describeContents());              // 0
+        // MeshLogger.w("bond" + btDevice.getBondState());                  // 10
+        // MeshLogger.w("clas" + btDevice.getBluetoothClass().toString());  // 0
+        // MeshLogger.w("hash" + btDevice.hashCode());                      // 1098112549
+// MeshLogger.d("scanRecord: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(advDevice.scanRecord, ":"));
 // before set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
 // scanRecord: 02:01:06:03:03:27:18:15:16:27:18:D3:7C:64:89:C3:03:A0:3B:92:CB:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:01:02:03:04:05:06:07:08:09:0A:0B:00:00
 // after set PROVISION_FLOW_SIMPLE_EN to 1 in telink_sig_mesh/vendor/common/mesh_config.h
@@ -1652,8 +1561,6 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 // scanRecord: 02:01:06:03:03:27:18:15:16:27:18:11:02:00:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:78:FB:03:04:05:06:07:08:09:0A:0B:00:00
 // after set cps_head in set_dev_uuid_for_simple_flow() of telink_sig_mesh/vendor/common/mesh_common.c
 // scanRecord: 02:01:06:03:03:27:18:15:16:27:18:11:02:78:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:78:FB:03:04:05:06:07:08:09:0A:0B:00:00
-
-        PrivateDevice prvDevice = getPrivateDevice(advDevice.scanRecord);
 
         WritableArray rsvUser = Arguments.createArray();
         for (int i = 49; i < 60; i++) {
@@ -1672,8 +1579,34 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         sendEvent(LE_SCAN, params);
     }
 
+    private MeshConfiguration convertToConfiguration() {
+        MeshConfiguration meshConfiguration = new MeshConfiguration();
+
+        meshConfiguration.deviceKeyMap = new SparseArray<>();
+        if (this.devices != null) {
+            for (DeviceInfo device : this.devices) {
+                meshConfiguration.deviceKeyMap.put(device.meshAddress, device.deviceKey);
+            }
+        }
+
+        meshConfiguration.netKeyIndex = 0;
+        meshConfiguration.networkKey = mNetKey; // TODO: 不再使用 mNetKey
+
+        meshConfiguration.appKeyMap = new SparseArray<>();
+
+        meshConfiguration.appKeyMap.put(mAppKeyIndex, mAppKey);
+
+        meshConfiguration.ivIndex = ivIndex;
+
+        meshConfiguration.sequenceNumber = sno;
+
+        meshConfiguration.localAddress = mMeshAddressOfApp;
+
+        return meshConfiguration;
+    }
+
     /**
-     * JS 层导入（别人分享来的）配置后，可以调用此函数，但是是有条件的，详见下面 resetAppKey() 的注释
+     * after import config (shared by other people) from JS, can invoke this function
      */
     @ReactMethod
     public void replaceMeshSetting(String netKey, String appKey, ReadableArray devices) {
@@ -1682,184 +1615,62 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mAppKey = Strings.stringToBytes(appKey);
         setDevices(devices);
 
-        byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, ivIndex, mMeshAddressOfApp);
-        mService.meshProvisionParSetDir(pvData, pvData.length);
-        mService.setLocalAddress(mMeshAddressOfApp);
-        List<byte[]> nodeList = new ArrayList<>();
-        for (DeviceInfo node : this.devices) {
-            nodeList.add(node.nodeInfo.toVCNodeInfo());
-        }
-        byte[][] nodeData = nodeList.toArray(new byte[][]{});
-        mService.reattachNodes(nodeData);
-
-        // 由 fw/SIG_MESH_Release_V3.1/sdk/ble_lt_mesh/vendor/common/mesh_node.c
-        // 里面的 mesh_app_key_set() 里的 st = (same ? ST_SUCCESS : ST_KEYIDX_ALREADY_STORE);
-        // 可以看出，这个 mAppKey 的 reset 并不能成功，可能要想办法修改 mesh_node.c 才行，所以目前
-        // 还是只能由上面 doInit() 中的 TelinkApplication.onMeshInfoRequired() 来用 mAppKey
-        // 初始化，也就是说如果分享前后的 mAppKey 不同的话，就算 JS 层导入（别人分享来的）配置后再调用此
-        // 函数，也需要重启 APP 才行，否则会发现只能连接成功（因为 netKey 导入成功），但是无法进行开关灯
-        // 等操作（因为 appKey 导入不成功）。
-        // 如果 JS 层导入（别人分享来的）配置后不调用本函数而且也不重启 APP 的话，就连连接也不会成功（因为
-        // 没有导入新 netKey ）。
-        // 所以，请确保 JS 层没有将 appKey 初始化为随机值而是真正意义上的一种“类别”的 APP 就是一个“固定”
-        // appKey ，而不要受到 telink demo 中随机值相关代码的误导。
-        mService.resetAppKey(0, 0, mAppKey);
+        mService.setupMeshNetwork(convertToConfiguration());
     }
 
-    private ServiceConnection mServiceConnection = new ServiceConnection() {
-        public void onServiceConnected(ComponentName className, IBinder rawBinder) {
-            mService = MeshService.getInstance();
-            if (mService != null) {
-                mService.startMeshController(mTelinkApplication.getMeshLib());
-                byte[] pvData = ProvisionDataGenerator.getProvisionData(mNetKey, 0, (byte)0, 0, mMeshAddressOfApp);
-                mService.meshProvisionParSetDir(pvData, pvData.length);
-                mService.setLocalAddress(mMeshAddressOfApp);
-                mService.resetAppKey(0, 0, mAppKey);
-
-                sendEvent(SERVICE_CONNECTED);
-            }
-        }
-
-        public void onServiceDisconnected(ComponentName classname) {
-            Log.d(TAG, "xxxxxxx onServiceDisconnected mService = null");
-
-            mService = null;
-            sendEvent(SERVICE_DISCONNECTED);
-        }
-    };
-
     /**
-     * 事件处理方法
-     *
-     * @param event
+     * save sequence number and iv index when mesh info updated
      */
+    protected void onNetworkInfoUpdate(NetworkInfoUpdateEvent networkInfoUpdateEvent) {
+        MeshLogger.d(String.format("mesh info update from local sequenceNumber-%06X ivIndex-%08X to sequenceNumber-%06X ivIndex-%08X",
+                sno, ivIndex,
+                networkInfoUpdateEvent.getSequenceNumber(), networkInfoUpdateEvent.getIvIndex()));
+        ivIndex = networkInfoUpdateEvent.getIvIndex();
+        sno = networkInfoUpdateEvent.getSequenceNumber();
+        saveOrUpdateJS();
+    }
+
     @Override
-    public void performed(Event<String> event) {
-        switch (event.getType()) {
-            case OnlineStatusEvent.ONLINE_STATUS_NOTIFY:
+    public void onEventHandle(Event<String> event) {
+        String eventType = event.getType();
+        MeshLogger.d("event handle: " + eventType);
+
+        switch (eventType) {
+            case NetworkInfoUpdateEvent.EVENT_TYPE_NETWORKD_INFO_UPDATE:
+                this.onNetworkInfoUpdate((NetworkInfoUpdateEvent) event);
+                break;
+            case OnlineStatusEvent.EVENT_TYPE_ONLINE_STATUS_NOTIFY:
                 this.onOnlineStatusNotify((OnlineStatusEvent) event);
                 break;
-            // case NotificationEvent.EVENT_TYPE_PUBLICATION_STATUS:
-            //     Log.d(TAG, "xxxxxxx EVENT_TYPE_PUBLICATION_STATUS");
-            //     break;
-            case NotificationEvent.EVENT_TYPE_VENDOR_RESPONSE:
-                this.onVendorResponse((NotificationEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_DEVICE_ON_OFF_STATUS:
-                this.onGetOnOffNotify((NotificationEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_DEVICE_LEVEL_STATUS:
-                this.onGetLevelNotify((NotificationEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY:
-                this.onGetLightnessNotify((NotificationEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_CTL_STATUS_NOTIFY:
-                this.onGetCtlNotify((NotificationEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_TEMP_STATUS_NOTIFY:
-                this.onGetTempNotify((NotificationEvent) event);
-                break;
-            case CommandEvent.EVENT_TYPE_CMD_COMPLETE:
-                this.onCmdComplete((CommandEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_TIME_STATUS:
-                this.onGetTimeNotify((NotificationEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_SCHEDULER_STATUS:
-                this.onGetAlarmNotify((NotificationEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_INFO_STATUS:
-                this.onGetFirmwareInfo((NotificationEvent) event);
-                break;
-            case MeshOtaEvent.EVENT_TYPE_PROGRESS_UPDATE:
-                this.onGetMeshOtaProgress((MeshOtaProgressEvent) event);
-                break;
-            case MeshOtaEvent.EVENT_TYPE_APPLY_STATUS:
-                this.onGetMeshOtaApplyStatus((MeshOtaApplyStatusEvent) event);
-                break;
-            case NotificationEvent.EVENT_TYPE_MESH_OTA_FIRMWARE_DISTRIBUTION_STATUS:
-                this.onGetMeshOtaFirmwareDistributionStatus((NotificationEvent) event);
-                break;
-            case OtaEvent.EVENT_TYPE_OTA_SUCCESS:
-                // mService.idle(false);
+            case GattOtaEvent.EVENT_TYPE_OTA_SUCCESS:
                 if (mStartOtaPromise != null) {
                     mStartOtaPromise.resolve(true);
                 }
                 mStartOtaPromise = null;
                 break;
-            case OtaEvent.EVENT_TYPE_OTA_FAIL:
-                // mService.idle(true);
+            case GattOtaEvent.EVENT_TYPE_OTA_FAIL:
                 if (mStartOtaPromise != null) {
                     mStartOtaPromise.reject(new Exception("OTA_FAIL"));
                 }
                 mStartOtaPromise = null;
                 break;
-            case OtaEvent.EVENT_TYPE_OTA_PROGRESS:
-                this.onGetOtaProgress((OtaEvent) event);
+            case GattOtaEvent.EVENT_TYPE_OTA_PROGRESS:
+                this.onGetOtaProgress((GattOtaEvent) event);
                 break;
-            // case DeviceEvent.STATUS_CHANGED:
-            //     this.onDeviceStatusChanged((DeviceEvent) event);
-            //     break;
-            // case NotificationEvent.GET_DEVICE_STATE:
-            //     onGetDeviceState((NotificationEvent) event);
-            //     break;
-            case MeshEvent.EVENT_TYPE_AUTO_CONNECT_LOGIN:
+            case AutoConnectEvent.EVENT_TYPE_AUTO_CONNECT_LOGIN:
                 if (mConfigNodePromise != null) {
                     return;
                 }
 
-                if (getDeviceByMacAddress(mService.getCurDeviceMac()) == null) {
-                    return;
-                }
-
-                // 这里在 login 后自动进行“设置时间信息”的操作，
-                // 其实本来这些代码是当初移植时不知道具体用途而暂时遗留下来的，
-                // 按说现在“设置时间信息”放在 JavaScript 代码中进行后这些代码就没有必要存在了，
-                // 但是现在这些代码起到了一个额外的作用——
-                // 在连接成功后能够让蓝牙灯爆闪一下以提醒用户连接成功，
-                // 所以仍然保留了这些代码。
-                // mHandler.postDelayed(new Runnable() {
-                //     @Override
-                //     public void run() {
-                //         TelinkLightService.Instance().sendCommandNoResponse((byte) 0xE4, 0xFFFF, new byte[]{});
-                //     }
-                // }, 3 * 1000);
-
-                // get all device on off status when auto connect success
-                hasOnlineStatusNotifyRaw = MeshService.getInstance().getOnlineStatus();
+                hasOnlineStatusNotifyRaw = mService.getOnlineStatus();
                 saveOrUpdateJS();
 
-                // 以下代码已移动到 index.native.js 的 postConnected() 中，这样就不用在 ios 代码中也再重写一遍了
-                // if (!hasOnlineStatusNotifyRaw) {
-                //     // 如果后续从蓝牙设备固件代码中得知 telink 也实现了（应该实现了） sig mesh 协议中
-                //     // model 之间关联功能，放到这里就是实现了亮度 modle 如果亮度为 <= 0 的话就会关联
-                //     // 开关灯 model 为关灯状态，则此处可以不再使用 getOnOff 而只用 getCtl 等代替
-                //     mService.getOnOff(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_ON_OFF_STATUS
-
-                //     // 测试得：如果紧接着上面 getOnOff 后立即进行其它 get ，则只会触发 getOnOff 对应的 EVENT，因此需要延迟进行
-                //     mHandler.postDelayed(new Runnable() {
-                //         @Override
-                //         public void run() {
-                //             // 因为此处只会返回第一个 get 函数的结果，所以那些注释掉的 get 函数仅用于测试
-                //             // mService.getLevel(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_DEVICE_LEVEL_STATUS
-                //             // mService.getLightness(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_LIGHTNESS_STATUS_NOTIFY
-
-                //             // 如 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
-                //             mService.getCtl(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_CTL_STATUS_NOTIFY
-
-                //             // mService.getTemperature(0xFFFF, 0, null); // 用于触发 EVENT_TYPE_TEMP_STATUS_NOTIFY
-                //         }
-                //     }, 1 * 1000); // 测试得：当延时为 100 时无法触发对应的 EVENT ，而 500 是可以的，保险起见，这里可以使用 1000
-                // }
-
-                connectMeshAddress = getDeviceByMacAddress(mService.getCurDeviceMac()).meshAddress;
                 WritableMap params = Arguments.createMap();
-                params.putInt("connectMeshAddress", connectMeshAddress);
+                params.putInt("connectMeshAddress", mService.getDirectConnectedNodeAddress());
                 sendEvent(DEVICE_STATUS_LOGIN, params);
                 break;
             case MeshEvent.EVENT_TYPE_DISCONNECTED:
-                TelinkLog.d("kickDirect: " + kickDirect + " debug logout");
+                MeshLogger.d("kickDirect: " + kickDirect + " debug logout");
                 if (kickDirect) {
                     mHandler.postDelayed(new Runnable() {
                         @Override
@@ -1872,48 +1683,68 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                     sendEvent(DEVICE_STATUS_LOGOUT);
                 }
                 break;
-            case NotificationEvent.EVENT_TYPE_KICK_OUT_CONFIRM:
-                TelinkLog.d("kickDirect: " + kickDirect + " confirm");
-                if (!kickDirect) {
-                    mHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            onKickOutFinish();
-                        }
-                    }, 5500);
-                }
-                break;
-            case ScanEvent.DEVICE_FOUND:
+            case ScanEvent.EVENT_TYPE_DEVICE_FOUND:
                 onLeScan((ScanEvent) event);
                 break;
-            case ScanEvent.SCAN_TIMEOUT:
+            case ScanEvent.EVENT_TYPE_SCAN_TIMEOUT:
                 sendEvent(LE_SCAN_TIMEOUT);
                 sendEvent(DEVICE_STATUS_LOGOUT);
                 break;
-            case MeshEvent.EVENT_TYPE_PROVISION_SUCCESS:
-                onProvisionSuccess((MeshEvent) event);
+            case ProvisioningEvent.EVENT_TYPE_PROVISION_SUCCESS:
+                onProvisionSuccess((ProvisioningEvent) event);
                 break;
-            case MeshEvent.EVENT_TYPE_PROVISION_FAIL:
-                onProvisionFail((MeshEvent) event);
-                // startScan();
+            case ProvisioningEvent.EVENT_TYPE_PROVISION_FAIL:
+                onProvisionFail((ProvisioningEvent) event);
                 break;
-            case MeshEvent.EVENT_TYPE_KEY_BIND_SUCCESS:
-                onUpdateMeshCompleted((MeshEvent) event);
-                // startScan();
+            case BindingEvent.EVENT_TYPE_BIND_SUCCESS:
+                onUpdateMeshCompleted((BindingEvent) event);
                 break;
-            case MeshEvent.EVENT_TYPE_KEY_BIND_FAIL:
-                onUpdateMeshFailure((MeshEvent) event);
-                // startScan();
+            case BindingEvent.EVENT_TYPE_BIND_FAIL:
+                onUpdateMeshFailure((BindingEvent) event);
                 break;
-            case MeshEvent.EVENT_TYPE_DEVICE_OFFLINE:
-                this.onMeshOffline((MeshEvent) event);
+            case StatusNotificationEvent.EVENT_TYPE_NOTIFICATION_MESSAGE_UNKNOWN:
+                NotificationMessage message = ((StatusNotificationEvent) event).getNotificationMessage();
+                int opcode = message.getOpcode();
+                OpcodeType opType = OpcodeType.getByFirstByte((byte)(opcode & 0xFF));
+                if (opType == OpcodeType.VENDOR) {
+                    this.onVendorResponse(message);
+                } else {
+                    MeshLogger.d(String.format("Unknown status notify opcode:%04X", opcode) + " -- params:" + com.telink.ble.mesh.util.Arrays.bytesToHexString(message.getParams()));
+                }
+                break;
+            default:
+                if (eventType.equals(NodeResetStatusMessage.class.getName())) {
+                    MeshLogger.d("kickDirect: " + kickDirect + " confirm");
+                    if (!kickDirect) {
+                        mHandler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                onKickOutFinish();
+                            }
+                        }, 5500);
+                    }
+                } else if (eventType.equals(ModelSubscriptionStatusMessage.class.getName())) {
+                    this.onGetModelSubscription(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(TimeStatusMessage.class.getName())) {
+                    this.onGetTimeNotify(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(SchedulerActionStatusMessage.class.getName())) {
+                    this.onGetAlarmNotify(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(OnOffStatusMessage.class.getName())) {
+                    this.onGetOnOffNotify(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(LevelStatusMessage.class.getName())) {
+                    this.onGetLevelNotify(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(LightnessStatusMessage.class.getName())) {
+                    this.onGetLightnessNotify(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(CtlStatusMessage.class.getName())) {
+                    this.onGetCtlNotify(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(CtlTemperatureStatusMessage.class.getName())) {
+                    this.onGetTempNotify(((StatusNotificationEvent) event).getNotificationMessage());
+                } else if (eventType.equals(FirmwareUpdateInfoStatusMessage.class.getName())) {
+                    this.onGetFirmwareInfo(((StatusNotificationEvent) event).getNotificationMessage());
+                }
                 break;
         }
     }
-
-    /*********************/
-    /** Private methods **/
-    /*********************/
 
     /**
      * Send event to javascript
