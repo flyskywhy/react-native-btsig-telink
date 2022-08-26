@@ -166,8 +166,8 @@ class TelinkBtSig {
     static isSceneCadenceBusy = false;
     static allowSceneCadence = true;
 
-    static netKey = 'netKey';
-    static appKey = 'appKey';
+    static netKey = '_16_BYTES_NETKEY';
+    static appKey = '_16_BYTES_APPKEY';
 
     // 测试得：手机 mesh 地址不能设为 0 ，也不能设为 >= 32768
     // 分享相同蓝牙设备数据的两台手机各自的 APP 需要不同的手机 mesh 地址，否则无法同时控制设备。

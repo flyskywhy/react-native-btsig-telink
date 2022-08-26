@@ -103,6 +103,21 @@ export default class MeshModuleExample extends React.Component {
 
     componentDidMount() {
         meshModule.addListener('leScan', this.onLeScan);
+        meshModule.netKey = YOUR_16_BYTES_NETKEY;
+        meshModule.appKey = YOUR_16_BYTES_APPKEY;
+
+        // you can save data comes from (provision then bind function) meshModule.configNode()
+        // Promise into devicesSavedInRedux after onLeScan() , then `meshModule.devices = devicesSavedInRedux`
+        // here befor meshModule.doInit() so that can auto connect them after APP restart.
+        // // devicesSavedInRedux = [{
+        // //     meshAddress: 1,
+        // //     macAddress: 'AB:CD:EF:GH:IJ:KL',
+        // //     elementCnt: 2,
+        // //     dhmKey: [12, 34, 56...],
+        // //     nodeInfo: [12, 34, 56, ...]
+        // // }];
+        // meshModule.devices = devicesSavedInRedux;
+
         meshModule.doInit();
         meshModule.startScan({
             isSingleNode: false, // if true, will stop scan after found one device

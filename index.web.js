@@ -87,8 +87,8 @@ class TelinkBtSig {
     static defaultAllGroupAddress = 0xFFFF;
     static isSetNodeGroupAddrReturnAddresses = false;
 
-    static netKey = 'netKey';
-    static appKey = 'appKey';
+    static netKey = '_16_BYTES_NETKEY';
+    static appKey = '_16_BYTES_APPKEY';
     static meshAddressOfApp = this.MESH_ADDRESS_MAX + parseInt(Math.random() * 10000, 10);
 
     static otaFileVersionOffset = 4;    // 把二进制固件作为一个字节数组看待的话，描述着版本号的第一个字节的数组地址
