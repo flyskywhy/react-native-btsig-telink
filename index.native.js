@@ -6,6 +6,8 @@ const {
 } = require('react-native');
 const NativeModule = NativeModules.TelinkBtSig;
 const tinycolor = require("tinycolor2");
+const MeshSigModel = require("./MeshSigModel");
+const NodeInfo = require("./NodeInfo");
 
 class TelinkBtSig {
     static MESH_ADDRESS_MIN = 0x0001;
@@ -213,6 +215,12 @@ class TelinkBtSig {
 
     static doInit() {
         NativeModule.doInit(this.netKey, this.appKey, this.meshAddressOfApp, this.devices.map(device => {
+            // for debug
+            // if (device.meshAddress === 1) {
+            //     let nodeInfo = NodeInfo.from(this.hexString2ByteArray(device.nodeInfo));
+            //     console.warn(nodeInfo.cpsData.toString());
+            // }
+
             return { ...device,
                 dhmKey: this.hexString2ByteArray(device.dhmKey),
                 nodeInfo: this.hexString2ByteArray(device.nodeInfo),
@@ -1239,14 +1247,35 @@ class TelinkBtSig {
         toDel,
         meshAddress,
         groupAddress,
+        modelSubList = MeshSigModel.getDefaultSubList(),
     }) {
-        return new Promise((resolve, reject) => {
-            let timer = setTimeout(() => reject({errCode: 'setNodeGroupAddr time out'}), 10000);
-            NativeModule.setNodeGroupAddr(toDel, meshAddress, groupAddress).then(() => {
-                clearTimeout(timer);
-                resolve();
-            }, reject);
-        });
+
+        let device = this.devices.find(device => device.meshAddress == meshAddress);
+        if (device) {
+            let nodeInfo = NodeInfo.from(this.hexString2ByteArray(device.nodeInfo));
+            let eleIds = [];
+            modelSubList.map(model => {
+                let elementAddr = nodeInfo.getTargetEleAdr(model.modelId);
+                if (elementAddr !== -1) {
+                    eleIds.push({
+                        elementAddr,
+                        modelId: model.modelId,
+                        isSig: model.isSig === true,
+                    })
+                }
+            })
+
+            return new Promise((resolve, reject) => {
+                let timer = setTimeout(() => reject({errCode: 'setNodeGroupAddr time out'}), 10000);
+                NativeModule.setNodeGroupAddr(toDel, meshAddress, groupAddress, eleIds).then(() => {
+                    clearTimeout(timer);
+                    resolve();
+                }, reject);
+            });
+        } else {
+            return new Promise((resolve, reject) => reject({errCode: 'setNodeGroupAddr device null'}));
+        }
+
     }
 
     static setTime({

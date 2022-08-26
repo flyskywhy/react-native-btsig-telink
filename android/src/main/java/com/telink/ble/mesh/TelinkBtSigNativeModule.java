@@ -187,7 +187,6 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private ReactApplicationContext mReactContext;
     protected Context mContext;
     private Handler mHandler = new Handler(Looper.getMainLooper());
-    private MeshSigModel[] models = MeshSigModel.getDefaultSubList();
 
     // 这里猥琐地存在与 JS 层一样的数据，特别是较大的 devices :(
     // 不过好处是 JS 层只需保存紧凑的 nodeInfo 数组数据而有利于减少分享配置
@@ -209,9 +208,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private int mConfigNodeResetMeshAddress;
     private String mConfigNodeResetMacAddress;
     private int mSetNodeGroupAddrType;
-    private DeviceInfo mSetNodeGroupAddrDevice = null;
+    private int mSetNodeGroupMeshAddr;
     private int mSetNodeGroupAddrGroupAddr;
-    private int mSetNodeGroupAddrModelIndex = 0;
+    private ReadableArray mSetNodeGroupAddrEleIds;
+    private int mSetNodeGroupAddrEleIdsIndex = 0;
 
     // Promises
     private Promise mConfigNodePromise;
@@ -1114,42 +1114,33 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
-    public void setNodeGroupAddr(boolean toDel, int meshAddress, int groupAddress, Promise promise) {
+    public void setNodeGroupAddr(boolean toDel, int meshAddress, int groupAddress, ReadableArray eleIds, Promise promise) {
         mSetNodeGroupAddrType = toDel ? 1 : 0;
-        mSetNodeGroupAddrDevice = this.getDeviceByMeshAddress(meshAddress);
-        if (mSetNodeGroupAddrDevice == null) {
-            promise.reject(new Exception("setSubscription device null"));
-            mSetNodeGroupAddrDevice = null;
-            return;
-        }
+        mSetNodeGroupMeshAddr = meshAddress;
         mSetNodeGroupAddrGroupAddr = groupAddress;
+        mSetNodeGroupAddrEleIds = eleIds;
+        mSetNodeGroupAddrEleIdsIndex = 0;
         mSetNodeGroupAddrPromise = promise;
-        mSetNodeGroupAddrModelIndex = 0;
-        setNextModel();
+        setNextModelGroupAddr();
     }
 
-    private void setNextModel() {
-        if (mSetNodeGroupAddrModelIndex > models.length - 1) {
+    private void setNextModelGroupAddr() {
+        if (mSetNodeGroupAddrEleIdsIndex > mSetNodeGroupAddrEleIds.size() - 1) {
             if (mSetNodeGroupAddrPromise != null) {
                 WritableArray params = Arguments.createArray();
                 mSetNodeGroupAddrPromise.resolve(params);
             }
-            mSetNodeGroupAddrDevice = null;
             mSetNodeGroupAddrPromise = null;
         } else {
-            final int elementAddr = mSetNodeGroupAddrDevice.getTargetEleAdr(models[mSetNodeGroupAddrModelIndex].modelId);
-            if (elementAddr == -1) {
-                mSetNodeGroupAddrModelIndex++;
-                setNextModel();
-                return;
-            }
-
-            MeshMessage groupingMessage = ModelSubscriptionSetMessage.getSimple(mSetNodeGroupAddrDevice.meshAddress, mSetNodeGroupAddrType, elementAddr, mSetNodeGroupAddrGroupAddr, models[mSetNodeGroupAddrModelIndex].modelId, true);
+            ReadableMap eleId = mSetNodeGroupAddrEleIds.getMap(mSetNodeGroupAddrEleIdsIndex);
+            int elementAddr = eleId.getInt("elementAddr");
+            int modelId = eleId.getInt("modelId");
+            boolean isSig = eleId.getBoolean("isSig");
+            MeshMessage groupingMessage = ModelSubscriptionSetMessage.getSimple(mSetNodeGroupMeshAddr, mSetNodeGroupAddrType, elementAddr, mSetNodeGroupAddrGroupAddr, modelId, isSig);
             if (!mService.sendMeshMessage(groupingMessage)) {
                 if (mSetNodeGroupAddrPromise != null) {
                     mSetNodeGroupAddrPromise.reject(new Exception("setSubscription return false"));
                 }
-                mSetNodeGroupAddrDevice = null;
                 mSetNodeGroupAddrPromise = null;
             }
         }
@@ -1160,13 +1151,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         if (mSetNodeGroupAddrPromise != null) {
             if (modelSubscriptionStatusMessage.getStatus() == ConfigStatus.SUCCESS.code) {
                 MeshLogger.d("group address: " + modelSubscriptionStatusMessage.getAddress());
-                mSetNodeGroupAddrModelIndex++;
-                setNextModel();
+                mSetNodeGroupAddrEleIdsIndex++;
+                setNextModelGroupAddr();
             } else {
                 if (mSetNodeGroupAddrPromise != null) {
                     mSetNodeGroupAddrPromise.reject(new Exception("grouping status fail!"));
                 }
-                mSetNodeGroupAddrDevice = null;
                 mSetNodeGroupAddrPromise = null;
                 MeshLogger.e("set group sub error");
             }
