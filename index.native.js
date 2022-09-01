@@ -8,6 +8,8 @@ const NativeModule = NativeModules.TelinkBtSig;
 const tinycolor = require("tinycolor2");
 const MeshSigModel = require("./MeshSigModel");
 const NodeInfo = require("./NodeInfo");
+const {CompositionData} = require("./CompositionData");
+const PrivateDevice = require("./PrivateDevice");
 
 class TelinkBtSig {
     static MESH_ADDRESS_MIN = 0x0001;
@@ -1198,6 +1200,8 @@ class TelinkBtSig {
         return false;
     }
 
+    // claim or delete 1 device
+    // claim speed is 7s with 1 device
     static configNode({
         node,
         isToClaim,
@@ -1237,6 +1241,27 @@ class TelinkBtSig {
                 reject(err);
             });
         });
+    }
+
+    // when firmware set FAST_PROVISION_ENABLE to 1 , can use claimAllAtOnce()
+    // to claim many devices all at once(18s)
+    // receive (devices count) EVENT_TYPE_FAST_PROVISIONING_ADDRESS_SET at 9s so emit JS event 'deviceStatusUpdatingMesh'
+    // receive EVENT_TYPE_FAST_PROVISIONING_SUCCESS at 18s so Promise resolved here
+    //
+    // Cons: no cpsdata received from device, so can't get device version infomation in it
+    static claimAllAtOnce({
+        meshAddress,
+        privateDeviceList = Object.values(PrivateDevice.allList),
+    }) {
+        let pidEleCnts = [];
+        privateDeviceList.map(device => {
+            let compositionData = CompositionData.from(device.cpsData);
+            pidEleCnts.push({
+                pid: device.pid,
+                eleCnt: compositionData.elements.length,
+            })
+        })
+        return NativeModule.claimAllAtOnce(meshAddress, pidEleCnts);
     }
 
     static getTotalOfGroupIndex({

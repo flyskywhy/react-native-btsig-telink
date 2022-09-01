@@ -27,6 +27,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.util.Log;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 import android.widget.Toast;
 
 import com.facebook.react.bridge.ActivityEventListener;
@@ -80,6 +81,8 @@ import com.telink.ble.mesh.entity.AdvertisingDevice;
 import com.telink.ble.mesh.entity.BindingDevice;
 import com.telink.ble.mesh.entity.CompositionData;
 import com.telink.ble.mesh.entity.ConnectionFilter;
+import com.telink.ble.mesh.entity.FastProvisioningConfiguration;
+import com.telink.ble.mesh.entity.FastProvisioningDevice;
 import com.telink.ble.mesh.entity.FirmwareUpdateConfiguration;
 import com.telink.ble.mesh.entity.MeshUpdatingDevice;
 import com.telink.ble.mesh.entity.OnlineStatusInfo;
@@ -92,6 +95,7 @@ import com.telink.ble.mesh.foundation.MeshController;
 import com.telink.ble.mesh.foundation.MeshService;
 import com.telink.ble.mesh.foundation.event.AutoConnectEvent;
 import com.telink.ble.mesh.foundation.event.BindingEvent;
+import com.telink.ble.mesh.foundation.event.FastProvisioningEvent;
 import com.telink.ble.mesh.foundation.event.GattOtaEvent;
 import com.telink.ble.mesh.foundation.event.MeshEvent;
 import com.telink.ble.mesh.foundation.event.NetworkInfoUpdateEvent;
@@ -101,6 +105,7 @@ import com.telink.ble.mesh.foundation.event.ScanEvent;
 import com.telink.ble.mesh.foundation.event.StatusNotificationEvent;
 import com.telink.ble.mesh.foundation.parameter.AutoConnectParameters;
 import com.telink.ble.mesh.foundation.parameter.BindingParameters;
+import com.telink.ble.mesh.foundation.parameter.FastProvisioningParameters;
 import com.telink.ble.mesh.foundation.parameter.GattOtaParameters;
 import com.telink.ble.mesh.foundation.parameter.MeshOtaParameters;
 import com.telink.ble.mesh.foundation.parameter.ProvisioningParameters;
@@ -215,6 +220,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     // Promises
     private Promise mConfigNodePromise;
+    private Promise mClaimAllAtOncePromise;
     private Promise mConfigNodeResetPromise;
     private Promise mSetNodeGroupAddrPromise;
     private Promise mGetTimePromise;
@@ -778,6 +784,22 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
     }
 
+    @ReactMethod
+    public void claimAllAtOnce(int firstMeshAddress, ReadableArray pidEleCnts, Promise promise) {
+        mClaimAllAtOncePromise = promise;
+        SparseIntArray elementPidMap = new SparseIntArray(pidEleCnts.size());
+        for (int i = 0; i < pidEleCnts.size(); i++) {
+            ReadableMap pidEleCnt = pidEleCnts.getMap(i);
+            int pid = pidEleCnt.getInt("pid");
+            int eleCnt = pidEleCnt.getInt("eleCnt");
+            elementPidMap.put(pid, eleCnt);
+        }
+        mService.startFastProvision(new FastProvisioningParameters(FastProvisioningConfiguration.getDefault(
+                firstMeshAddress,
+                elementPidMap
+        )));
+    }
+
     private void onKickOutFinish() {
         kickDirect = false;
 
@@ -981,6 +1003,31 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             mConfigNodePromise.reject(new Exception("onUpdateMeshFailure"));
         }
         mConfigNodePromise = null;
+    }
+
+    private void onFastProvisionDeviceFound(FastProvisioningEvent event) {
+        FastProvisioningDevice fastProvisioningDevice = event.getFastProvisioningDevice();
+
+        WritableMap params = Arguments.createMap();
+        params.putString("macAddress", com.telink.ble.mesh.util.Arrays.bytesToHexString(fastProvisioningDevice.getMac(), ":"));
+        params.putInt("meshAddress", fastProvisioningDevice.getNewAddress());
+        params.putInt("productUUID", fastProvisioningDevice.getPid());
+        WritableArray array = Arguments.createArray();
+        byte[] dhmKey = fastProvisioningDevice.getDeviceKey();
+        for (int i = 0; i < dhmKey.length; i++) {
+            array.pushInt(dhmKey[i]);
+        }
+        params.putArray("dhmKey", array);
+        sendEvent(DEVICE_STATUS_UPDATING_MESH, params);
+    }
+
+    private void onFastProvisionComplete(boolean success) {
+        if (success) {
+            WritableMap params = Arguments.createMap();
+            mClaimAllAtOncePromise.resolve(params);
+        } else {
+            mClaimAllAtOncePromise.reject(new Exception("onFastProvisionFailure"));
+        }
     }
 
     private synchronized void onOnlineStatusNotify(OnlineStatusEvent onlineStatusEvent) {
@@ -1691,6 +1738,15 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 break;
             case BindingEvent.EVENT_TYPE_BIND_FAIL:
                 onUpdateMeshFailure((BindingEvent) event);
+                break;
+            case FastProvisioningEvent.EVENT_TYPE_FAST_PROVISIONING_ADDRESS_SET:
+                onFastProvisionDeviceFound((FastProvisioningEvent) event);
+                break;
+            case FastProvisioningEvent.EVENT_TYPE_FAST_PROVISIONING_FAIL:
+                onFastProvisionComplete(false);
+                break;
+            case FastProvisioningEvent.EVENT_TYPE_FAST_PROVISIONING_SUCCESS:
+                onFastProvisionComplete(true);
                 break;
             case StatusNotificationEvent.EVENT_TYPE_NOTIFICATION_MESSAGE_UNKNOWN:
                 NotificationMessage message = ((StatusNotificationEvent) event).getNotificationMessage();
