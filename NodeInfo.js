@@ -54,8 +54,12 @@ class NodeInfo {
         let cpsLen = cpsDataBytes.length;
         result.splice(index, cpsLen, ...cpsDataBytes);
 
+        index += cpsLen;
+
         result[cpsLenPos] = cpsLen & 0xFF;
         result[cpsLenPos + 1] = (cpsLen >> 8) & 0xFF;
+
+        result.splice(index); // to return result[nodeInfoValidLength] not result[404]
         return result;
     }
 
