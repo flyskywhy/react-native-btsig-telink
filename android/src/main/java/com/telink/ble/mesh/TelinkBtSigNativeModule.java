@@ -1127,12 +1127,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         LightnessStatusMessage lightnessStatusMessage = (LightnessStatusMessage) message.getStatusMessage();
 
         int srcAdr = message.getSrc();
-        int lum = lightnessStatusMessage.isComplete() ? lightnessStatusMessage.getTargetLightness() : lightnessStatusMessage.getPresentLightness();
-        int lightness = UnitConvert.lightness2lum(lum); // 测试得：上面 lum 为 0xFFFF 时， lightness2lum 会转换为 100
+        int lightness = lightnessStatusMessage.isComplete() ? lightnessStatusMessage.getTargetLightness() : lightnessStatusMessage.getPresentLightness();
+        int lum = UnitConvert.lightness2lum(lightness); // 测试得：上面 lightness 为 0xFFFF 时， lightness2lum 会转换为 100
 
         WritableMap params = Arguments.createMap();
         params.putInt("meshAddress", srcAdr);
-        params.putInt("brightness", lightness);
+        params.putInt("brightness", lum);
         sendEvent(NOTIFICATION_DATA_GET_LIGHTNESS, params);
     }
 
