@@ -161,7 +161,7 @@ class TelinkBtSig {
     // 物理上蓝牙模块是否支持返回在线状态
     static hasOnlineStatusNotifyRaw = false;
 
-    static needRefreshMeshNodesBeforeConfig = true;
+    static needRefreshMeshNodesBeforeConfig = false;
     static canConfigEvenDisconnected = true;
     static needClaimedBeforeConnect = true;
     static isClaiming = false;
