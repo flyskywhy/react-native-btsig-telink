@@ -108,7 +108,7 @@ class MeshSigModel {
         SIG_MD_ON_DEMAND_PROXY_S: {modelId: 0xBF50, modelName: "SAR config server", group: "", deviceKeyEnc: true, isSig: true},
         SIG_MD_ON_DEMAND_PROXY_C: {modelId: 0xBF51, modelName: "SAR config client", group: "", deviceKeyEnc: true, isSig: true},
 
-        VENDOR_MD_LIGHT_S: {modelId: 0x0211, modelName: "Vendor light server", group: "", isSig: false},
+        VENDOR_MD_LIGHT_S: {modelId: 0x00000211, modelName: "Vendor light server", group: "", isSig: false},
     };
 
     /**

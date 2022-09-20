@@ -195,10 +195,12 @@ class TelinkBtSig {
         NONE: 0,
 
         /// gatt only
+        // 关闭 DLE 功能后， SDK 的 Access 消息是长度大于 15 字节才进行 segment 分包
         // 42B/s
         GATT: 1,
 
         /// gatt and adv
+        // 打开 DLE 功能后， SDK 的 Access 消息是长度大于 229 字节才进行 segment 分包
         // also need change firmware:
         //     set EXTENDED_ADV_ENABLE to 1 in `vendor/common/mesh_config.h`
         //     (maybe) let is_not_use_extend_adv() return 0 in `vendor/common/mesh_node.c`
@@ -252,6 +254,8 @@ class TelinkBtSig {
         // telink sdk 3.3.3.5 上懒得再把上面都测一遍了，就这样吧
         }), 129, 0,
         this.extendBearerMode);
+
+        // NativeModule.setLogLevel(0x1F);
     }
 
     static doDestroy() {
@@ -422,9 +426,9 @@ class TelinkBtSig {
     static sendCommand({
         opcode,
         meshAddress,
-        valueArray,
-        rspOpcode,
-        tidPosition = -1,
+        valueArray, // means the MeshMessage.params on Android, IniCommandModel.commandData on iOS
+        rspOpcode = this.OPCODE_INVALID,
+        tidPosition = -1, // if > 0 , means the tid is stored in valueArray[tidPosition - 1]
         immediate = false,
     }) {
         NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, immediate);
@@ -1204,15 +1208,22 @@ class TelinkBtSig {
     // claim speed is 7s with 1 device
     static configNode({
         node,
+        cpsData = [],
         isToClaim,
     }) {
         return new Promise((resolve, reject) => {
+            let elementCnt = 0;
             if (isToClaim) {
                 if (this.isClaiming) {
-                    reject('Association already in progress. Parallel association disabled');
+                    reject(new TypeError('Association already in progress. Parallel association disabled'));
                     return;
                 } else {
                     this.isClaiming = true;
+                }
+
+                if (cpsData.length) {
+                    let compositionData = CompositionData.from(cpsData);
+                    elementCnt = compositionData.elements.length;
                 }
             }
 
@@ -1222,7 +1233,7 @@ class TelinkBtSig {
             if (node.dhmKey) {
                 newNode.dhmKey = this.hexString2ByteArray(node.dhmKey);
             }
-            NativeModule.configNode(newNode, isToClaim).then(payload => {
+            NativeModule.configNode(newNode, cpsData, elementCnt, isToClaim).then(payload => {
                 if (isToClaim) {
                     this.isClaiming = false;
                     resolve({
@@ -1291,14 +1302,14 @@ class TelinkBtSig {
             })
 
             return new Promise((resolve, reject) => {
-                let timer = setTimeout(() => reject({errCode: 'setNodeGroupAddr time out'}), 10000);
+                let timer = setTimeout(() => reject(new TypeError('setNodeGroupAddr time out')), 10000);
                 NativeModule.setNodeGroupAddr(toDel, meshAddress, groupAddress, eleIds).then(() => {
                     clearTimeout(timer);
                     resolve();
                 }, reject);
             });
         } else {
-            return new Promise((resolve, reject) => reject({errCode: 'setNodeGroupAddr device null'}));
+            return new Promise((resolve, reject) => reject(new TypeError('setNodeGroupAddr device null')));
         }
 
     }
@@ -1321,7 +1332,7 @@ class TelinkBtSig {
         relayTimes,
     }) {
         return new Promise((resolve, reject) => {
-            let timer = setTimeout(() => reject({errCode: 'getTime time out'}), 10000);
+            let timer = setTimeout(() => reject(new TypeError('getTime time out')), 10000);
             NativeModule.getTime(meshAddress, relayTimes).then(payload => {
                 clearTimeout(timer);
                 resolve({
@@ -1363,11 +1374,11 @@ class TelinkBtSig {
         alarmId,
     }) {
         return new Promise((resolve, reject) => {
-            let timer = setTimeout(() => reject({errCode: alarmId + ' getAlarm time out'}), 10000);
+            let timer = setTimeout(() => reject(new TypeError(alarmId + ' getAlarm time out')), 10000);
             NativeModule.getAlarm(meshAddress, relayTimes, alarmId).then(payload => {
                 clearTimeout(timer);
                 if (payload.action === 0 && payload.week === 0 && payload.month === 0 && payload.year === 0) {
-                    reject({errCode: payload.alarmId + ' getAlarm data 0'})
+                    reject(new TypeError(payload.alarmId + ' getAlarm data 0'))
                 } else {
                     resolve({
                         alarmId: payload.alarmId,
@@ -1560,8 +1571,12 @@ class TelinkBtSig {
         firmware,
     }) {
         if (meshAddresses) {
+            // TODO: debug, cause getFirmwareInfo above and startMeshOTA here need mesh OTA code as described in comments of getFirmwareInfo,
+            // please use startOta instead for now
             NativeModule.startMeshOTA(meshAddresses, firmware);
         } else {
+            // TODO: debug startOta on iOS, cause for me, it's boring that DocumentPicker (firmware file) requires the iCloud entitlement,
+            // and startOta can be done with Android on my project. The startOta code on iOS is ready, maybe someone test it and PR me.
             return NativeModule.startOta(mac, firmware);
         }
     }

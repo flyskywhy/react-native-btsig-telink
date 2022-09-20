@@ -1,1 +1,4 @@
-android/build/
+/android/build/
+/TelinkSigMeshLib/Build/
+.DS_Store
+UserInterfaceState.xcuserstate

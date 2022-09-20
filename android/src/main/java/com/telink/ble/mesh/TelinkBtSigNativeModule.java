@@ -410,6 +410,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
+    public void setLogLevel(int level) {
+    }
+
+    @ReactMethod
     public void doDestroy() {
         if (mService != null) {
             mService.clear();
@@ -1495,6 +1499,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_PROGRESS, params);
     }
 
+    private synchronized void onGetGattOtaProgress(int progress) {
+        WritableMap params = Arguments.createMap();
+        params.putInt("OtaMasterProgress", progress);
+        sendEvent(DEVICE_STATUS_OTA_MASTER_PROGRESS, params);
+    }
+
     private synchronized void onGetMeshOtaApplyStatus(MeshUpdatingDevice device) {
         if (device.state == MeshUpdatingDevice.STATE_SUCCESS || device.state == MeshUpdatingDevice.STATE_FAIL) {
             WritableMap params = Arguments.createMap();
@@ -1558,6 +1568,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         if (transferType == BlobTransferType.MESH_DIST) {
             this.onGetMeshOtaProgress(progress);
         }
+        if (transferType == BlobTransferType.GATT_DIST) {
+            this.onGetGattOtaProgress(progress);
+        }
     }
 
     /****************************************************************
@@ -1573,9 +1586,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     private synchronized void onGetOtaProgress(GattOtaEvent event) {
-        WritableMap params = Arguments.createMap();
-        params.putInt("otaMasterProgress", event.getProgress());
-        sendEvent(DEVICE_STATUS_OTA_MASTER_PROGRESS, params);
+        this.onGetGattOtaProgress(event.getProgress());
     }
 
     private void onLeScan(ScanEvent event) {

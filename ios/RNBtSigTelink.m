@@ -1,32 +1,4 @@
 #import "RNBtSigTelink.h"
-//#import "RCTLog.h"
-#import <SigMeshOC/SDKLibCommand.h>
-#import <SigMeshOC/Bluetooth.h>
-#import <SigMeshOC/SigDataSource.h>
-#import <SigMeshOC/LibTools.h>
-#import <SigMeshOC/BTConst.h>
-#import <SigMeshOC/OTAManager.h>
-#import <SigMeshOC/MeshOTAManager.h>
-//#import "BTCentralManager.h"
-//#import "MeshOTAManager.h"
-//#import "MeshOTAItemModel.h"
-//#import "SysSetting.h"
-
-
-#define kCentralManager ([BTCentralManager shareBTCentralManager])
-
-#define kEndTimer(timer) \
-if (timer) { \
-[timer invalidate]; \
-timer = nil; \
-}
-
-#define kOTAPartSize (16*8)
-#define kOTAWriteInterval (0.005)
-
-#define SIG_1_OPCODE_SIZE  1
-#define SIG_2_OPCODE_SIZE  2
-#define VENDOR_OPCODE_SIZE 3
 
 @implementation deviceModel
 - (BOOL)isEqual:(id)object{
@@ -38,29 +10,25 @@ timer = nil; \
 }
 @end
 
-
-//@interface TelinkBtSig() <BTCentralManagerDelegate>
-@interface TelinkBtSig()
-
-@end
-
 @implementation TelinkBtSig {
-    RCTPromiseResolveBlock _resolveBlock;
-    RCTPromiseResolveBlock _resolvedateBlock;
-    RCTPromiseResolveBlock _resolveMesheBlock;
-    RCTPromiseResolveBlock _resolvesetNodeGroupAddr;
-
-    RCTPromiseRejectBlock _rejectsetNodeGroupAddr;
-    RCTPromiseRejectBlock _rejectBlock;
-
-    responseVendorModelCallBack onVendorResponse;
-
-    responseModelCallBack onOnlineStatusNotify;
-    responseModelCallBack onGetOnOffNotify;
-    responseModelCallBack onGetLevelNotify;
-    responseModelCallBack onGetLightnessNotify;
-    responseModelCallBack onGetCtlNotify;
-    responseModelCallBack onGetFirmwareInfo;
+    BOOL mSetNodeGroupAddrToDel;
+    NSInteger mSetNodeGroupMeshAddr;
+    NSInteger mSetNodeGroupAddrGroupAddr;
+    NSArray *mSetNodeGroupAddrEleIds;
+    NSInteger mSetNodeGroupAddrEleIdsIndex;
+    RCTPromiseResolveBlock mSetNodeGroupAddrResolve;
+    RCTPromiseRejectBlock mSetNodeGroupAddrReject;
+    
+    responseAllMessageBlock onVendorResponse;
+//    bleDidUpdateValueForCharacteristicCallback onOnlineStatusNotify;
+    responseGenericOnOffStatusMessageBlock onGetOnOffNotify;
+    responseGenericLevelStatusMessageBlock onGetLevelNotify;
+    responseLightLightnessStatusMessageBlock onGetLightnessNotify;
+    responseLightCTLTemperatureStatusMessageBlock onGetTempNotify;
+    responseLightCTLStatusMessageBlock onGetCtlNotify;
+    responseFirmwareInformationStatusMessageBlock onGetFirmwareInfo;
+    
+    responseConfigModelSubscriptionStatusMessageBlock onGetModelSubscription;
 }
 
 RCT_EXPORT_MODULE()
@@ -122,7 +90,7 @@ RCT_EXPORT_MODULE()
 }
 
 - (NSData *)byteArray2Data:(NSArray *)array {
-    NSMutableData *data = [NSMutableData data];
+    NSMutableData *data = [[NSMutableData alloc] init];
     [array enumerateObjectsUsingBlock:^(NSNumber* number, NSUInteger index, BOOL* stop) {
         uint8_t tmp = number.unsignedCharValue;
         [data appendBytes:(void *)(&tmp)length:1];
@@ -131,121 +99,154 @@ RCT_EXPORT_MODULE()
     return data;
 }
 
-- (NSArray *)byteData2Array:(NSData *)data {
+- (NSMutableArray *)byteData2Array:(NSData *)data {
     NSMutableArray *array = [[NSMutableArray alloc] init];
     [data enumerateByteRangesUsingBlock:^(const void *bytes, NSRange byteRange, BOOL *stop) {
         unsigned char *dataBytes = (unsigned char*)bytes;
         for (NSInteger i = 0; i < byteRange.length; i++) {
-            [array addObject:[NSNumber numberWithInt:(dataBytes[i]) & 0xff]];
+            [array addObject:[NSNumber numberWithUnsignedChar:dataBytes[i]]];
         }
     }];
 
     return array;
 }
 
-// ref to configData() in SigMeshOC/SigDataSource.m
+// ref to configData() in SigDataSource.m
 - (void)initMesh:(NSString *)netKeyJS appKey:(NSString *)appKeyJS meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex isReplaceMeshSetting:(BOOL)isReplaceMeshSetting {
-    // Even exist mesh.json, still create a new one with data from JS and init mesh
-    //1.netKeys
+    // 初始化当前手机的唯一标识 UUID ，卸载重新安装才会重新生成
+    NSString *provisionerUUID = [SigDataSource.share getCurrentProvisionerUUID];
+    if (provisionerUUID == nil) {
+        [SigDataSource.share saveCurrentProvisionerUUID:[LibTools convertDataToHexStr:[LibTools initMeshUUID]]];
+    }
+
+    // Even exist mesh.json, still init mesh data from JS to create a new one (saveLocationData below), because mesh.json is used by telink sdk, but actually react native APP save data in JS, so react-native-btsig-telink just mantain a smallest and enough mash.json that telink sdk can run on
+    NSString *timestamp = [LibTools getNowTimeStringOfJson];
+    // 1. netKeys
     SigNetkeyModel *netkey = [[SigNetkeyModel alloc] init];
-    netkey.oldKey = @"";
     netkey.index = 0;
     netkey.phase = 0;
-    netkey.timestamp = [LibTools getNowTimeTimestampFrome2000];
+    netkey.timestamp = timestamp;
+    netkey.oldKey = @"00000000000000000000000000000000";
     netkey.key = [LibTools convertDataToHexStr:[netKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
-    netkey.name = @"";
-    netkey.minSecurity = @"high";
-    if (isReplaceMeshSetting) {
-        [SigDataSource.share.netKeys removeAllObjects];
-    }
+    netkey.name = @"Default NetKey";
+    netkey.minSecurity = @"secure";
+    SigDataSource.share.curNetkeyModel = nil;
+    [SigDataSource.share.netKeys removeAllObjects];
     [SigDataSource.share.netKeys addObject:netkey];
 
-    // The first use of SigDataSource.share above will call init() in SigMeshOC/SigDataSource.m
-    // and cause _ivIndex = @"11223344" , for share with android telink sdk which set
-    // ivIndex to 0 as default, we need this
-    if (!isReplaceMeshSetting) {
-        SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08lX",(long)provisionerIvIndex];
-    }
-
-    //2.appKeys
+    // 2. appKeys
     SigAppkeyModel *appkey = [[SigAppkeyModel alloc] init];
-    appkey.oldKey = @"";
+    appkey.oldKey = @"00000000000000000000000000000000";
     appkey.key = [LibTools convertDataToHexStr:[appKeyJS dataUsingEncoding:NSUTF8StringEncoding]];
-    appkey.name = @"";
+    appkey.name = @"Default AppKey";
     appkey.boundNetKey = 0;
     appkey.index = 0;
-    if (isReplaceMeshSetting) {
-        [SigDataSource.share.appKeys removeAllObjects];
-    }
+    SigDataSource.share.curAppkeyModel = nil;
+    [SigDataSource.share.appKeys removeAllObjects];
     [SigDataSource.share.appKeys addObject:appkey];
 
-    //3.provisioners
-    SigProvisionerModel *provisioner = [[SigProvisionerModel alloc] initWithExistProvisionerCount:0 andProvisionerUUID:[LibTools convertDataToHexStr:[LibTools initMeshUUID]]];
+    // 3. provisioners
+    SigProvisionerModel *provisioner = [[SigProvisionerModel alloc] initWithExistProvisionerMaxHighAddressUnicast:0 andProvisionerUUID:[SigDataSource.share getCurrentProvisionerUUID]];
     if (isReplaceMeshSetting) {
-        provisioner = SigDataSource.share.curProvisionerModel;
+//        provisioner = SigDataSource.share.curProvisionerModel;
     } else {
+        [SigDataSource.share.provisioners removeAllObjects];
         [SigDataSource.share.provisioners addObject:provisioner];
     }
 
-    //4.add new provisioner to nodes, ref to addLocationNodeWithProvisioner() in SigMeshOC/SigDataSource.m
+    // 4. add new provisioner (or old provisioner if isReplaceMeshSetting) to nodes, ref to addLocationNodeWithProvisioner() in SigDataSource.m
+    SigDataSource.share.curNodes = nil;
     SigNodeModel *node = [[SigNodeModel alloc] init];
     if (isReplaceMeshSetting) {
-        node = [SigDataSource.share.nodes firstObject];
+        node = [[[NSMutableArray alloc] initWithArray:SigDataSource.share.nodes copyItems:YES] firstObject];
+        node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
         [SigDataSource.share.nodes removeAllObjects];
     } else {
-        //init defoult data
+        [SigDataSource.share.nodes removeAllObjects];
+
+        // init default data
         node.UUID = provisioner.UUID;
         node.secureNetworkBeacon = YES;
         node.defaultTTL = TTL_DEFAULT;
-        node.features.proxy = 2;
-        node.features.friend = 0;
-        node.features.relay = 2;
-        node.relayRetransmit.count = 3;
-        node.relayRetransmit.interval = 0;
-        node.networkTransmit.count = 5;
-        node.networkTransmit.interval = 2;
-        [SigDataSource.share saveCurrentProvisionerUUID:provisioner.UUID];
+        node.features.proxyFeature = SigNodeFeaturesState_notSupported;
+        node.features.friendFeature = SigNodeFeaturesState_notEnabled;
+        node.features.relayFeature = SigNodeFeaturesState_notSupported;
+        node.relayRetransmit.relayRetransmitCount = 5;
+        node.relayRetransmit.relayRetransmitIntervalSteps = 2;
         node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
+        node.name = @"Telink iOS provisioner node";
+        node.cid = @"0211";
+        node.pid = @"0100";
+        node.vid = @"0100";
+        node.crpl = @"0100";
+        
+        // 添加本地节点的 element
+        NSMutableArray *elements = [NSMutableArray array];
+        SigElementModel *element = [[SigElementModel alloc] init];
+        element.name = @"Primary Element";
+        element.location = @"0000";
+        element.index = 0;
+        NSMutableArray *models = [NSMutableArray array];
+//        NSArray *defaultModelIDs = @[@"0000",@"0001",@"0002",@"0003",@"0005",@"FE00",@"FE01",@"FE02",@"FE03",@"FF00",@"FF01",@"1202",@"1001",@"1003",@"1005",@"1008",@"1205",@"1208",@"1302",@"1305",@"1309",@"1311",@"1015",@"00010211"];
+        NSArray *defaultModelIDs = @[@"0000",@"0001"];
+        for (NSString *modelID in defaultModelIDs) {
+            SigModelIDModel *modelIDModel = [[SigModelIDModel alloc] init];
+            modelIDModel.modelId = modelID;
+            modelIDModel.subscribe = [NSMutableArray array];
+            modelIDModel.bind = [NSMutableArray arrayWithArray:@[@(0)]];
+            [models addObject:modelIDModel];
+        }
+        element.models = models;
+        element.parentNodeAddress = node.address;
+        [elements addObject:element];
+        node.elements = elements;
+        
         NSData *devicekeyData = [LibTools createRandomDataWithLength:16];
         node.deviceKey = [LibTools convertDataToHexStr:devicekeyData];
         SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
-        nodeAppkey.index = appkey.index;
-        if (isReplaceMeshSetting) {
-            [SigDataSource.share.appKeys removeAllObjects];
-        }
+        nodeAppkey.index = SigDataSource.share.curAppkeyModel.index;
         if (![node.appKeys containsObject:nodeAppkey]) {
             [node.appKeys addObject:nodeAppkey];
         }
-
-        VC_node_info_t node_info = {};
-        //_nodeInfo默认赋值ff
-        memset(&node_info, 0xff, sizeof(VC_node_info_t));
-        node_info.node_adr = [LibTools uint16From16String:node.unicastAddress];
-        node_info.element_cnt = 1;
-        node_info.cps.len_cps = SIZE_OF_PAGE0_LOCAL;
-        memcpy(&node_info.cps.page0_head, gp_page0, SIZE_OF_PAGE0_LOCAL);
-        node.nodeInfo = node_info;
+        SigNodeKeyModel *nodeNetkey = [[SigNodeKeyModel alloc] init];
+        nodeNetkey.index = SigDataSource.share.curNetkeyModel.index;
+        if (![node.netKeys containsObject:nodeNetkey]) {
+            [node.netKeys addObject:nodeNetkey];
+        }
     }
 
     [SigDataSource.share.nodes addObject:node];
 
-    //5.add default group
+    // 5. add default group
     SigGroupModel *group = [[SigGroupModel alloc] init];
+    [SigDataSource.share.groups removeAllObjects];
     group.address = [NSString stringWithFormat:@"%04X",0xffff];
     group.parentAddress = [NSString stringWithFormat:@"%04X",0];
     group.name = @"All";
-    if (isReplaceMeshSetting) {
-        [SigDataSource.share.groups removeAllObjects];
-    }
     [SigDataSource.share.groups addObject:group];
 
-    SigDataSource.share.meshUUID = netkey.key;
-    SigDataSource.share.$schema = @"telink-semi.com";
-    SigDataSource.share.meshName = @"Telink-Sig-Mesh";
-    SigDataSource.share.version = LibTools.getSDKVersion;
-    SigDataSource.share.timestamp = [LibTools getNowTimeTimestampFrome2000];
+    [SigDataSource.share.scenes removeAllObjects];
+    [SigDataSource.share.encryptedArray removeAllObjects];
 
-    // set devices, ref to provision_end_callback() and App_key_bind_end_callback() in SigMeshOC/LibHandle.m
+    SigDataSource.share.meshUUID = netkey.key;
+    SigDataSource.share.schema = @"http://json-schema.org/draft-04/schema#";
+    SigDataSource.share.jsonFormatID = @"http://www.bluetooth.com/specifications/assigned-numbers/mesh-profile/cdb-schema.json#";
+    SigDataSource.share.meshName = @"Telink-Sig-Mesh";
+//    SigDataSource.share.version = LibTools.getSDKVersion;
+    SigDataSource.share.version = @"1.0.0";
+    SigDataSource.share.timestamp = timestamp;
+
+//    if (!isReplaceMeshSetting) {
+//        SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08lX",(long)provisionerIvIndex];
+//    }
+    // In telink sdk 3.1.0, the first use of SigDataSource.share above will call init()
+    // in SigDataSource.m and cause _ivIndex = @"11223344" , for share with android
+    // telink sdk which set ivIndex to 0 as default, we need above.
+    // In telink sdk 3.3.3.5, already init to kDefaultIvIndex which is 0, and telink
+    // demo also use below, so just use below now
+    SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08X",(unsigned int)kDefaultIvIndex];
+    
+    // set devices, ref to provisionSuccess() in SigProvisioningManager.m
     for (int i = 0; i < devices.count; i++) {
         SigNodeModel *model = [[SigNodeModel alloc] init];
 
@@ -259,364 +260,357 @@ RCT_EXPORT_MODULE()
             [model.appKeys addObject:nodeAppkey];
         }
 
-        [model setNodeInfo:*((VC_node_info_t *)[self byteArray2Data:device[@"nodeInfo"]].bytes)];
-
+        SigNetkeyModel *netkeyCur = [SigDataSource.share curNetkeyModel];
+        SigNodeKeyModel *nodeNetkey = [[SigNodeKeyModel alloc] init];
+        nodeNetkey.index = netkeyCur.index;
+        if (![model.netKeys containsObject:nodeNetkey]) {
+            [model.netKeys addObject:nodeNetkey];
+        }
+        
         model.deviceKey = [LibTools convertDataToHexStr:[self byteArray2Data:device[@"dhmKey"]]];
         model.peripheralUUID = nil;
         model.macAddress = [device[@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""];
-        model.UUID = nil;
+        model.UUID = @"";
 
+        NSData *nodeInfo = [self byteArray2Data:device[@"nodeInfo"]];
+        NSData *cpsData = [nodeInfo subdataWithRange:NSMakeRange(22, nodeInfo.length - 22)];
+        uint8_t page = 0;
+        NSMutableData *sigPage0 = [[NSMutableData alloc] init];;
+        [sigPage0 appendBytes:(void *)(&page) length:1];
+        [sigPage0 appendData:cpsData];
+        model.compositionData = [[SigPage0 alloc] initWithParameters:sigPage0];
+        
 //        NSLog(@"TelinkBtSig sigmodel %@", [model getDictionaryOfSigNodeModel]);
 
-//        [SigDataSource.share saveDeviceWithDeviceModel:model];
+//        [SigDataSource.share addAndSaveNodeToMeshNetworkWithDeviceModel:model];
         [SigDataSource.share.nodes addObject:model];
     }
 
     NSLog(@"TelinkBtSig create mesh.json success");
     [SigDataSource.share saveLocationData];
 
-    //check provisioner
-    [SigDataSource.share checkExistLocationProvisioner];
+//    NSLog(@"TelinkBtSig DataSource %@", [SigDataSource.share getFormatDictionaryFromDataSource]);
+//    NSLog(@"TelinkBtSig currentProvisionerUUID %@", [SigDataSource.share getCurrentProvisionerUUID]);
 
-    // 由于在 SigMeshOCDemo/SigMeshOCDemo/ViewController/Setting/ShareInVC.m
-    // 看到说扫描别人分享来的数据后需要清空下面的 list ，虽然暂时发现不清空也没问题，但既然
-    // 这里每次启动 APP 都不加载缓存也就是清空 list 也能正常使用，那保险起见就把下面两句都注释了
-    //init SigScanRspModel list
-//    [SigDataSource.share loadScanList];
-    //init SigScanRspModel list
-//    [SigDataSource.share loadEncryptedNodeIdentityList];
-
-//    [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
-    if (!isReplaceMeshSetting) {
+    if (isReplaceMeshSetting) {
+        [SigDataSource.share setLocationSno:(UInt32)provisionerSno];
+    } else {
         [[NSUserDefaults standardUserDefaults] setObject:@((UInt32)provisionerSno) forKey:kCurrenProvisionerSno_key];
     }
     [[NSUserDefaults standardUserDefaults] synchronize];
+
+    // check provisioner
+    [SigDataSource.share checkExistLocationProvisioner];
+
+    // 在 SigMeshOCDemo/SigMeshOCDemo/ViewController/Setting/Share/ShareInVC.m 示范
+    // 扫描别人分享来的数据后需要 scanList removeAllObjects ，实际发现不清空也没问题，然后又发现
+    // 这里每次启动 APP 都不加载缓存实际上也算是清空 scanList 也能正常使用，那保险起见就把下面语句注释了
+    // init SigScanRspModel list
+//    [SigDataSource.share loadScanList];
 }
 
-// ref to startMeshSDK() in SigMeshOC/SDKLibCommand.m
-- (void)initMeshLib {
-    // 在 Bluetooth.share() -> [[Bluetooth alloc] init] ->  BLEProperties.init()
-    // 中调用的 C 函数 mesh_init_all() 会触发回调 LibHandle.mesh_par_retrieve_store_win32() ->
-    // 而进入 mesh_key_retrieve_win32() 以获取上面 initMesh() 中由 JS 层传过来保存在 SigDataSource 中的 netKey 和 appKey
-    // 以及进入 update_VC_info_from_json() 以获取上面 initMesh() 中由 JS 层传过来保存在 SigDataSource 中的 devices
-    // 至于 JS 层传来 provisionerSno ，由上面 initMesh() 中自定义的 setLocationSno 进行初始化，后续设备触发的 mesh_misc_store_win32 中调用 setLocationSno 时则会回调保存回 JS 层
-
-    //init Bluetooth
-    [Bluetooth share];
-
-    APP_reset_vendor_id(kCompanyID);
-}
-
+// ref to startMeshSDK() in SDKLibCommand.m
 - (void)startMeshSDK:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex {
+    // 初始化本地存储的 mesh 网络数据
     [self initMesh:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex isReplaceMeshSetting:false];
-    [self initMeshLib];
-    [Bluetooth.share.commandHandle provisionLocation:[netKey dataUsingEncoding:NSUTF8StringEncoding] withLocationAddress:(int)meshAddressOfApp netketIndex:0];
+    // init Bluetooth
+    [SigBluetooth share];
+
+    // 初始化 ECC 算法的公钥( iphone 6s 耗时 0.6~1.3 秒，放到背景线程调用)
+    [SigECCEncryptHelper.share performSelectorInBackground:@selector(eccInit) withObject:nil];
+
+    // 初始化添加设备的参数
+    [SigAddDeviceManager.share setNeedDisconnectBetweenProvisionToKeyBind:NO];
+    
+    // 初始化蓝牙
+    [[SigBluetooth share] bleInit:^(CBCentralManager * _Nonnull central) {
+        TeLogInfo(@"finish init SigBluetooth.");
+        [SigMeshLib share];
+    }];
+ 
+    // 默认为 NO ，连接速度更加快。设置为 YES ，表示扫描到的设备必须包含 MacAddress ，有些客户在添加流程需要通过 MacAddress 获取三元组信息，需要使用 YES
+//    [SigBluetooth.share setWaitScanRseponseEnabel:YES];
 }
 
-RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex) {
-    //    [[BTCentralManager shareBTCentralManager] stopScan];
-    //扫描我的在线灯
-    // [BTCentralManager shareBTCentralManager].delegate = self;
-    // self.devArray = [[NSMutableArray alloc] init];
-    // self.BTDevArray = [[NSMutableArray alloc] init];
-    // self.dict = [[NSMutableDictionary alloc] init];
-    // self.DisConnectDevArray = [[NSMutableArray alloc] init];
-    // self.isNeedRescan = YES;
-    // self.configNode = NO;
-    // self.HomePage = YES;
-    // self.isStartOTA = NO;
+RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex extendBearerMode:(NSInteger)extendBearerMode) {
+    self.allowSendLogoutWhenDisconnect = YES;
     self.connectMeshAddress = -1;
 
-    //init SDK
+    SigDataSource.share.telinkExtendBearerMode = extendBearerMode;
+    if (extendBearerMode == SigTelinkExtendBearerMode_noExtend) {
+        SigDataSource.share.defaultUnsegmentedMessageLowerTransportPDUMaxLength = kUnsegmentedMessageLowerTransportPDUMaxLength;
+    } else {
+         SigDataSource.share.defaultUnsegmentedMessageLowerTransportPDUMaxLength = kDLEUnsegmentLength;
+    }
+
+    SigDataSource.share.fipsP256EllipticCurve = SigFipsP256EllipticCurve_auto;
+
+    // 使用 index.native.js 中的 setLogLevel 会更方便
+    // 客户开发到后期， APP 稳定后可以不集成该功能，且上架最好关闭 log 保存功能。(客户发送 iTunes 中的日志文件“TelinkSDKDebugLogData”给泰凌微即可)
+//    [SigLogger.share setSDKLogLevel:SigLogLevelDebug];
+//    [SigLogger.share setSDKLogLevel:SigLogLevelAll];
+
+    /* 初始化 SDK */
+    // 1. 一个 provisioner 分配的地址范围，默认为 0x400
+    SigDataSource.share.defaultAllocatedUnicastRangeHighAddress = kAllocatedUnicastRangeHighAddress;
+    // 2. mesh 网络的 sequenceNumber 步长，默认为128
+    SigDataSource.share.defaultSequenceNumberIncrement = kSequenceNumberIncrement;
+//    SigDataSource.share.defaultSequenceNumberIncrement = 16;
+    // 3. 启动SDK
 //    [SDKLibCommand startMeshSDK];
      [self startMeshSDK:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex];
 
+    // telink demo 示范了下面添加自定义设备信息以支持 fast bind （也就是 Android 代码中说的
+    // defaultbound），但实际上对我们 react native APP 来说当然是应该将自定义代码实现在 JS
+    // 中，以避免开发者 hack 修改 node_modules/react-native-btsig-telink 中的内容。
+    // 因此，相应的 JS 添加自定义设备信息以支持 fast bind 的方法是在 index.native.js 中的
+    // configNode() 里传入需要 fast bind 的自定义设备的 cpsData 数据
+    //
+    // (可选) SDK 默认实现了 PID 为 1 和 7 的设备的 fast bind 功能，其它类型的设备可通过以下接口添加该类型设备默认的 nodeInfo 以实现 fast bind 功能
+    // 示范代码：添加 PID=8 ， composition data=TemByte 的数据到 SigDataSource.share.defaultNodeInfos
+//    DeviceTypeModel *model = [[DeviceTypeModel alloc] initWithCID:kCompanyID PID:8];
+//    static Byte TemByte[] = {(Byte) 0x11, (Byte) 0x02, (Byte) 0x01, (Byte) 0x00, (Byte) 0x32, (Byte) 0x37, (Byte) 0x69, (Byte) 0x00, (Byte) 0x07, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x19, (Byte) 0x01, (Byte) 0x00, (Byte) 0x00, (Byte) 0x02, (Byte) 0x00, (Byte) 0x03, (Byte) 0x00, (Byte) 0x04, (Byte) 0x00, (Byte) 0x05, (Byte) 0x00, (Byte) 0x00, (Byte) 0xfe, (Byte) 0x01, (Byte) 0xfe, (Byte) 0x02, (Byte) 0xfe, (Byte) 0x00, (Byte) 0xff, (Byte) 0x01, (Byte) 0xff, (Byte) 0x00, (Byte) 0x12, (Byte) 0x01, (Byte) 0x12, (Byte) 0x00, (Byte) 0x10, (Byte) 0x02, (Byte) 0x10, (Byte) 0x04, (Byte) 0x10, (Byte) 0x06, (Byte) 0x10, (Byte) 0x07, (Byte) 0x10, (Byte) 0x03, (Byte) 0x12, (Byte) 0x04, (Byte) 0x12, (Byte) 0x06, (Byte) 0x12, (Byte) 0x07, (Byte) 0x12, (Byte) 0x00, (Byte) 0x13, (Byte) 0x01, (Byte) 0x13, (Byte) 0x03, (Byte) 0x13, (Byte) 0x04, (Byte) 0x13, (Byte) 0x11, (Byte) 0x02, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x00, (Byte) 0x02, (Byte) 0x00, (Byte) 0x02, (Byte) 0x10, (Byte) 0x06, (Byte) 0x13};
+//    NSData *nodeInfoData = [NSData dataWithBytes:TemByte length:76];
+//    [model setCompositionData:nodeInfoData];
+//    [SigDataSource.share.defaultNodeInfos addObject:model];
+
+    // (可选) SDK 默认 publish 周期为 20 秒，通过修改可以修改 SDK 的默认 publish 参数，或者客户自行实现 publish 检测机制。
+//    SigPeriodModel *periodModel = [[SigPeriodModel alloc] init];
+//    periodModel.numberOfSteps = kPublishIntervalOfDemo;
+//    periodModel.numberOfSteps = 5; // 整形，范围 0x01~0x3F
+//    periodModel.resolution = [LibTools getSigStepResolutionInMillisecondsOfJson:SigStepResolution_seconds];
+//    SigDataSource.share.defaultPublishPeriodModel = periodModel;
+
+    SigMeshLib.share.transmissionTimerInterval = 0.600;
+//    SigDataSource.share.needPublishTimeModel = NO;
+
+    // (可选) v3.3.3 新增配置项
+//    SigDataSource.share.defaultReliableIntervalOfLPN = kSDKLibCommandTimeout;
+//    SigDataSource.share.defaultReliableIntervalOfNotLPN = kSDKLibCommandTimeout * 2;
+
      __weak typeof(self) weakSelf = self;
 
+    // TODO: modify updateNodeStatusWithBaseMeshMessage in `Mesh Model/SigModel.m` to let onVendorResponse be inovked by device itself (not device reponse to APP sendCommand), or SigMessageDelegate didReceiveMessage ?
+    // device reponse to APP sendCommand can ref to anasislyResponseData() in SigMeshOC/LibHandle.m
+    onVendorResponse = ^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
+        
+        UInt32 opcode = responseMessage.opCode;
+        NSLog(@"TelinkBtSig onVendorResponse opcode=0x%x, parameters=%@", opcode, responseMessage.parameters);
+        
+        // convert opcode -> opcodeJs e.g. 0xe31102 -> 0x0211e3
+        UInt32 opcodeJs = ((opcode >> 16) & 0x0000ff) | (opcode & 0x00ff00) | ((opcode << 16) & 0xff0000);
+        NSLog(@"TelinkBtSig onVendorResponse opcode to JS is 0x%x", opcodeJs);
 
-    // ref to anasislyResponseData() in SigMeshOC/LibHandle.m
-    onVendorResponse = ^(VendorResponseModel *model) {
-        NSLog(@"TelinkBtSig onVendorResponse %@", model.rspData); //0xf0080002000100e3110201
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:model.vendorOPCode] forKey:@"opcode"];
-        [dict setObject:(NSArray *)[weakSelf byteData2Array:model.customData] forKey:@"params"];
+        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:opcodeJs] forKey:@"opcode"];
+        [dict setObject:(NSArray *)[weakSelf byteData2Array:responseMessage.parameters] forKey:@"params"];
         [weakSelf sendEventWithName:@"notificationVendorResponse" body:dict];
     };
-    Bluetooth.share.commandHandle.responseVendorIDCallBack = onVendorResponse;
 
-    // ref to responseBack() in SigMeshOC/Bluetooth.m
-    onOnlineStatusNotify = ^(ResponseModel *model) {
-        NSLog(@"TelinkBtSig onOnlineStatusNotify");
-        NSMutableArray *array = [[NSMutableArray alloc] init];
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:model.currentValue] forKey:@"brightness"];
-        [dict setObject:[NSNumber numberWithInt:model.pointValue] forKey:@"colorTemp"];
-        [dict setObject:[NSNumber numberWithInt:model.currentState ? 1 : -1] forKey:@"status"];
-        [array addObject:dict];
-        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
-    };
+//    onOnlineStatusNotify = ^(CBPeripheral * _Nonnull peripheral, CBCharacteristic * _Nonnull characteristic, NSError * _Nullable error) {
+//        NSLog(@"TelinkBtSig onOnlineStatusNotify");
+//        NSMutableArray *array = [[NSMutableArray alloc] init];
+//        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+//        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
+//        [dict setObject:[NSNumber numberWithInt:model.currentValue] forKey:@"brightness"];
+//        [dict setObject:[NSNumber numberWithInt:model.pointValue] forKey:@"colorTemp"];
+//        [dict setObject:[NSNumber numberWithInt:model.currentState ? 1 : -1] forKey:@"status"];
+//        [array addObject:dict];
+//        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
+//    };
 
-    onGetOnOffNotify = ^(ResponseModel *model) {
+    onGetOnOffNotify = ^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {
         NSLog(@"TelinkBtSig onGetOnOffNotify");
+        BOOL isOn = responseMessage.isAcknowledged ? responseMessage.targetState : responseMessage.isOn;
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:model.currentState] forKey:@"onOff"];
+        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:isOn ? 1 : 0] forKey:@"onOff"];
         [weakSelf sendEventWithName:@"notificationDataGetOnOff" body:dict];
     };
-
-    onGetLevelNotify = ^(ResponseModel *model) {
+    
+    onGetLevelNotify = ^(UInt16 source, UInt16 destination, SigGenericLevelStatus * _Nonnull responseMessage) {
         NSLog(@"TelinkBtSig onGetLevelNotify");
+        UInt16 level = responseMessage.isAcknowledged ? responseMessage.targetLevel : responseMessage.level;
+        UInt8 brightness = [SigHelper.share getUInt8LumFromSInt16Level:level];
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:model.currentValue] forKey:@"brightness"];
+        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:brightness] forKey:@"brightness"];
         [weakSelf sendEventWithName:@"notificationDataGetLevel" body:dict];
     };
 
-    onGetLightnessNotify = ^(ResponseModel *model) {
+    onGetLightnessNotify = ^(UInt16 source, UInt16 destination, SigLightLightnessStatus * _Nonnull responseMessage) {
         NSLog(@"TelinkBtSig onGetLightnessNotify");
+        UInt16 lightness = responseMessage.isAcknowledged ? responseMessage.targetLightness : responseMessage.presentLightness;
+        UInt8 lum = [SigHelper.share getUInt8LumFromUint16Lightness:lightness];
+
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:model.currentValue] forKey:@"brightness"];
+        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:lum] forKey:@"brightness"];
         [weakSelf sendEventWithName:@"notificationDataGetLightness" body:dict];
     };
 
-    onGetCtlNotify = ^(ResponseModel *model) {
+    onGetCtlNotify = ^(UInt16 source, UInt16 destination, SigLightCTLStatus * _Nonnull responseMessage) {
         NSLog(@"TelinkBtSig onGetCtlNotify");
+        UInt16 lightness = responseMessage.isAcknowledged ? responseMessage.targetCTLLightness : responseMessage.presentCTLLightness;
+        UInt8 lum = [SigHelper.share getUInt8LumFromUint16Lightness:lightness];
+        UInt16 temp = responseMessage.isAcknowledged ? responseMessage.targetCTLTemperature : responseMessage.presentCTLTemperature;
+        UInt8 colorTemp = [SigHelper.share getUInt8Temperature100FromUint16Temperature:temp];
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-        if (model.opcode == OpcodeCurrentCTLResponse) {
-            [dict setObject:[NSNumber numberWithInt:model.currentValue] forKey:@"brightness"];
-            [dict setObject:[NSNumber numberWithInt:model.pointValue] forKey:@"colorTemp"];
-            [weakSelf sendEventWithName:@"notificationDataGetCtl" body:dict];
-        } else {
-            [dict setObject:[NSNumber numberWithInt:model.currentValue] forKey:@"colorTemp"];
-            [weakSelf sendEventWithName:@"notificationDataGetTemp" body:dict];
-        }
+        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:lum] forKey:@"brightness"];
+        [dict setObject:[NSNumber numberWithInt:colorTemp] forKey:@"colorTemp"];
+        [weakSelf sendEventWithName:@"notificationDataGetCtl" body:dict];
     };
 
-    onGetFirmwareInfo = ^(ResponseModel *model) {
-        NSLog(@"TelinkBtSig onGetFirmwareInfo %@", model.rspData); // 0xf00c0002000100b602110200fb3137
+    onGetTempNotify = ^(UInt16 source, UInt16 destination, SigLightCTLTemperatureStatus * _Nonnull responseMessage) {
+        NSLog(@"TelinkBtSig onGetTemp");
+        UInt16 temp = responseMessage.isAcknowledged ? responseMessage.targetCTLTemperature : responseMessage.presentCTLTemperature;
+        UInt8 colorTemp = [SigHelper.share getUInt8Temperature100FromUint16Temperature:temp];
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-        /*
-        u16 cid，  (vendor id)
-        u16 pid,   (设备类型)
-        u16 vid    (版本id)
-         */
-        if (model.rspData.length < 15) {
+        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:colorTemp] forKey:@"colorTemp"];
+        [weakSelf sendEventWithName:@"notificationDataGetTemp" body:dict];
+    };
+
+    onGetFirmwareInfo = ^(UInt16 source,UInt16 destination,SigFirmwareUpdateInformationStatus *responseMessage) {
+        NSLog(@"TelinkBtSig onGetFirmwareInfo");
+        SigFirmwareInformationEntryModel *firstEntry = [responseMessage.firmwareInformationList firstObject];
+        if (firstEntry == nil) {
             return;
         }
-        NSData *data = [model.rspData subdataWithRange:NSMakeRange(model.rspData.length - 2, 2)];
+        // responseMessage.firmwareInformationList.firstObject.currentFirmwareID.length = 4: 2 bytes pid(设备类型) + 2 bytes vid(版本id)
+        if (firstEntry.currentFirmwareID.length < 4) {
+            return;
+        }
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        NSData *data = [firstEntry.currentFirmwareID subdataWithRange:NSMakeRange(2, 2)];
         [dict setObject:[[NSString alloc] initWithBytes:data.bytes length:data.length encoding:NSUTF8StringEncoding] forKey:@"version"];
         [weakSelf sendEventWithName:@"notificationDataGetVersion" body:dict];
     };
 
-    Bluetooth.share.commandHandle.notifyOnlineStatusCallBack = onOnlineStatusNotify;
-    Bluetooth.share.commandHandle.switchOnOffCallBack = onGetOnOffNotify;
-    Bluetooth.share.commandHandle.changeLevelCallBack = onGetLevelNotify;
-    Bluetooth.share.commandHandle.changeBrightnessCallBack = onGetLightnessNotify;
-    Bluetooth.share.commandHandle.changeTemperatureCallBack = onGetCtlNotify;
-    Bluetooth.share.commandHandle.getFwInfoCallBack = onGetFirmwareInfo;
-
-    Bluetooth.share.bleCentralUpdateStateCallBack = ^(CBCentralManagerState state) {
-        if (Bluetooth.share.state == StateNormal) {
-            switch (state) {
-                case CBCentralManagerStatePoweredOn:
-                    [weakSelf sendEventWithName:@"bluetoothEnabled" body:nil];
-                    NSLog(@"TelinkBtSig bluetoothEnabled");
-                    break;
-                case CBCentralManagerStatePoweredOff:
-                     [weakSelf sendEventWithName:@"bluetoothDisabled" body:nil];
-                     NSLog(@"TelinkBtSig bluetoothDisabled");
-                   break;
-                default:
-                    break;
+    onGetModelSubscription = ^(UInt16 source, UInt16 destination, SigConfigModelSubscriptionStatus * _Nonnull responseMessage) {
+        // TODO: weakSelf will cause `Thread 1: EXC_BAD_ACCESS (code=1, addreess=)`
+        // crash, maybe should consider move these logic into index.native.js
+        if (self->mSetNodeGroupAddrResolve != nil) {
+            if (responseMessage.status == SigConfigMessageStatus_success) {
+                NSLog(@"group address: %d", responseMessage.address);
+                self->mSetNodeGroupAddrEleIdsIndex++;
+                [self setNextModelGroupAddr];
+            } else {
+                if (self->mSetNodeGroupAddrReject != nil) {
+                    self->mSetNodeGroupAddrReject(@"setSubscription", @"setSubscription grouping status fail!", nil);
+                }
+                self->mSetNodeGroupAddrReject = nil;
+                NSLog(@"set group sub error");
             }
         }
     };
 
+    SigDataSource.share.delegate = self;
+    SigBluetooth.share.delegate = self;
+    SigBearer.share.dataDelegate = self;
+    SigMeshLib.share.delegateForDeveloper = self;
+
+    // TODO: Outline is not working, because peripheral:didUpdateValueForCharacteristic in Bearer/SigBluetooth.m does not call (setBluetoothDidUpdateOnlineStatusValueCallback with receiveOnlineStatusData) receiveOnlineStatusData->anasislyOnlineStatueDataFromUUID->updateOnlineStatusWithDeviceAddress->discoverOutlineNodeCallback
+    // telink demo code use startCheckOfflineTimerWithAddress, but it's period is 20s, it's too long, so we should find a way to anasislyOnlineStatueDataFromUUID work (and actually anasislyOnlineStatueDataFromUUID will produce state and bright and temperature that just onOnlineStatusNotify need!)
+    // or, just set periodModel.numberOfSteps above?
+    // or, use SigMessageDelegate didReceiveMessage
+    [SigPublishManager.share setDiscoverOutlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
+        NSMutableArray *array = [[NSMutableArray alloc] init];
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:unicastAddress forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:-1] forKey:@"status"];
+        [array addObject:dict];
+        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
+    }];
+    
+    // working, because didReceiveMessage in SigMeshLib.m calls discoverOnlineNodeCallback
+    [SigPublishManager.share setDiscoverOnlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
+        NSMutableArray *array = [[NSMutableArray alloc] init];
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:unicastAddress forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:1] forKey:@"status"];
+        [array addObject:dict];
+        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
+    }];
+
+    [SDKLibCommand setBluetoothCentralUpdateStateCallback: ^(CBCentralManagerState state) {
+        TeLogVerbose(@"setBluetoothCentralUpdateStateCallback state=%ld",(long)state);
+        switch (state) {
+            case CBCentralManagerStatePoweredOn:
+                [weakSelf sendEventWithName:@"bluetoothEnabled" body:nil];
+                NSLog(@"TelinkBtSig bluetoothEnabled");
+                break;
+            case CBCentralManagerStatePoweredOff:
+                 [weakSelf sendEventWithName:@"bluetoothDisabled" body:nil];
+                 NSLog(@"TelinkBtSig bluetoothDisabled");
+               break;
+            default:
+                break;
+        }
+    }];
+    
     [self sendEventWithName:@"serviceConnected" body:nil];
     [self sendEventWithName:@"bluetoothEnabled" body:nil];
     [self sendEventWithName:@"deviceStatusLogout" body:nil];
 
-    // //注册通知，当app由后台切换到前台，在appdelegate中通知获取灯的状态，避免在后台时，灯的状态发生改变，而app上数据没有更新
+    // 注册通知，当 APP 由后台切换到前台，在 AppDelegate.m 中通知获取灯的状态，避免在后台时，
+    // 灯的状态发生改变，而 APP 上数据没有更新
+    // 当然这里只是 iOS 原生写法的示例，实际上应该在 react native APP 的 JS 代码中做这些前后台切换的业务逻辑
     // [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidBecomeActive) name:@"applicationDidBecomeActive" object:nil];
-
-    Bluetooth.share.commandHandle.setLocationSnoCallBack = ^(UInt32 sno)  {
-        NSLog(@"TelinkBtSig sno set %d", sno);
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:sno] forKey:@"provisionerSno"];
-        [dict setObject:[NSNumber numberWithBool:YES] forKey:@"hasOnlineStatusNotifyRaw"];
-        [weakSelf sendEventWithName:@"saveOrUpdateJS" body:dict];
-    };
 }
 
+RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
+{
+    [SigLogger.share setSDKLogLevel:level];
+}
+
+#pragma  mark - SigDataSourceDelegate
+- (void)onSequenceNumberUpdate:(UInt32)sequenceNumber ivIndexUpdate:(UInt32)ivIndex {
+    __weak typeof(self) weakSelf = self;
+    NSLog(@"TelinkBtSig onSequenceNumberUpdate %d", sequenceNumber);
+    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+    [dict setObject:[NSNumber numberWithInt:sequenceNumber] forKey:@"provisionerSno"];
+    [dict setObject:[NSNumber numberWithBool:YES] forKey:@"hasOnlineStatusNotifyRaw"];
+    [weakSelf sendEventWithName:@"saveOrUpdateJS" body:dict];
+}
 
 - (void)applicationWillResignActive {
     // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
     // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
+    TeLogInfo(@"applicationWillResignActive");
 }
-
 
 - (void)applicationDidEnterBackground {
     // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
     // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+    TeLogInfo(@"applicationDidEnterBackground");
 }
-
 
 - (void)applicationWillEnterForeground {
     // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+    TeLogInfo(@"applicationWillEnterForeground");
 }
-
 
 - (void)applicationDidBecomeActive {
     // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-    // [kCentralManager setNotifyOpenPro];
+    TeLogInfo(@"applicationWillEnterForeground");
 }
-
 
 - (void)applicationWillTerminate {
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+    TeLogInfo(@"applicationWillTerminate");
 }
-
-
-// - (void)OnDevChange:(id)sender Item:(BTDevItem *)item Flag:(DevChangeFlag)flag {
-//     //if (!self.isStartOTA) return;
-//     //    kCentralManager.isAutoLogin = NO;
-
-//     NSLog(@"flag==========%u", flag);
-//     switch (flag) {
-//         case DevChangeFlag_Add:                 [self dosomethingWhenDiscoverDevice:item]; break;
-//         case DevChangeFlag_Connected:           [self dosomethingWhenConnectedDevice:item]; break;
-//         case DevChangeFlag_Login:               [self dosomethingWhenLoginDevice:item]; break;
-//         case DevChangeFlag_DisConnected:        [self dosomethingWhenDisConnectedDevice:item]; break;
-//         default:    break;
-//     }
-// }
-
-// - (void)resetStatusOfAllLight {
-//     NSLog(@"resetStatusOfAllLight");
-// }
-
-// #pragma mark- Delegate
-
-// - (void)dosomethingWhenDiscoverDevice:(BTDevItem *)item {
-//     NSLog(@"dosomethingWhenDiscoverDevice item = %d", item.u_DevAdress);
-
-//     NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-
-//     [event setObject:item.name forKey:@"deviceName"];
-//     [event setObject:[NSString stringWithFormat:@"%@", item.u_Name] forKey:@"meshName"];
-//     [event setObject:[NSNumber numberWithInt:item.u_DevAdress] forKey:@"meshAddress"];
-//     [event setObject:[NSString stringWithFormat:@"%x", item.u_Mac] forKey:@"macAddress"];
-//     [event setObject:[NSNumber numberWithInt:item.u_meshUuid] forKey:@"meshUUID"];
-//     [event setObject:[NSNumber numberWithInt:item.productID] forKey:@"productUUID"];
-//     [event setObject:[NSNumber numberWithInt:item.u_Status] forKey:@"status"];
-
-//     [self sendEventWithName:@"leScan" body:event];
-
-//     NSMutableArray *macs = [[NSMutableArray alloc] init];
-//     for (int i = 0; i < self.BTDevArray.count; i++) {
-//         [macs addObject:@(self.BTDevArray[i].u_DevAdress)];
-//     }
-//     if (![macs containsObject:@(item.u_DevAdress)]) {
-//         [self.BTDevArray addObject:item];
-//     }
-
-//     //    //sdk中连接设备会停止扫描，加延时确保所有灯都能扫描到
-//     //    if (self.BTDevArray.count==1) {
-//     //        [kCentralManager connectWithItem:item];
-//     //    }
-// }
-
-
-// - (void)dosomethingWhenConnectedDevice:(BTDevItem *)item {
-//     NSLog(@"dosomethingWhenConnectedDevice item = %d ", item.u_DevAdress);
-// }
-
-// - (void)dosomethingWhenLoginDevice:(BTDevItem *)item {
-//     if (self.configNode) {
-//         if ([[NSString stringWithFormat:@"%x", item.u_Mac] isEqualToString:[self.node objectForKey:@"macAddress"]]) {
-//             [self.dict setObject:item forKey:[NSString stringWithFormat:@"%d", [[self.node objectForKey:@"meshAddress"] intValue]]];
-//             if (item.u_DevAdress == [[self.node objectForKey:@"meshAddress"] intValue]) {
-//                 [self resultOfReplaceAddress:item.u_DevAdress];
-//             } else {
-//                 [kCentralManager replaceDeviceAddress:item.u_DevAdress WithNewDevAddress:[[self.node objectForKey:@"meshAddress"] intValue]];
-//             }
-
-//             self.configNode = !self.configNode;
-//         }
-//     } else {
-//         NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-//         [event setObject:[NSNumber numberWithInt:item.u_DevAdress] forKey:@"meshAddress"];
-//         [event setObject:[NSNumber numberWithInt:item.u_DevAdress] forKey:@"connectMeshAddress"];
-//         [self sendEventWithName:@"deviceStatusLogin" body:event];
-//     }
-// }
-
-// - (void)dosomethingWhenDisConnectedDevice:(BTDevItem *)item {
-//     NSLog(@"dosomethingWhenDisConnectedDevice");
-//     if (_HomePage) {
-//         NSMutableArray *array = [[NSMutableArray alloc] init];
-//         for (DeviceModel *omodel in self.devArray) {
-//             if (item.u_DevAdress == omodel.u_DevAdress) {
-//                 NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-//                 [event setObject:[NSNumber numberWithInt:omodel.reserve] forKey:@"reserve"];
-//                 [event setObject:[NSNumber numberWithInt:2] forKey:@"status"];
-//                 [event setObject:[NSNumber numberWithInt:omodel.brightness] forKey:@"brightness"];
-//                 [event setObject:[NSNumber numberWithInt:omodel.u_DevAdress] forKey:@"meshAddress"];
-//                 [array addObject:event];
-//             }
-//         }
-//         [self sendEventWithName:@"notificationOnlineStatus" body:array];
-//     }
-// }
-
-// - (void)scanedLoginCharacteristic {
-//     [kCentralManager loginWithPwd:self.pwd];
-// }
-
-// - (void)notifyBackWithDevice:(DeviceModel *)model {
-//     if (!model) return;
-//     NSMutableArray *macs = [[NSMutableArray alloc] init];
-//     for (int i = 0; i < self.devArray.count; i++) {
-//         [macs addObject:@(self.devArray[i].u_DevAdress)];
-//     }
-//     //AppDelegate *delegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
-//     //更新既有设备状态
-//     if ([macs containsObject:@(model.u_DevAdress)]) {
-//         NSUInteger index = [macs indexOfObject:@(model.u_DevAdress)];
-//         DeviceModel *tempModel = [self.devArray objectAtIndex:index];
-//         [tempModel updataLightStata:model];
-//     }
-//     //添加新设备
-//     else {
-//         DeviceModel *omodel = [[DeviceModel alloc] initWithModel:model];
-//         [self.devArray addObject:omodel];
-//     }
-//     NSLog(@"model = %@", model.versionString);
-//     NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-
-//     [event setObject:[NSNumber numberWithInt:model.reserve] forKey:@"reserve"];
-//     [event setObject:[NSNumber numberWithInt:model.stata] forKey:@"status"];
-//     [event setObject:[NSNumber numberWithInt:model.brightness] forKey:@"brightness"];
-//     [event setObject:[NSNumber numberWithInt:model.u_DevAdress] forKey:@"meshAddress"];
-
-//     NSMutableArray *array = [NSMutableArray arrayWithObject:event];
-//     [self sendEventWithName:@"notificationOnlineStatus" body:array];
-//     [[MeshOTAManager share] setCurrentDevices:self.devArray];
-// }
 
 RCT_EXPORT_METHOD(doDestroy) {
     NSLog(@"TelinkBtSig doDestroy");
 }
 
-// RCT_EXPORT_METHOD(doResume) {
-//     NSLog(@"doResume");
-//     self.manager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
-// }
+ RCT_EXPORT_METHOD(doResume) {
+     NSLog(@"TelinkBtSig doResume");
+ }
 
 RCT_EXPORT_METHOD(enableBluetooth) {
     NSLog(@"TelinkBtSig enableBluetooth");
@@ -627,69 +621,49 @@ RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve rejecte
     NSLog(@"TelinkBtSig notModeAutoConnectMesh");
 }
 
-RCT_EXPORT_METHOD(autoConnect:(NSString *)networkKey) {
+RCT_EXPORT_METHOD(autoConnect) {
     NSLog(@"TelinkBtSig autoConnect");
-
-    [Bluetooth.share setBleScanNewDeviceCallBack:nil];
-    if (Bluetooth.share.state == StateNormal) {
-        CBPeripheral *tem = [Bluetooth.share currentPeripheral];
-        if ([Bluetooth.share isConnected]) {
-//            SigNodeModel *node = [SigDataSource.share getNodeWithUUID:tem.identifier.UUIDString];
-            SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:tem.identifier.UUIDString];
-            SigNodeModel *node = [SigDataSource.share getNodeWithAddress:scanRspModel.address];
-            NSLog(@"TelinkBtSig connected %d %@ %@", scanRspModel.address, node.macAddress, tem.identifier.UUIDString);
-
-            [Bluetooth.share.commandHandle getOnlineStatusWithExecuteCommand:YES reqCount:3 Completation:^(ResponseModel *model){
-                Bluetooth.share.commandHandle.getOnlineStatusCallBack = nil;
-
-                __weak typeof(self) weakSelf = self;
-                NSLog(@"TelinkBtSig deviceStatusLogin");
-                self.connectMeshAddress = [node address];
-                NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-                [dict setObject:[NSNumber numberWithInt:[node address]] forKey:@"connectMeshAddress"];
-                [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
-
-                [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *peripheral) {
-                    NSLog(@"TelinkBtSig deviceStatusLogout");
-                    [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
-                }];
-            }];
-        } else if (tem && tem.state == CBPeripheralStateConnecting) {
-            return;
-        } else {
-            NSLog(@"TelinkBtSig auto reconnect");
-            if (Bluetooth.share.manager.isScanning) {
-                [Bluetooth.share.manager stopScan];
-            }
-            [Bluetooth.share startWorkNormalWithComplete:nil];
-        }
-    } else {
-        [Bluetooth.share startWorkNormalWithComplete:nil];
+    if ([SDKLibCommand isBLEInitFinish]) {
+        [SigBearer.share startMeshConnectWithComplete:nil];
     }
-
-//     [[BTCentralManager shareBTCentralManager] stopScan];
-//     [self.devArray removeAllObjects];
-//     [self.BTDevArray removeAllObjects];
-//     [self.DisConnectDevArray removeAllObjects];
-//     kCentralManager.scanWithOut_Of_Mesh = NO;
-//     self.pwd = userMeshPwd;
-//     self.HomePage = YES;
-//     self.userMeshName = userMeshName;
-//     self.userMeshPwd = userMeshPwd;
-//
-//     [kCentralManager startScanWithName:userMeshName Pwd:userMeshPwd AutoLogin:YES];
 }
 
-RCT_EXPORT_METHOD(autoRefreshNotify:(NSInteger) repeatCount Interval:(NSInteger) NSInteger) {
-//     [kCentralManager setNotifyOpenPro];
+#pragma  mark - SigBearerDataDelegate
+- (void)bearerDidConnectedAndDiscoverServices:(SigBearer *)bearer {
+}
+
+- (void)bearerDidOpen:(SigBearer *)bearer {
+    __weak typeof(self) weakSelf = self;
+    CBPeripheral *tem = [SigBearer.share getCurrentPeripheral];
+    SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:tem.identifier.UUIDString];
+    SigNodeModel *node = [SigDataSource.share getNodeWithAddress:scanRspModel.address];
+    NSLog(@"TelinkBtSig connected %d %@ %@", scanRspModel.address, node.macAddress, tem.identifier.UUIDString);
+
+    // TODO: telink sdk why cause NSLog "TelinkBtSig connected 0 (null)" first?
+    if (scanRspModel.address == 0) {
+        return;
+    }
+    
+    NSLog(@"TelinkBtSig deviceStatusLogin");
+    self.connectMeshAddress = [node address];
+    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+    [dict setObject:[NSNumber numberWithInt:[node address]] forKey:@"connectMeshAddress"];
+    [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
+}
+
+- (void)bearer:(SigBearer *)bearer didCloseWithError:(NSError *)error {
+    if (self.allowSendLogoutWhenDisconnect) {
+        __weak typeof(self) weakSelf = self;
+        TeLogVerbose(@"TelinkBtSig deviceStatusLogout");
+        [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
+    }
 }
 
 RCT_EXPORT_METHOD(idleMode:(BOOL)disconnect) {
     NSLog(@"TelinkBtSig idleMode");
     // If your JS APP call it frequently, then must comment bellow, otherwise can't claim in configNode()
     // if (disconnect) {
-    //    [Bluetooth.share stopAutoConnect];
-    //    [Bluetooth.share cancelAllConnecttionWithComplete:nil];
+    //    [SigBearer.share stopMeshConnectWithComplete:nil];
     // }
 }
 
@@ -701,24 +675,20 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
     [[NSUserDefaults standardUserDefaults] setObject:data forKey:kScanList_key];
     [[NSUserDefaults standardUserDefaults] synchronize];
 
-    NSMutableArray *matchsListTem = [NSMutableArray array];
-    NSData *matchsListData = [NSKeyedArchiver archivedDataWithRootObject:matchsListTem];
-    [[NSUserDefaults standardUserDefaults] setObject:matchsListData forKey:kMatchsList_key];
-    NSMutableArray *noMatchsListTem = [NSMutableArray array];
-    NSData *noMatchsListData = [NSKeyedArchiver archivedDataWithRootObject:noMatchsListTem];
-    [[NSUserDefaults standardUserDefaults] setObject:noMatchsListData forKey:kNoMatchsList_key];
-    [[NSUserDefaults standardUserDefaults] synchronize];
-
-
     self.allDevices = [NSMutableArray array];
     __weak typeof(self) weakSelf = self;
-    [Bluetooth.share cancelAllConnecttionWithComplete:^{
+
+    [SDKLibCommand stopMeshConnectWithComplete:^(BOOL successful) {
+        if (!successful) {
+            return;
+        }
+        TeLogInfo(@"stopMeshConnect success.");
         [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
-        [Bluetooth.share setBleScanNewDeviceCallBack:^(CBPeripheral *peripheral, BOOL provisioned) {
-            if (provisioned) {
+        [SDKLibCommand scanUnprovisionedDevicesWithResult:^(CBPeripheral * _Nonnull peripheral, NSDictionary<NSString *,id> * _Nonnull advertisementData, NSNumber * _Nonnull RSSI, BOOL unprovisioned) {
+            TeLogInfo(@"==========peripheral=%@,advertisementData=%@,RSSI=%@,unprovisioned=%d",peripheral,advertisementData,RSSI,unprovisioned);
+            if (unprovisioned) {
                 SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:peripheral.identifier.UUIDString];
                 if (scanRspModel == nil || scanRspModel.macAddress == nil || scanRspModel.PID == 0) {
-                    // Because scanRspModel is saved by NSOperationQueue in didDiscoverPeripheral() of SigMeshOC/Bluetooth.m ,we need here especially `scanRspModel.PID == 0`
                     return;
                 }
 
@@ -731,114 +701,156 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                     NSLog(@"TelinkBtSig ScanNewDevice macAddress = %@", macAddress);
 
                     NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-                    // [event setObject:scanRspModel.nodeIdentityData forKey:@"deviceName"];
-                    // [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.networkIDData] forKey:@"meshName"];
-                    // [event setObject:[NSNumber numberWithInt:scanRspModel.address] forKey:@"meshAddress"];
+//                     [event setObject:scanRspModel.advName forKey:@"deviceName"];
+//                     [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.advertisementDataServiceData] forKey:@"meshName"];
+//                     [event setObject:[NSNumber numberWithInt:scanRspModel.address] forKey:@"meshAddress"];
                     [event setObject:macAddress forKey:@"macAddress"];
-                    // [event setObject:[NSNumber numberWithInt:scanRspModel.uuid] forKey:@"meshUUID"];
+//                     [event setObject:[NSNumber numberWithInt:scanRspModel.uuid] forKey:@"meshUUID"];
                     [event setObject:[NSNumber numberWithInt:scanRspModel.PID] forKey:@"productUUID"];
-                    // [event setObject:[NSNumber numberWithInt:scanRspModel.CID] forKey:@"status"];
-                    if (scanRspModel.rsvUser != nil) {
-                        char *buffer = (char *)scanRspModel.rsvUser.bytes;
+//                     [event setObject:[NSNumber numberWithBool:scanRspModel.provisioned] forKey:@"status"];
+
+                    NSData * rsvUserData = [self getRsvUserFromAdvData:advertisementData];
+                    if (rsvUserData != nil) {
+                        char *buffer = (char *)rsvUserData.bytes;
                         NSMutableArray *rsvUser = [[NSMutableArray alloc] init];
-                        for (int i = 0; i < scanRspModel.rsvUser.length; i++) {
+                        for (int i = 0; i < rsvUserData.length; i++) {
                             [rsvUser addObject:[NSNumber numberWithUnsignedChar:buffer[i]]];
                         }
                         [event setObject:rsvUser forKey:@"rsvUser"];
                     }
+                    NSLog(@"TelinkBtSig ScanNewDevice rsvUser = %@", rsvUserData);
+
                     [weakSelf sendEventWithName:@"leScan" body:event];
                 }
             }
         }];
-        [Bluetooth.share stopAutoConnect];
-        [Bluetooth.share setProvisionState];
-        [Bluetooth.share startScan];
 
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf performSelector:@selector(scanFinish) withObject:nil afterDelay:timeoutSeconds];
         });
     }];
+}
 
-//     [[BTCentralManager shareBTCentralManager] stopScan];
-//     [self.devArray removeAllObjects];
-//     [self.BTDevArray removeAllObjects];
-//     [self.DisConnectDevArray removeAllObjects];
-//     self.configNode = NO;
-//     self.HomePage = NO;
-//     kCentralManager.scanWithOut_Of_Mesh = NO;
-//     kCentralManager.timeOut = 60;
-//     self.pwd = @"123";
-//     self.userMeshName = meshName;
-//     self.userMeshPwd = @"123";
-//     self.location = 0;
-//     //    [kCentralManager startScanWithName:meshName Pwd:@"123" AutoLogin:YES];
-//     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1000 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-//         [kCentralManager startScanWithName:meshName Pwd:@"123" AutoLogin:NO];
-//     });
+- (NSData *)getRsvUserFromAdvData:(NSDictionary<NSString *,id> *)advertisementData {
+    if ([advertisementData.allKeys containsObject:CBAdvertisementDataManufacturerDataKey]) {
+        NSData *allData = advertisementData[CBAdvertisementDataManufacturerDataKey];
+        if (allData.length >= 29) {
+            return [allData subdataWithRange:NSMakeRange(18, 11)];
+        }
+    }
+    
+    return nil;
 }
 
 - (void)scanFinish {
-    [Bluetooth.share setBleScanNewDeviceCallBack:nil];  // need this otherwise keyBindSuccess if configNode to quickly just after startScan
-
-    // even cancelPreviousPerformRequestsWithTarget in configNode(),
-    // still sometime cause delayMeshProxyInit in readGattFinishWithPeripheral() of
-    // SigMeshOC/Bluetooth.m, so comment it, and worked well.
-    //    [Bluetooth.share setNormalState];
-
-    [Bluetooth.share stopScan];
+    [SDKLibCommand stopScan];
 }
 
-- (NSInteger)getOpcodeSize:(NSInteger)opVal {
-        return (opVal & 0x80) != 0
-                ?
-                ((opVal & 0x40) != 0 ? VENDOR_OPCODE_SIZE : SIG_2_OPCODE_SIZE)
-                :
-                SIG_1_OPCODE_SIZE;
+RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate) {
+    if (immediate) {
+        [SigMeshLib.share cleanAllCommandsAndRetry];
+    }
+    // if immediate is false and use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"sendCommand busy");
+//        return;
+//    }
+
+    IniCommandModel *model = [IniCommandModel alloc];
+    if ([SigHelper.share getOpCodeTypeWithOpcode:opcode] == SigOpCodeType_vendor3) {
+        model = [model initVendorModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:SigDataSource.share.defaultRetryCount responseMax:0 address:meshAddress opcode:opcode & 0xff vendorId:(opcode >> 8) & 0xffff responseOpcode:rspOpcode & 0xff tidPosition:tidPosition > 0 ? tidPosition : 0 tid:(tidPosition > 0 && tidPosition <= value.count) ? ((NSNumber *)value[tidPosition - 1]).unsignedCharValue : 0  commandData:[self byteArray2Data:value]];
+        [SDKLibCommand sendIniCommandModel:model successCallback:onVendorResponse resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+            TeLogVerbose(@"sendCommand finish");
+        }];
+    } else {
+        model = [model initSigModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:SigDataSource.share.defaultRetryCount responseMax:0 address:meshAddress opcode:opcode commandData:[self byteArray2Data:value]];
+        [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
+            NSString *str = [NSString stringWithFormat:@"Response: opcode=0x%x, parameters=%@",(unsigned int)responseMessage.opCode,responseMessage.parameters];
+            TeLogVerbose(@"sendCommand %@",str);
+            if ([responseMessage isKindOfClass:[SigConfigNodeResetStatus class]]) {
+                TeLogDebug("kickout in sendCommand");
+            } else if ([responseMessage isKindOfClass:[SigConfigModelSubscriptionStatus class]]) {
+                self->onGetModelSubscription(source, destination, (SigConfigModelSubscriptionStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigTimeStatus class]]) {
+//                self->onGetTimeNotify(source, destination, (SigTimeStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigSchedulerActionStatus class]]) {
+//                self->onGetAlarmNotify(source, destination, (SigSchedulerActionStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigGenericOnOffStatus class]]) {
+                self->onGetOnOffNotify(source, destination, (SigGenericOnOffStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigGenericLevelStatus class]]) {
+                self->onGetLevelNotify(source, destination, (SigGenericLevelStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigLightLightnessStatus class]]) {
+                self->onGetLightnessNotify(source, destination, (SigLightLightnessStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigLightCTLStatus class]]) {
+                self->onGetCtlNotify(source, destination, (SigLightCTLStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigLightCTLTemperatureStatus class]]) {
+                self->onGetTempNotify(source, destination, (SigLightCTLTemperatureStatus *)responseMessage);
+            } else if ([responseMessage isKindOfClass:[SigFirmwareUpdateInformationStatus class]]) {
+                self->onGetFirmwareInfo(source, destination, (SigFirmwareUpdateInformationStatus *)responseMessage);
+            }
+        } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+            TeLogVerbose(@"sendCommand finish");
+        }];
+    }
 }
 
-// ref to react-native-btsig-telink/android/src/main/java/com/telink/sig/mesh/model/MeshCommand.java
-- (NSData *)meshCommandToBytes:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value {
-    NSInteger OpcodeSize = [self getOpcodeSize:opcode];
-    NSInteger reLen = 10 + OpcodeSize + (value == nil ? 0 : value.count);
-    uint8_t result[reLen];
-    int index = 0;
+RCT_EXPORT_METHOD(getFirmwareInfo:(NSInteger)meshAddress) {
+#ifdef kExist
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"getFirmwareInfo busy");
+//        return;
+//    }
 
-    result[index++] = (uint8_t) (HCI_CMD_BULK_CMD2DEBUG & 0xFF);
-    result[index++] = (uint8_t) ((HCI_CMD_BULK_CMD2DEBUG >> 8) & 0xFF);
-
-    result[index++] = (uint8_t) (0 & 0xFF);
-    result[index++] = (uint8_t) ((0 >> 8) & 0xFF);
-
-    result[index++] = (uint8_t) (0 & 0xFF);
-    result[index++] = (uint8_t) ((0 >> 8) & 0xFF);
-
-    result[index++] = 2;//retryCnt;
-    result[index++] = 0;//rspMax;
-
-    result[index++] = (uint8_t) (meshAddress & 0xFF);
-    result[index++] = (uint8_t) ((meshAddress >> 8) & 0xFF);
-
-    result[index++] = (uint8_t) (opcode & 0xFF);
-    if (OpcodeSize >= 2) {
-        result[index++] = (uint8_t) ((opcode >> 8) & 0xFF);
-        if (OpcodeSize == 3) {
-            result[index++] = (uint8_t) ((opcode >> 16) & 0xFF);
+    // 2.firmwareUpdateInformationGet ，该消息在 modelID：kSigModel_FirmwareUpdateServer_ID 里面
+    UInt16 modelIdentifier = kSigModel_FirmwareUpdateServer_ID;
+    NSArray *curNodes = [NSArray arrayWithArray:SigDataSource.share.curNodes];
+    NSInteger responseMax = 0;
+    NSMutableArray *LPNArray = [NSMutableArray array];
+    for (SigNodeModel *model in curNodes) {
+        NSArray *addressArray = [model getAddressesWithModelID:@(modelIdentifier)];
+        if (model.state != DeviceStateOutOfLine && addressArray && addressArray.count > 0 && model.features.lowPowerFeature == SigNodeFeaturesState_notSupported) {
+            responseMax ++;
+        }
+        if (model.features.lowPowerFeature != SigNodeFeaturesState_notSupported) {
+            [LPNArray addObject:model];
         }
     }
-    if (value != nil) {
-        for (int i = 0; i < value.count; i++) {
-            result[index++] = ((NSNumber *)[value objectAtIndex:i]).unsignedCharValue;
+    
+    NSOperationQueue *operationQueue = [[NSOperationQueue alloc] init];
+    [operationQueue addOperationWithBlock:^{
+        // 这个 block 语句块在子线程中执行
+        // 如果 responseMax = 0 ，则无需发送到 0xFFFF 获取版本号
+        if (responseMax > 0 || (responseMax == 0 && LPNArray.count == 0)) {
+            dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+            [SDKLibCommand firmwareUpdateInformationGetWithDestination:kMeshAddress_allNodes firstIndex:0 entriesLimit:1 retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:responseMax successCallback:self->onGetFirmwareInfo resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+                TeLogInfo(@"isResponseAll=%d,error=%@",isResponseAll,error);
+                dispatch_semaphore_signal(semaphore);
+            }];
+            // Most provide 4 seconds
+            dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 10.0));
         }
-    }
-
-    return [NSData dataWithBytes:result length:reLen];
+        
+        if (LPNArray && LPNArray.count) {
+            for (SigNodeModel *model in LPNArray) {
+                dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+                [SDKLibCommand firmwareUpdateInformationGetWithDestination:model.address firstIndex:0 entriesLimit:1 retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:1 successCallback:self->onGetFirmwareInfo resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+                    TeLogInfo(@"isResponseAll=%d,error=%@",isResponseAll,error);
+                    dispatch_semaphore_signal(semaphore);
+                }];
+                // Most provide 4 seconds
+                dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 10.0));
+            }
+        }
+    }];
+#endif
 }
-
-RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value immediate:(BOOL)immediate) {
-    NSData *cmdData = [self meshCommandToBytes:opcode meshAddress:meshAddress value:value];
-    SendOpByINI((u8 *)cmdData.bytes, (u32)cmdData.length);
-}
-
 
 RCT_EXPORT_METHOD(startOta:(NSString *)mac firmware:(NSArray *)firmware resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     __weak typeof(self) weakSelf = self;
@@ -856,75 +868,135 @@ RCT_EXPORT_METHOD(startOta:(NSString *)mac firmware:(NSArray *)firmware resolver
  }
 
 RCT_EXPORT_METHOD(startMeshOTA:(NSArray *)meshAddresses firmware:(NSArray *)firmware) {
-    __weak typeof(self) weakSelf = self;
-    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-    [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
-    [dict setObject:@"start" forKey:@"status"];
-    [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
-
-    [MeshOTAManager.share startMeshOTAWithLocationAddress:SigDataSource.share.curLocationNodeModel.address cid:0x0211 deviceAddresses:meshAddresses otaData:[self byteArray2Data:firmware] progressHandle:^(NSInteger progress) {
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:(int)progress] forKey:@"OtaSlaveProgress"];
-        [weakSelf sendEventWithName:@"notificationDataGetMeshOtaProgress" body:dict];
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (progress == 100) {
-                NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-                [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
-                [dict setObject:@"stop" forKey:@"status"];
-                [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
-
-                [Bluetooth.share setNormalState];
-            }
-        });
-    } finishHandle:^(NSArray<NSNumber *> *successAddresses, NSArray<NSNumber *> *failAddresses) {
-        for (unsigned i = 0; i < successAddresses.count; i++) {
-            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-            [dict setObject:[successAddresses objectAtIndex:i] forKey:@"meshAddress"];
-            [dict setObject:@"success" forKey:@"status"];
-            [weakSelf sendEventWithName:@"notificationDataGetMeshOtaApplyStatus" body:dict];
-        }
-        for (unsigned i = 0; i < failAddresses.count; i++) {
-            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-            [dict setObject:[failAddresses objectAtIndex:i] forKey:@"meshAddress"];
-            [dict setObject:@"failure" forKey:@"status"];
-            [weakSelf sendEventWithName:@"notificationDataGetMeshOtaApplyStatus" body:dict];
-        }
-    } errorHandle:^(NSError *error) {
-        NSLog(@"TelinkBtSig MeshOTA error = %@",error);
+#ifdef kExist
+    if (kExistMeshOTA) {
+        __weak typeof(self) weakSelf = self;
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
         [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
-        [dict setObject:@"error" forKey:@"status"];
+        [dict setObject:@"start" forKey:@"status"];
         [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
-    }];
-}
 
-RCT_EXPORT_METHOD(pauseMeshOta) {
-    APP_set_mesh_ota_pause_flag(1);
-}
+        NSData *firmwareData = [self byteArray2Data:firmware];
 
-RCT_EXPORT_METHOD(continueMeshOta) {
-    APP_set_mesh_ota_pause_flag(0);
+        // incomingFirmwareMetadata 默认为 8 个字节的 0 。需要 bin 文件里面从 index 为 2 开始取 4 个字节的数据，再补充 4 个字节的 0
+        UInt32 tem32 = 0;
+        NSData *temData = [NSData dataWithBytes:&tem32 length:4];
+        NSMutableData *metaData = [NSMutableData dataWithData:[firmwareData subdataWithRange:NSMakeRange(2, 4)]];
+        [metaData appendData:temData];
+
+        // if use SigMeshLib.share.isBusyNow below, will cause
+        // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+        // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+        // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//        if (SigMeshLib.share.isBusyNow) {
+//            TeLogInfo(@"startMeshOTA busy");
+//            return;
+//        }
+        
+        MeshOTAManager.share.updatePolicy = SigUpdatePolicyType_verifyAndApply;
+        MeshOTAManager.share.phoneIsDistributor = YES;
+        MeshOTAManager.share.needCheckVersionAfterApply = NO;
+
+        [MeshOTAManager.share startFirmwareUpdateWithDeviceAddresses:meshAddresses otaData:firmwareData incomingFirmwareMetadata:metaData gattDistributionProgressHandle:^(NSInteger progress) {
+            NSMutableDictionary *params = [[NSMutableDictionary alloc] init];
+            [params setObject:[NSNumber numberWithInteger:progress] forKey:@"OtaMasterProgress"];
+            [weakSelf sendEventWithName:@"deviceStatusOtaMasterProgress" body:params];
+        } advDistributionProgressHandle:^(SigFirmwareDistributionReceiversList *responseMessage) {
+            SigUpdatingNodeEntryModel *firstEntry = [responseMessage.receiversList firstObject];
+            if (firstEntry == nil) {
+                return;
+            }
+
+            NSMutableDictionary *params = [[NSMutableDictionary alloc] init];
+            [params setObject:[NSNumber numberWithInt:firstEntry.transferProgress] forKey:@"OtaSlaveProgress"];
+            [weakSelf sendEventWithName:@"notificationDataGetMeshOtaProgress" body:params];
+        } finishHandle:^(NSArray<NSNumber *> *successAddresses, NSArray<NSNumber *> *failAddresses) {
+            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+            [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
+            [dict setObject:@"stop" forKey:@"status"];
+            [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
+
+            for (unsigned i = 0; i < successAddresses.count; i++) {
+                NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+                [dict setObject:[successAddresses objectAtIndex:i] forKey:@"meshAddress"];
+                [dict setObject:@"success" forKey:@"status"];
+                [weakSelf sendEventWithName:@"notificationDataGetMeshOtaApplyStatus" body:dict];
+            }
+            for (unsigned i = 0; i < failAddresses.count; i++) {
+                NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+                [dict setObject:[failAddresses objectAtIndex:i] forKey:@"meshAddress"];
+                [dict setObject:@"failure" forKey:@"status"];
+                [weakSelf sendEventWithName:@"notificationDataGetMeshOtaApplyStatus" body:dict];
+            }
+        } errorHandle:^(NSError * _Nullable error) {
+            NSLog(@"TelinkBtSig MeshOTA error = %@",error);
+            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+            [dict setObject:[NSNumber numberWithInt:SigDataSource.share.curLocationNodeModel.address] forKey:@"meshAddress"];
+            [dict setObject:@"error" forKey:@"status"];
+            [weakSelf sendEventWithName:@"notificationDataGetMeshOtaFirmwareDistributionStatus" body:dict];
+        }];
+    }
+#endif
 }
 
 RCT_EXPORT_METHOD(stopMeshOTA:(NSString *)tag) {
+#ifdef kExist
     [MeshOTAManager.share stopMeshOTA];
+#endif
 }
 
 RCT_EXPORT_METHOD(changePower:(NSInteger)meshAddress value:(NSInteger)value) {
-    [Bluetooth.share.commandHandle switchOnOffWithExecuteCommand:YES on:(value == 1) address:meshAddress resMax:0 ack:YES Completation:onGetOnOffNotify];
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"changePower busy");
+//        return;
+//    }
+
+    [SDKLibCommand genericOnOffSetWithDestination:meshAddress isOn:(value == 1) retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 ack:YES successCallback:onGetOnOffNotify resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){}];
 }
 
 RCT_EXPORT_METHOD(changeBrightness:(NSInteger)meshAddress value:(NSInteger)value) {
-    [Bluetooth.share.commandHandle changeBrightnessWithExecuteCommand:YES address:meshAddress para:value isGet:NO respondMax:0 ack:YES Completation:onGetLightnessNotify];
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"changeBrightness busy");
+//        return;
+//    }
+
+    UInt16 lightness = [SigHelper.share getUint16LightnessFromUInt8Lum:value];
+    [SDKLibCommand lightLightnessSetWithDestination:meshAddress lightness:lightness retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 ack:NO successCallback:onGetLightnessNotify resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){}];
 }
 
 RCT_EXPORT_METHOD(changeTemperatur:(NSInteger)meshAddress value:(float)value) {
-    [Bluetooth.share.commandHandle changeTempratureWithExecuteCommand:YES address:meshAddress para:value isGet:NO respondMax:0 ack:YES Completation:onGetCtlNotify];
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"changeTemperatur busy");
+//        return;
+//    }
+
+    UInt16 temperature = [SigHelper.share getUint16TemperatureFromUInt8Temperature100:value];
+    [SDKLibCommand lightCTLTemperatureSetWithDestination:meshAddress temperature:temperature deltaUV:0 retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 ack:NO successCallback:onGetTempNotify resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){}];
 }
 
 RCT_EXPORT_METHOD(changeColor:(NSInteger)meshAddress hue:(NSInteger)hue saturation:(NSInteger)saturation brightness:(NSInteger)brightness) {
-    [Bluetooth.share.commandHandle changeHSLWithExecuteCommand:YES address:meshAddress hue:hue saturation:saturation brightness:brightness isGet:NO respondMax:0 ack:YES Completation:nil];
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"changeColor busy");
+//        return;
+//    }
+
+    [SDKLibCommand lightHSLSetWithDestination:meshAddress HSLLight:brightness HSLHue:hue HSLSaturation:saturation retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 ack:NO successCallback:^(UInt16 source, UInt16 destination, SigLightHSLStatus * _Nonnull responseMessage){} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){}];
 }
 
 - (deviceModel *)getDeviceModelWithMac:(NSString *)mac{
@@ -938,112 +1010,173 @@ RCT_EXPORT_METHOD(changeColor:(NSInteger)meshAddress hue:(NSInteger)hue saturati
     }
 }
 
-RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+- (NSMutableArray *) cpsDataToBytes:(SigPage0 *)sigPage0 {
+    NSData *sigPageData = sigPage0.parameters;
+    NSData *cpsData = [sigPageData subdataWithRange:NSMakeRange(1, sigPageData.length - 1)];
+    return [self byteData2Array:cpsData];
+}
+
+- (NSArray *) toVCNodeInfo:(NSInteger)nodeAdr elementCnt:(NSInteger)elementCnt deviceKey:(NSArray *)deviceKey cpsData:(NSArray *)cpsData {
+    NSMutableArray *result = [[NSMutableArray alloc] init];
+    [result addObject:[NSNumber numberWithInt:(nodeAdr & 0xFF)]];
+    [result addObject:[NSNumber numberWithInt:((nodeAdr >> 8) & 0xFF)]];
+    [result addObject:[NSNumber numberWithInt:(elementCnt & 0xFF)]];
+    UInt8 rsv = 0;
+    [result addObject:[NSNumber numberWithInt:rsv]];
+    [result addObjectsFromArray:deviceKey];
+    UInt16 cpsDataLen = cpsData.count;
+    [result addObject:[NSNumber numberWithInt:(cpsDataLen & 0xFF)]];
+    [result addObject:[NSNumber numberWithInt:((cpsDataLen >> 8) & 0xFF)]];
+    [result addObjectsFromArray:cpsData];
+    return result;
+}
+
+RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cpsDataArray:(NSArray *)cpsDataArray elementCnt:(NSInteger)elementCnt isToClaim:(BOOL)isToClaim resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     if (isToClaim) {
         [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(scanFinish) object:nil];
-        [Bluetooth.share stopScan]; // need this otherwise sometime will connectPeripheral() other node macAddress in blockState() of SigMeshOC/Bluetooth.m
-        [Bluetooth.share setBleScanNewDeviceCallBack:nil];  // need this otherwise keyBindSuccess difficult
-        Bluetooth.share.commandHandle.responseVendorIDCallBack = nil;
-        [Bluetooth.share stopAutoConnect];
-        [Bluetooth.share cancelAllConnecttionWithComplete:nil];
-        [Bluetooth.share clearCachelist];
+
+        // found in telink sdk 3.1.0 need this stopScan otherwise sometime will
+        // connectPeripheral() other node macAddress in blockState() in
+        // SigMeshOC/Bluetooth.m
+        // so in telink sdk 3.3.3.5 I just keep it without many tests (who like test?)
+        [SDKLibCommand stopScan];
+
+        self.allowSendLogoutWhenDisconnect = NO;
+
         NSData *key = [SigDataSource.share curNetKey];
-        NSLog(@"TelinkBtSig AddNewDevice %@", [node objectForKey:@"macAddress"]);
-
-        SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithMac:[[node objectForKey:@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""]];
-        CBPeripheral *peripheral = [Bluetooth.share getPeripheralWithUUID:scanRspModel.uuid];
-
-        // TODO: use getPeripheralWithUUID() instead of getDeviceModelWithMac(), and modify SigScanRspModel.isEqual()
-        // in SigMeshOC/Model.m to the form of SigNodeModel.isEqual() in SigMeshOC/SigDataSource.m
-        // then can remove getDeviceModelWithMac() and self.allDevices
-//        deviceModel *device = [self getDeviceModelWithMac:[node objectForKey:@"macAddress"]];
-//        CBPeripheral *peripheral;
-//        if (device) {
-//            peripheral = device.peripheral;
-//        }
-
-        if (peripheral == nil) {
-            reject(@"need rescan", @"AddNewDevice fail", nil);
-            Bluetooth.share.commandHandle.responseVendorIDCallBack = onVendorResponse;
-            return;
-        }
-
-        UInt16 provisionAddress = [[node objectForKey:@"meshAddress"] intValue];
-
-        BOOL fastBind = true; // fastBind will be checked again in keybindAction() of SigMeshOC/Bluetooth.m , so true here
-
-        [Bluetooth.share.commandHandle startAddDeviceWithNextAddress:provisionAddress networkKey:key netkeyIndex:SigDataSource.share.curNetkeyModel.index peripheral:peripheral keyBindType:fastBind ? KeyBindTpye_Quick : KeyBindTpye_Normal provisionSuccess:^(NSString *identify, UInt16 address) {
-            if (identify && address != 0) {
-                NSLog(@"TelinkBtSig AddNewDevice %d provisionSuccess", provisionAddress);
-            } else {
-                reject(@"provision", @"AddNewDevice fail", nil);
+        if (SigDataSource.share.curNetkeyModel.phase == distributingKeys) {
+            if (SigDataSource.share.curNetkeyModel.oldKey) {
+                key = [LibTools nsstringToHex:SigDataSource.share.curNetkeyModel.oldKey];
             }
-        } keyBindSuccess:^(NSString *identify, UInt16 address) {
-            NSLog(@"TelinkBtSig AddNewDevice %d keyBindSuccess", provisionAddress);
+        }
+ 
+        [SDKLibCommand stopMeshConnectWithComplete:^(BOOL successful) {
+            if (successful) {
+                NSLog(@"TelinkBtSig AddNewDevice %@", [node objectForKey:@"macAddress"]);
 
-            NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-            SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
-            VC_node_info_t node_info = model.nodeInfo;
+//                SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithMac:[[node objectForKey:@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""]];
+//                CBPeripheral *peripheral = [SigBluetooth.share getPeripheralWithUUID:scanRspModel.uuid];
+                deviceModel *device = [self getDeviceModelWithMac:[node objectForKey:@"macAddress"]];
+                CBPeripheral *peripheral;
+                if (device) {
+                    peripheral = device.peripheral;
+                }
 
-//            NSLog(@"TelinkBtSig AddNewDevice node_info %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
+                if (peripheral == nil) {
+                    self.allowSendLogoutWhenDisconnect = YES;
+                    NSLog(@"TelinkBtSig AddNewDevice need rescan");
+                    reject(@"need rescan", @"AddNewDevice need rescan", nil);
+                    return;
+                }
 
-            if (fastBind) {
-                SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:identify];
-                if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.CID != 0 && scanRspModel.PID != 0) {
-                    DeviceTypeModel *deviceType = [SigDataSource.share getNodeInfoWithCID:scanRspModel.CID PID:scanRspModel.PID];
-                    node_info.cps.len_cps = deviceType.cpsDataLen; // otherwise the SDK will give you 0x0C
-                    VC_node_info_t private_node_info = deviceType.defultNodeInfo;
-                    memcpy(&node_info.cps.page0_head.cid, (Byte *)&private_node_info.cps.page0_head.cid, deviceType.cpsDataLen);
-                    node_info.cps.page0_head.pid = scanRspModel.PID;
-                    NSLog(@"TelinkBtSig AddNewDevice replace pid %x", node_info.cps.page0_head.pid);
-                    if ([scanRspModel.advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {
-                        NSData *advDataServiceData = [(NSDictionary *)scanRspModel.advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
-                        if (advDataServiceData) {
-                            if (advDataServiceData.length >= 6) {
-                                node_info.cps.page0_head.vid = [LibTools uint16FromBytes:[advDataServiceData subdataWithRange:NSMakeRange(4, 2)]];
-                                NSLog(@"TelinkBtSig AddNewDevice replace vid %x", node_info.cps.page0_head.vid);
+                UInt16 provisionAddress = [[node objectForKey:@"meshAddress"] intValue];
+
+                KeyBindType keyBindType = KeyBindType_Normal;
+                UInt16 pid = 0;
+                NSData *cpsData = nil;
+                
+                if (cpsDataArray.count > 0) {
+                    keyBindType = KeyBindType_Fast;
+                    pid = (((NSNumber *)[cpsDataArray objectAtIndex:3]).unsignedCharValue << 8) | ((NSNumber *)[cpsDataArray objectAtIndex:2]).unsignedCharValue;
+                    cpsData = [self byteArray2Data:cpsDataArray];
+                }
+
+                ProvisionType provisionType = ProvisionType_NoOOB;
+                NSData *staticOOBData = nil;
+
+                // TODO: support oob comes from sig draft features?
+                // SigOOBModel *oobModel = [SigDataSource.share getSigOOBModelWithUUID:scanRspModel.advUuid];
+                // if (oobModel && oobModel.OOBString && (oobModel.OOBString.length == 32 || oobModel.OOBString.length == 64)) {
+                //     provisionType = ProvisionType_StaticOOB;
+                //     staticOOBData = [LibTools nsstringToHex:oobModel.OOBString];
+                // }
+
+                NSLog(@"TelinkBtSig AddNewDevice cpsData %@", cpsData);
+                [SDKLibCommand startAddDeviceWithNextAddress:provisionAddress networkKey:key netkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyModel:SigDataSource.share.curAppkeyModel peripheral:peripheral provisionType:provisionType staticOOBData:staticOOBData keyBindType:keyBindType productID:pid cpsData:cpsData provisionSuccess:^(NSString * _Nonnull identify, UInt16 address) {
+                    if (identify && address != 0) {
+                        NSLog(@"TelinkBtSig AddNewDevice %d provisionSuccess", provisionAddress);
+                    } else {
+                        reject(@"provision", @"AddNewDevice fail identify", nil);
+                    }
+                } provisionFail:^(NSError * _Nonnull error) {
+                    self.allowSendLogoutWhenDisconnect = YES;
+                    NSLog(@"TelinkBtSig AddNewDevice %d fail: %@", provisionAddress, error);
+                    reject(@"provision", @"AddNewDevice provision fail", error);
+                } keyBindSuccess:^(NSString * _Nonnull identify, UInt16 address) {
+                    NSLog(@"TelinkBtSig AddNewDevice %d keyBindSuccess", provisionAddress);
+
+                    NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
+                    SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
+
+                    UInt16 productId = model.compositionData.productIdentifier;
+                    
+                    //  VC_node_info_t node_info
+                    UInt8 node_info_elementCnt = model.compositionData.elements.count;
+                    NSMutableArray *node_info_cpsData = [self cpsDataToBytes:model.compositionData];
+
+                    if (keyBindType == KeyBindType_Fast) {
+                        SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:identify];
+                        if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.CID != 0 && scanRspModel.PID != 0) {
+                            productId = scanRspModel.PID;
+                            
+                            node_info_elementCnt = elementCnt;
+                            node_info_cpsData = [NSMutableArray arrayWithArray:cpsDataArray];
+                            [node_info_cpsData replaceObjectAtIndex:2 withObject:[NSNumber numberWithInt:(scanRspModel.PID) & 0xff]];
+                            [node_info_cpsData replaceObjectAtIndex:3 withObject:[NSNumber numberWithInt:(scanRspModel.PID >> 8) & 0xff]];
+                            NSLog(@"TelinkBtSig AddNewDevice replace pid %x", scanRspModel.PID);
+                            if ([scanRspModel.advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {
+                                NSData *advDataServiceData = [(NSDictionary *)scanRspModel.advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
+                                if (advDataServiceData) {
+                                    if (advDataServiceData.length >= 6) {
+                                        UInt16 vid = [LibTools uint16FromBytes:[advDataServiceData subdataWithRange:NSMakeRange(4, 2)]];
+                                        [node_info_cpsData replaceObjectAtIndex:4 withObject:[NSNumber numberWithInt:(vid) & 0xff]];
+                                        [node_info_cpsData replaceObjectAtIndex:5 withObject:[NSNumber numberWithInt:(vid >> 8) & 0xff]];
+                                        NSLog(@"TelinkBtSig AddNewDevice replace vid %x", vid);
+                                    }
+                                }
                             }
+
+//                            model.compositionData.productIdentifier = scanRspModel.PID;
+//                            [SigDataSource.share addAndSaveNodeToMeshNetworkWithDeviceModel:model];
                         }
                     }
-//                    NSLog(@"TelinkBtSig AddNewDevice node_repl %@", [LibTools convertDataToHexStr:[NSData dataWithBytes:(u8 *)&node_info length:sizeof(VC_node_info_t)]]);
-                    model.nodeInfo = node_info;
-                    [SigDataSource.share saveDeviceWithDeviceModel:model];
-                }
+
+                    NSMutableArray *deviceKey = [self byteData2Array:[LibTools nsstringToHex:model.deviceKey]];
+
+                    NSArray *nodeInfo = [self toVCNodeInfo:address elementCnt:node_info_elementCnt deviceKey:deviceKey cpsData:node_info_cpsData];
+
+//                    NSLog(@"TelinkBtSig AddNewDevice nodeInfo = %@", nodeInfo);
+//                    NSLog(@"TelinkBtSig AddNewDevice pid = %@", model.pid);
+
+                    [event setObject:nodeInfo forKey:@"nodeInfo"];
+                    [event setObject:[NSNumber numberWithInt:node_info_elementCnt] forKey:@"elementCnt"];
+                    [event setObject:[NSNumber numberWithInt:productId] forKey:@"type"];
+                    NSLog(@"TelinkBtSig AddNewDevice dhmKey = %@", deviceKey);
+                    [event setObject:deviceKey forKey:@"dhmKey"];
+                    self.allowSendLogoutWhenDisconnect = YES;
+                    resolve(event);
+                } keyBindFail:^(NSError * _Nonnull error) {
+                    self.allowSendLogoutWhenDisconnect = YES;
+                    NSLog(@"TelinkBtSig AddNewDevice %d keyBind fail: %@", provisionAddress, error);
+                    reject(@"keyBind", @"AddNewDevice keyBind fail", error);
+                }];
+            } else {
+                self.allowSendLogoutWhenDisconnect = YES;
+                NSLog(@"TelinkBtSig AddNewDevice stop mesh fail");
+                reject(@"keyBind", @"AddNewDevice stop mesh fail", nil);
             }
-
-            int VC_node_info_t_length = sizeof(VC_node_info_t);
-            u8 nodeInfoArray[VC_node_info_t_length];
-
-            memcpy(nodeInfoArray, &node_info, VC_node_info_t_length);
-            int nodeInfoWithoutCpsDataLength = 22;
-            int nodeInfoValidLength = nodeInfoWithoutCpsDataLength + node_info.cps.len_cps;
-            NSMutableArray *nodeInfo = [[NSMutableArray alloc] init];
-            for (int i = 0; i < nodeInfoValidLength; i++) {
-                [nodeInfo addObject:[NSNumber numberWithInt:nodeInfoArray[i]]];
-            }
-            NSLog(@"TelinkBtSig AddNewDevice nodeInfo = %@", nodeInfo);
-            NSLog(@"TelinkBtSig AddNewDevice pid = %@", model.pid);
-
-            [event setObject:nodeInfo forKey:@"nodeInfo"];
-            [event setObject:[NSNumber numberWithInt:node_info.element_cnt] forKey:@"elementCnt"];
-            [event setObject:[NSNumber numberWithInt:node_info.cps.page0_head.pid] forKey:@"type"];
-            NSMutableArray *dhmKey = [[NSMutableArray alloc] init];
-            int dev_key_length = sizeof(node_info.dev_key);
-            for (int i = 0; i < dev_key_length; i++) {
-                [dhmKey addObject:[NSNumber numberWithInt:node_info.dev_key[i]]];
-            }
-            NSLog(@"TelinkBtSig AddNewDevice dhmKey = %@", dhmKey);
-            [event setObject:dhmKey forKey:@"dhmKey"];
-            resolve(event);
-        } fail:^(NSString *errorString) {
-            NSLog(@"TelinkBtSig AddNewDevice %d fail: %@", provisionAddress, errorString);
-            reject(errorString, @"AddNewDevice fail", nil);
-        } finish:^{
-            NSLog(@"TelinkBtSig AddNewDevice finish");
-
-            Bluetooth.share.commandHandle.responseVendorIDCallBack = self->onVendorResponse;
         }];
     } else {
+        // if use SigMeshLib.share.isBusyNow below, will cause
+        // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+        // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+        // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//        if (SigMeshLib.share.isBusyNow) {
+//            TeLogInfo(@"kickout busy")
+//            reject(@"kickout", @"kickout busy", nil);
+//            return;
+//        }
+
         __weak typeof(self) weakSelf = self;
 
 //        NSString *macAddress = [[node objectForKey:@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""];
@@ -1051,98 +1184,95 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node isToClaim:(BOOL)isToClaim reso
         // isDirect above sometime is not correct, so use isDirect below
         BOOL isDirect = self.connectMeshAddress == [[node objectForKey:@"meshAddress"] unsignedShortValue];
 
-        if (isDirect) {
-            [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *peripheral) {
-                NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-                if (resolve != nil) {
-                    resolve(dict);
-                }
-                [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
-                [Bluetooth.share setBleDisconnectOrConnectFailCallBack:^(CBPeripheral *peripheral) {
-                    [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
-                }];
-            }];
-        }
-        [Bluetooth.share.commandHandle kickoutDevice:[[node objectForKey:@"meshAddress"] unsignedShortValue] complete:^{
+        [SDKLibCommand resetNodeWithDestination:[[node objectForKey:@"meshAddress"] unsignedShortValue] retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigConfigNodeResetStatus * _Nonnull responseMessage) {
             NSLog(@"TelinkBtSig kickout success");
+            NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+            resolve(dict);
             if (isDirect) {
                 NSLog(@"TelinkBtSig kickout direct");
-                //if node is Bluetooth.share.currentPeripheral, wait node didDisconnectPeripheral, delay 1.5s and pop.
+                [weakSelf sendEventWithName:@"deviceStatusLogout" body:nil];
             } else {
                 NSLog(@"TelinkBtSig kickout remote");
-                //if node isn't Bluetooth.share.currentPeripheral, delay 5s and pop.
-                [weakSelf performSelector:@selector(kickoutFinish:) withObject:resolve afterDelay:5];
             }
-        }];
+        } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
     }
 }
 
-- (void)kickoutFinish:(RCTPromiseResolveBlock)resolve {
-    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-    if (resolve != nil) {
-        resolve(dict);
-    }
+RCT_EXPORT_METHOD(claimAllAtOnce:(NSInteger)meshAddress pidEleCnts:(NSArray *)pidEleCnts resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
 }
 
 RCT_EXPORT_METHOD(replaceMeshSetting:(NSString *)netKey appKey:(NSString *)appKey devices:(NSArray *)devices) {
-    [self initMesh:netKey appKey:appKey meshAddressOfApp:32768 devices:devices provisionerSno:129 provisionerIvIndex:0 isReplaceMeshSetting:true];
-    [SigDataSource.share checkExistLocationProvisioner];
-    [SigDataSource.share writeDataSourceToLib];
-    [SigDataSource.share.scanList removeAllObjects];
-    [SigDataSource.share.matchsNodeIdentityArray removeAllObjects];
-    [SigDataSource.share.noMatchsNodeIdentityArray removeAllObjects];
-    init_json();
+    // to avoid this JS error when Debug(Release is OK):
+    // Invariant Violation: No callback found with cbID 7319 and callID 3659 for  TelinkBtSig.getTime - most likely the callback was already invoked. Args: '[{"code":"getTime","message":"getTime fail","domain":"Mesh is disconnected!"
+    // need clean commands has resultCallback to JS e.g. getTime()
+    [SigMeshLib.share cleanAllCommandsAndRetry];
+    
+    [SDKLibCommand stopMeshConnectWithComplete:^(BOOL successflu) {
+        [self initMesh:netKey appKey:appKey meshAddressOfApp:32768 devices:devices provisionerSno:129 provisionerIvIndex:0 isReplaceMeshSetting:true];
+        [SigDataSource.share.scanList removeAllObjects];
+    }];
 
-    if (Bluetooth.share.currentPeripheral) {
-        [Bluetooth.share cancelConnection:Bluetooth.share.currentPeripheral complete:nil];
-    }
 }
 
-// - (void)resultOfReplaceAddress:(uint32_t )resultAddress
-// {
-//     for (BTDevItem *bt in self.BTDevArray) {
-//         if ([[NSString stringWithFormat:@"%x", bt.u_Mac] isEqualToString:[self.node objectForKey:@"macAddress"]]) {
-//             bt.u_DevAdress = resultAddress;
-//             NSLog(@"configNode b1 = %@", bt.description);
-//             GetLTKBuffer;
-//             [kCentralManager setOut_Of_MeshWithName:[self.cfg objectForKey:@"oldName"] PassWord:[self.cfg objectForKey:@"oldPwd"] NewNetWorkName:[self.cfg objectForKey:@"newName"] Pwd:[self.cfg objectForKey:@"newPwd"] ltkBuffer:ltkBuffer ForCertainItem:bt];
-//         }
-//     }
-// }
-
 RCT_EXPORT_METHOD(setTime:(NSInteger)meshAddress) {
-    [Bluetooth.share.commandHandle setNowTimeWithComplete:nil];
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"setTime busy");
+//        return;
+//    }
+
+    UInt64 second = [LibTools secondsFrome2000];
+    [NSTimeZone resetSystemTimeZone];//重置手机系统的时区
+    NSInteger offset = [NSTimeZone localTimeZone].secondsFromGMT;
+    UInt8 zone_offset = offset/60/15+64;//时区=分/15+64
+    TeLogInfo(@"send request for set time, address=0x%04x,second=%llu,zone_offset=%d.", meshAddress, second, zone_offset);
+    SigTimeModel *timeModel = [[SigTimeModel alloc] initWithTAISeconds:second subSeconds:0 uncertainty:0 timeAuthority:0 TAI_UTC_Delta:0 timeZoneOffset:zone_offset];
+    [SDKLibCommand timeSetWithDestination:meshAddress timeModel:timeModel retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:^(UInt16 source,UInt16 destination,SigTimeStatus *responseMessage){} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){}];
 }
 
 RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    [Bluetooth.share.commandHandle getTimeWithComplete:meshAddress complete:^(ResponseModel *model) {
-        unsigned int taiSec = model.currentValue;
-        unsigned long sec = (unsigned long)taiSec + 946684800;
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"getTime busy");
+//        reject(@"getTime", @"getTime busy", nil);
+//        return;
+//    }
+
+    [SDKLibCommand timeGetWithDestination:meshAddress retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigTimeStatus * _Nonnull responseMessage){
+        UInt64 taiSec = responseMessage.timeModel.TAISeconds;
+        UInt64 sec = taiSec + 946684800;
 
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSString stringWithFormat:@"%ld",sec] forKey:@"time"];
+        [dict setObject:[NSString stringWithFormat:@"%llu",sec] forKey:@"time"];
         resolve(dict);
 
-        NSLog(@"TelinkBtSig onGetTime taiSec: 0x%x, sec %ld", taiSec, sec);
+        NSLog(@"TelinkBtSig onGetTime taiSec: 0x%llx, sec %llu", taiSec, sec);
+    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){
+        if (!isResponseAll) {
+            TeLogInfo(@"getTime fail");
+            reject(@"getTime", @"getTime fail", error);
+        }
     }];
 }
 
-// - (void)getDevDate:(NSDate *)date
-// {
-//     NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-//     [dateFormatter setDateFormat:@"yyyy/MM/dd HH:mm:ss"];
-//     NSString *dateString = [dateFormatter stringFromDate:date];
-//     NSLog(@"time strDate = %@", dateString);
-//     NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-//     [event setObject:dateString forKey:@"time"];
-
-//     _resolvedateBlock(event);
-// }
-
 RCT_EXPORT_METHOD(setAlarm:(NSInteger)meshAddress index:(NSInteger)index year:(NSInteger)year month:(NSInteger)month day:(NSInteger)day hour:(NSInteger)hour minute:(NSInteger)minute second:(NSInteger)second week:(NSInteger)week action:(NSInteger)action sceneId:(NSInteger)sceneId) {
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"setAlarm busy");
+//        return;
+//    }
+
     SchedulerModel *model = [[SchedulerModel alloc] init];
     model.schedulerID = index;
-    model.valid_flag_or_idx = model.schedulerID;
     model.year = year;
     model.month = month;
     model.day = day;
@@ -1152,31 +1282,25 @@ RCT_EXPORT_METHOD(setAlarm:(NSInteger)meshAddress index:(NSInteger)index year:(N
     model.week = week;
     model.action = action;
     model.sceneId = sceneId;
-
-    [Bluetooth.share.commandHandle setSchedulerActionWithAddress:meshAddress resMax:0 schedulerModel:model Completation:nil];
+    
+    [SDKLibCommand schedulerActionSetWithDestination:meshAddress schedulerModel:model retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 ack:NO successCallback:^(UInt16 source, UInt16 destination, SigSchedulerActionStatus * _Nonnull responseMessage){} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){}];
 }
 
 RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTimes alarmId:(NSInteger)alarmId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    [Bluetooth.share.commandHandle getSchedulerActionWithAddress:meshAddress resMax:0 schedulerModelID:alarmId Completation:^(ResponseModel *m) {
-        SchedulerModel *model = [[SchedulerModel alloc] init];
-        // model.schedulerID = (UInt8)alarmId;
-        // model.valid_flag_or_idx = model.schedulerID;
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"getAlarm busy");
+//        reject(@"getAlarm", @"getAlarm busy", nil);
+//        return;
+//    }
 
-//        NSLog(@"TelinkBtSig getAlarm %@", m.rspData);
-//        TelinkBtSig getAlarm {length = 18, bytes = 0xf00f000100d80a5f02000000000000000000}
-//        TelinkBtSig getAlarm {length = 18, bytes = 0xf00f00010089195f41fe7f803ce01f000000}
-//        TelinkBtSig getAlarm {length = 18, bytes = 0xf00f00010089195f42fe7f103de00f000000}
-
-        //data字节翻转
-        NSMutableData *data = [NSMutableData data];
-        for (int i=15; i>=8; i--) {
-            [data appendData:[m.rspData subdataWithRange:NSMakeRange(i, 1)]];
-        }
-        model.schedulerData = [LibTools NSDataToUInt:data];
-        model.sceneId = [LibTools uint16FromBytes:[m.rspData subdataWithRange:NSMakeRange(16, 2)]];
-
+    [SDKLibCommand schedulerActionGetWithDestination:meshAddress schedulerIndex:alarmId retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigSchedulerActionStatus * _Nonnull responseMessage) {
+        SchedulerModel *model = responseMessage.schedulerModel;
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:(int)[model valid_flag_or_idx]] forKey:@"alarmId"];
+        [dict setObject:[NSNumber numberWithInt:(int)[model schedulerID]] forKey:@"alarmId"];
         [dict setObject:[NSNumber numberWithInt:(int)[model year]] forKey:@"year"];
         [dict setObject:[NSNumber numberWithInt:(int)[model month]] forKey:@"month"];
         [dict setObject:[NSNumber numberWithInt:(int)[model day]] forKey:@"day"];
@@ -1188,116 +1312,79 @@ RCT_EXPORT_METHOD(getAlarm:(NSInteger)meshAddress relayTimes:(NSInteger)relayTim
         [dict setObject:[NSNumber numberWithInt:(int)[model transitionTime]] forKey:@"transTime"];
         [dict setObject:[NSNumber numberWithInt:(int)model.sceneId] forKey:@"sceneId"];
         resolve(dict);
+    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+        if (!isResponseAll) {
+            TeLogInfo(@"getAlarm fail");
+            reject(@"getAlarm", @"getAlarm fail", error);
+        }
     }];
 }
 
-RCT_EXPORT_METHOD(setNodeGroupAddr:(BOOL)toDel meshAddress:(NSInteger)meshAddress groupAddress:(NSInteger)groupAddress resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-//     NSMutableArray *array = [[NSMutableArray alloc] init];
-//     if (toDel) {
-//         [array addObject:[NSNumber numberWithInt:0]];
-//     } else {
-//         [array addObject:[NSNumber numberWithInt:1]];
-//     }
-//     [[BTCentralManager shareBTCentralManager] setNodeGroupAddr:meshAddress groupAddress:groupAddress toDel:toDel];
+RCT_EXPORT_METHOD(setNodeGroupAddr:(BOOL)toDel meshAddress:(NSInteger)meshAddress groupAddress:(NSInteger)groupAddress eleIds:(NSArray *)eleIds resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+    // if use SigMeshLib.share.isBusyNow below, will cause
+    // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
+    // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
+    // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
+//    if (SigMeshLib.share.isBusyNow) {
+//        TeLogInfo(@"setNodeGroupAddr busy");
+//        reject(@"setNodeGroupAddr", @"setNodeGroupAddr busy", nil);
+//        return;
+//    }
 
-//     _resolvesetNodeGroupAddr = resolve;
-//     _rejectsetNodeGroupAddr = reject;
+    self->mSetNodeGroupAddrToDel = toDel;
+    self->mSetNodeGroupMeshAddr = meshAddress;
+    self->mSetNodeGroupAddrGroupAddr = groupAddress;
+    self->mSetNodeGroupAddrEleIds = eleIds;
+    self->mSetNodeGroupAddrEleIdsIndex = 0;
+    self->mSetNodeGroupAddrResolve = resolve;
+    self->mSetNodeGroupAddrReject = reject;
+    [self setNextModelGroupAddr];
 }
 
-// - (void)onGetGroupNotify:(NSArray *)array
-// {
-//     for (NSNumber *num in array) {
-//         NSLog(@"array = %@", [NSNumber numberWithInt:num]);
-//     }
-//     if (array.count) {
-//         _resolvesetNodeGroupAddr(array);
-//     } else {
-//         _rejectsetNodeGroupAddr(0, @"GetGroup return null", nil);
-//     }
-
-// }
-
-// /**
-//  *OTA回调
-//  */
-// - (void)OnDevNotify:(id)sender Byte:(uint8_t *)bytes
-// {
-//     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//     int meshAddress = bytes[3];
-//     [dict setObject:[NSNumber numberWithInt:meshAddress] forKey:@"meshAddress"];
-//     switch (bytes[10]) {
-//         case 0x00://version
-//             [dict setObject:[[NSString alloc]initWithData:[[NSData dataWithBytes:bytes length:20] subdataWithRange:NSMakeRange(11, 4)] encoding:NSUTF8StringEncoding] forKey:@"version"];
-//             [self sendEventWithName:@"notificationDataGetVersion" body:dict];
-//             break;
-//         case 0x04://OtaSlaveProgress
-//             [dict setObject:[NSNumber numberWithInt:(int) bytes[11]] forKey:@"OtaSlaveProgress"];
-//             [self sendEventWithName:@"notificationDataGetMeshOtaProgress" body:dict];
-//             break;
-//         case 0x05://GET_DEVICE_STATE
-//             switch (bytes[11]) {
-//                 case 0:
-//                     [dict setObject:@"idle" forKey:@"otaState"];
-//                     break;
-//                 case 1:
-//                     [dict setObject:@"slave" forKey:@"otaState"];
-//                     break;
-//                 case 2:
-//                     [dict setObject:@"master" forKey:@"otaState"];
-//                     break;
-//                 case 3:
-//                     [dict setObject:@"onlyRelay" forKey:@"otaState"];
-//                     break;
-//                 case 4:
-//                     [dict setObject:@"complete" forKey:@"otaState"];
-//                     break;
-
-//                 default:
-//                     break;
-//             }
-//             [self sendEventWithName:@"notificationDataGetOtaState" body:dict];
-//             break;
-//         case 0x06://OtaSlaveProgress
-//             if (bytes[11] == 0) {
-//                 [dict setObject:@"ok" forKey:@"setOtaModeRes"];
-//             } else {
-//                 [dict setObject:@"err" forKey:@"setOtaModeRes"];
-//             }
-//             [self sendEventWithName:@"notificationDataSetOtaModeRes" body:dict];
-//             break;
-//         default:
-//             break;
-//     }
-// }
-
-// - (void)OnDevOperaStatusChange:(id)sender Status:(OperaStatus)status {
-//     if (status == DevOperaStatus_SetNetwork_Finish) {
-//         [self sendEventWithName:@"deviceStatusLogout" body:nil];
-//         //查询版本号
-//         [[BTCentralManager shareBTCentralManager] readFeatureOfselConnectedItem];
-//     }
-// }
-
-// /*data:<56312e48 00000000 00000000>*/
-// - (void)OnConnectionDevFirmWare:(NSData *)data {
-//     NSString *firm = [[NSString alloc]initWithData:[data subdataWithRange:NSMakeRange(0, 4)] encoding:NSUTF8StringEncoding];
-//     NSLog(@"OnConnectionDevFirmWare:%@", firm);
-
-//     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//     [dict setObject:firm forKey:@"firmwareRevision"];
-//     if (_resolveBlock) {
-//         _resolveBlock(dict);
-//     }
-// }
-
-// - (void)exceptionReport:(int)stateCode errorCode:(int)errorCode deviceID:(int)deviceID
-// {
-//     NSLog(@"exceptionReport = %d", errorCode);
-// }
-
-// - (void)loginTimeout:(TimeoutType)type
-// {
-//     NSLog(@"loginTimeout = %d", type);
-// }
+- (void) setNextModelGroupAddr {
+    if (self->mSetNodeGroupAddrEleIdsIndex > self->mSetNodeGroupAddrEleIds.count - 1) {
+        if (self->mSetNodeGroupAddrResolve != nil) {
+            NSMutableArray *params = [[NSMutableArray alloc] init];
+            self->mSetNodeGroupAddrResolve(params);
+        }
+        self->mSetNodeGroupAddrResolve = nil;
+    } else {
+        NSDictionary *eleId = [self->mSetNodeGroupAddrEleIds objectAtIndex:self->mSetNodeGroupAddrEleIdsIndex];
+        UInt16 elementAddr = [[eleId objectForKey:@"elementAddr"] intValue];
+        UInt32 option = [[eleId objectForKey:@"modelId"] intValue];
+        BOOL isSig = [[eleId objectForKey:@"isSig"] boolValue];
+        UInt16 modelIdentifier = 0;
+        UInt16 companyIdentifier = 0;
+        if (isSig) {
+            //sig model
+            modelIdentifier = option;
+        } else {
+            //vendor model
+            modelIdentifier = (option >> 16) & 0xFFFF;
+            companyIdentifier = option & 0xFFFF;
+        }
+        
+        TeLogInfo(@"send request for edit subscribe list");
+        if (self->mSetNodeGroupAddrToDel) {
+            [SDKLibCommand configModelSubscriptionDeleteWithDestination:self->mSetNodeGroupMeshAddr groupAddress:self->mSetNodeGroupAddrGroupAddr elementAddress:elementAddr modelIdentifier:modelIdentifier companyIdentifier:companyIdentifier retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:onGetModelSubscription resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+                if (!isResponseAll) {
+                    if (self->mSetNodeGroupAddrReject != nil) {
+                        self->mSetNodeGroupAddrReject(@"setSubscription", @"setSubscription return false", nil);
+                    }
+                    self->mSetNodeGroupAddrReject = nil;
+                }
+            }];
+        } else {
+            [SDKLibCommand configModelSubscriptionAddWithDestination:self->mSetNodeGroupMeshAddr toGroupAddress:self->mSetNodeGroupAddrGroupAddr elementAddress:elementAddr modelIdentifier:modelIdentifier companyIdentifier:companyIdentifier retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:onGetModelSubscription resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+                if (!isResponseAll) {
+                    if (self->mSetNodeGroupAddrReject != nil) {
+                        self->mSetNodeGroupAddrReject(@"setSubscription", @"setSubscription return false", nil);
+                    }
+                    self->mSetNodeGroupAddrReject = nil;
+                }
+            }];
+        }
+    }
+}
 
 @end

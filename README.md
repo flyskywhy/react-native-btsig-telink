@@ -46,29 +46,25 @@ include ':react-native-btsig-telink'
 project(':react-native-btsig-telink').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-btsig-telink/android')
 ```
 
-Sometimes will meet compile error `java.io.FileNotFoundException: YOUR_PROJECT/node_modules/react-native-btsig-telink/android/.cxx/cmake/release/armeabi-v7a/android_gradle_build.json (The system cannot find the file specified)` after upgrade this pacakge by `npm install`, can solve it by [add ` --rerun-tasks` to your gradlew command](https://stackoverflow.com/a/68126063/6318705) like
-
-    ./android/gradlew assembleDebug --rerun-tasks -p ./android/
-
 ### iOS
-Open `SigMeshOC/SigMeshOC.xcodeproj` by Xcode, in 'Signing & Capabilities' of Target 的 'SigMeshOC', choose `Team` to your Apple ID, then close Xcode and:
+Open `TelinkSigMeshLib/TelinkSigMeshLib.xcodeproj` by Xcode, in 'Signing & Capabilities' of Target 的 'TelinkSigMeshLib', choose `Team` to your Apple ID, then close Xcode and:
 
-    cd node_modules/react-native-btsig-telink/SigMeshOC/
+    cd node_modules/react-native-btsig-telink/TelinkSigMeshLib/
     ./Script.sh
 
 results:
 ```
-SigMeshOC/Build/Products/SigMeshOC/Release-iphoneos/SigMeshOC.framework/
+TelinkSigMeshLib/Build/Products/TelinkSigMeshLib/Release-iphoneos/TelinkSigMeshLib.framework/
 ```
 
 For RN >= 0.60, in `ios/Podfile`
 ```
-  pod 'SigMeshOC', :path => '../node_modules/react-native-btsig-telink/SigMeshOC'
+  pod 'TelinkSigMeshLib', :path => '../node_modules/react-native-btsig-telink/TelinkSigMeshLib'
 ```
 
 For RN < 0.60, in `ios/Podfile`
 ```
-  pod 'SigMeshOC', :path => '../node_modules/react-native-btsig-telink/SigMeshOC'
+  pod 'TelinkSigMeshLib', :path => '../node_modules/react-native-btsig-telink/TelinkSigMeshLib'
   pod 'RNBtSigTelink', :path => '../node_modules/react-native-btsig-telink'
 ```
 
@@ -76,9 +72,6 @@ For RN < 0.60 and RN >= 0.60
 
     cd ios
     pod install
-
-## fastBind
-If you want fastBind, you need put the cpsData of your device into `android/src/main/java/com/telink/sig/mesh/PrivateDevice.java` and `DeviceTypeModel` in `SigMeshOC/SigMeshOC/Model.m`.
 
 ## Usage
 
@@ -143,15 +136,26 @@ export default class MeshModuleExample extends React.Component {
 
 Please discover more in `index.native.js`.
 
+## fastBind
+If you want fastBind, you can copy `PrivateDevice.js` to create your own and modify, then put `PrivateDevice.filterWithPid(PID).cpsData` into `configNode({cpsData})`, here `PID` comes from `productUUID` with `startScan()`.
+
 ## version
 `react-native-btsig-telink@1.x` is based on telink sdk `3.1.0`.
 
 `react-native-btsig-telink@2.x` is based on telink sdk `3.3.3.5`.
 
-## compatibility
+## migrate to `react-native-btsig-telink@2.x`
+Use `PrivateDevice.js` instead of `PrivateDevice.java` and `DeviceTypeModel` on iOS, ref to fastBind above.
 
+`getFirmwareVersion()` is not working by default, ref to the comments of `getFirmwareInfo()`.
+
+To keep data usage after APP upgrade from `react-native-btsig-telink@1.x` based to `react-native-btsig-telink@2.x` based, data comes from (provision then bind function) `configNode()` still use `nodeInfo`, ref to `NodeInfo.js` which comes from `react-native-btsig-telink@1.x/android/src/main/java/com/telink/sig/mesh/model/NodeInfo.java`.
+
+## compatibility
+### connectivity
 When device A is `3.1.0` and device B is `3.3.3.5`, direct connected is device B, if APP is `3.1.0`, then `sendCommand({meshAddress: 0xFFFF})` can't affect (mesh to) device B, but it's OK if APP is `3.3.3.5`.
 
+### speed
 Below table: despite `is_not_use_extend_adv()` return 0 or not; "delay_while" means user business code use `while` loop as precise delay; "bytes" means `MeshMessage.params`; "2nd device" means not direct connected device; 8KB/s and 42B/s tested by 300 bytes, no 8KB/s or 42B/s means "2 devices" not controlled.
 
 PS: test also found, despite `is_not_use_extend_adv()` return 0 or not, not only not affect 8KB/s test result with 300 bytes, but also not affect OTA speed is still so high.
@@ -195,8 +199,6 @@ Because `blt_sdk_main_loop()` itself also cost some time, maybe you prefer `mesh
             blt_send_adv2scan_mode(1);
         }
     }
-
-
 
 ## Donate
 To support my work, please consider donate.

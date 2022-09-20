@@ -108,7 +108,7 @@ class TelinkBtSig {
 
     static notModeAutoConnectMesh() {
         return new Promise((resolve, reject) => {
-            reject();
+            resolve(true);
         });
     }
 

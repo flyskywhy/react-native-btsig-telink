@@ -1,39 +1,33 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
-// #import "BTDevItem.h"
-// #import "DeviceModel.h"
+
 #import <CoreBluetooth/CoreBluetooth.h>
+#import <TelinkSigMeshLib/LibTools.h>
+#import <TelinkSigMeshLib/MeshOTAManager.h>
+#import <TelinkSigMeshLib/OTAManager.h>
+#import <TelinkSigMeshLib/SDKLibCommand.h>
+#import <TelinkSigMeshLib/SigAddDeviceManager.h>
+#import <TelinkSigMeshLib/SigBluetooth.h>
+#import <TelinkSigMeshLib/SigBearer.h>
+#import <TelinkSigMeshLib/SigConfigMessage.h>
+#import <TelinkSigMeshLib/SigConst.h>
+#import <TelinkSigMeshLib/SigDataSource.h>
+#import <TelinkSigMeshLib/SigECCEncryptHelper.h>
+#import <TelinkSigMeshLib/SigEnumeration.h>
+#import <TelinkSigMeshLib/SigGenericMessage.h>
+#import <TelinkSigMeshLib/SigHelper.h>
+#import <TelinkSigMeshLib/SigLogger.h>
+#import <TelinkSigMeshLib/SigMeshLib.h>
+#import <TelinkSigMeshLib/SigModel.h>
+#import <TelinkSigMeshLib/SigPublishManager.h>
 
 @interface deviceModel : NSObject
 @property (nonatomic,strong) CBPeripheral *peripheral;
 @property (nonatomic,strong) NSString *macAddress;
 @end
 
-@interface TelinkBtSig : RCTEventEmitter <RCTBridgeModule>
+@interface TelinkBtSig : RCTEventEmitter <RCTBridgeModule, SigBearerDataDelegate,SigDataSourceDelegate,SigMessageDelegate,SigBluetoothDelegate>
 @property (nonatomic,strong) NSMutableArray <deviceModel *> *allDevices;
-
-@property (nonatomic, assign) BOOL isNeedRescan;
-@property(nonatomic, strong) CBCentralManager *manager;
-//@property(nonatomic, strong) NSMutableArray <DeviceModel *> *devArray;
-//@property(nonatomic, strong) NSMutableArray <BTDevItem *> *BTDevArray;
-@property(nonatomic, strong) NSMutableDictionary *cfg;
-@property(nonatomic, strong) NSMutableDictionary *dict;
-//@property(nonatomic, strong) NSMutableArray <BTDevItem *> *DisConnectDevArray;
-@property(nonatomic, strong) NSMutableDictionary *node;
-@property(nonatomic, assign) BOOL configNode;
-@property(nonatomic, strong) NSString *pwd;
-@property(nonatomic, assign) BOOL HomePage;
-@property(nonatomic, strong) NSString *userMeshName;
-@property(nonatomic, strong) NSString *userMeshPwd;
-
-@property (nonatomic, strong) NSData *otaData;
-@property (nonatomic, assign) NSInteger number; //数据包的包个数；
-@property (nonatomic, assign) NSInteger location;  //当前所发送的包的Index；
-@property (nonatomic, strong) NSTimer *otaTimer;
-@property (nonatomic, assign) BOOL isSingleSendFinsh;
-@property (nonatomic, assign) BOOL Sending;
-@property (nonatomic, assign) BOOL isStartOTA;
-@property (nonatomic, strong) NSMutableArray *array;
-
-@property (nonatomic, assign) NSInteger connectMeshAddress; // 直连节点的 mesh 地址；
+@property (nonatomic, assign) BOOL allowSendLogoutWhenDisconnect;
+@property (nonatomic, assign) NSInteger connectMeshAddress; // 直连节点的 mesh 地址
 @end
