@@ -14,6 +14,7 @@
 #import <TelinkSigMeshLib/SigDataSource.h>
 #import <TelinkSigMeshLib/SigECCEncryptHelper.h>
 #import <TelinkSigMeshLib/SigEnumeration.h>
+#import <TelinkSigMeshLib/SigFastProvisionAddManager.h>
 #import <TelinkSigMeshLib/SigGenericMessage.h>
 #import <TelinkSigMeshLib/SigHelper.h>
 #import <TelinkSigMeshLib/SigLogger.h>

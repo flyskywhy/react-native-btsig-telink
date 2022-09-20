@@ -1261,18 +1261,36 @@ class TelinkBtSig {
     //
     // Cons: no cpsdata received from device, so can't get device version infomation in it
     static claimAllAtOnce({
-        meshAddress,
+        meshAddress, // the address of the first device, other addresses will be auto += eleCnt
         privateDeviceList = Object.values(PrivateDevice.allList),
     }) {
-        let pidEleCnts = [];
-        privateDeviceList.map(device => {
-            let compositionData = CompositionData.from(device.cpsData);
-            pidEleCnts.push({
-                pid: device.pid,
-                eleCnt: compositionData.elements.length,
+        if (Platform.OS === 'android') {
+            let pidEleCnts = [];
+            privateDeviceList.map(device => {
+                let compositionData = CompositionData.from(device.cpsData);
+                pidEleCnts.push({
+                    pid: device.pid,
+                    eleCnt: compositionData.elements.length,
+                })
             })
-        })
-        return NativeModule.claimAllAtOnce(meshAddress, pidEleCnts);
+            return NativeModule.claimAllAtOnce(meshAddress, pidEleCnts);
+        } else {
+            let pids = [];
+            privateDeviceList.map(device => {
+                NativeModule.add2defaultNodeInfos(device.vid, device.pid, device.cpsData);
+                pids.push(device.pid);
+            })
+            return NativeModule.claimAllAtOnce(meshAddress, pids);
+
+// TODO: on iOS, will claim only 1 device and then fail, why?
+// ==========fast provision:Success.
+// 2022-09-20 16:34:36.626182+0800 LumineoDancingLights[563:95957] [Info][-[TelinkBtSig claimAllAtOnce:pids:resolver:rejecter:]_block_invoke_5 Line 1234] fast provision single success, deviceKey=4EDB6438C1A400000000000000000000, macAddress=A4C13864DB4E, address=0x1, pid=64512
+// 2022-09-20 16:34:36.713999+0800 LumineoDancingLights[563:95957] [Info][-[SigBluetooth peripheral:didUpdateValueForCharacteristic:error:] Line 816] <--- from:PROXY, length:23
+// 2022-09-20 16:34:36.714547+0800 LumineoDancingLights[563:96244] [Error][-[SigNetworkLayer handleSecureNetworkBeacon:] Line 351] Discarding secure network beacon (ivIndex: 0x12345678, expected >= 0x0)
+// 2022-09-20 16:34:36.715717+0800 LumineoDancingLights[563:95957] [Info][-[SigBluetooth peripheral:didUpdateValueForCharacteristic:error:] Line 816] <--- from:PROXY, length:23
+// 2022-09-20 16:34:36.716051+0800 LumineoDancingLights[563:96157] [Verbose][-[SigNetworkLayer handleSecureNetworkBeacon:] Line 367] receive secure Network Beacon, ivIndex=0x0,updateActive=0
+        }
+
     }
 
     static getTotalOfGroupIndex({

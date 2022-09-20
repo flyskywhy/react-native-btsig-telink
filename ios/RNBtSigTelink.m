@@ -245,7 +245,9 @@ RCT_EXPORT_MODULE()
     // In telink sdk 3.3.3.5, already init to kDefaultIvIndex which is 0, and telink
     // demo also use below, so just use below now
     SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08X",(unsigned int)kDefaultIvIndex];
-    
+
+//    SigDataSource.share.defaultIvIndexA.index = 0;
+
     // set devices, ref to provisionSuccess() in SigProvisioningManager.m
     for (int i = 0; i < devices.count; i++) {
         SigNodeModel *model = [[SigNodeModel alloc] init];
@@ -365,6 +367,8 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     // 中，以避免开发者 hack 修改 node_modules/react-native-btsig-telink 中的内容。
     // 因此，相应的 JS 添加自定义设备信息以支持 fast bind 的方法是在 index.native.js 中的
     // configNode() 里传入需要 fast bind 的自定义设备的 cpsData 数据
+    //
+    // 另，为支持 fast provision ，本文件最终还是提供了 add2defaultNodeInfos() 供 JS 调用
     //
     // (可选) SDK 默认实现了 PID 为 1 和 7 的设备的 fast bind 功能，其它类型的设备可通过以下接口添加该类型设备默认的 nodeInfo 以实现 fast bind 功能
     // 示范代码：添加 PID=8 ， composition data=TemByte 的数据到 SigDataSource.share.defaultNodeInfos
@@ -1198,7 +1202,62 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cpsDataArray:(NSArray *)cpsDat
     }
 }
 
-RCT_EXPORT_METHOD(claimAllAtOnce:(NSInteger)meshAddress pidEleCnts:(NSArray *)pidEleCnts resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(add2defaultNodeInfos:(NSInteger)cid pid:(NSInteger)pid cpsData:(NSArray *)cpsData) {
+    DeviceTypeModel *model = [[DeviceTypeModel alloc] initWithCID:(UInt16)cid PID:(UInt16)pid];
+    [model setCompositionData:[self byteArray2Data:cpsData]];
+    [SigDataSource.share.defaultNodeInfos addObject:model];
+}
+
+RCT_EXPORT_METHOD(claimAllAtOnce:(NSInteger)meshAddress pids:(NSArray *)pids resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+    __weak typeof(self) weakSelf = self;
+    
+    deviceModel * device = [self.allDevices firstObject];
+    CBPeripheral *peripheral;
+    if (device) {
+        peripheral = device.peripheral;
+    }
+
+    if (peripheral == nil) {
+        NSLog(@"TelinkBtSig claimAllAtOnce need rescan");
+        reject(@"keyBind", @"claimAllAtOnce need rescan", nil);
+        return;
+    }
+
+    [SDKLibCommand stopScan];
+    [SigBearer.share changePeripheral:peripheral result:^(BOOL successful) {
+        if (successful) {
+            [SigBearer.share openWithResult:^(BOOL successful) {
+                if (successful) {
+                    [SigFastProvisionAddManager.share startFastProvisionWithProvisionAddress:meshAddress productIds:pids currentConnectedNodeIsUnprovisioned:YES scanResponseCallback:^(NSData * _Nonnull deviceKey, NSString * _Nonnull macAddress, UInt16 address, UInt16 pid) {
+                    } startProvisionCallback:^{
+                    } addSingleDeviceSuccessCallback:^(NSData * _Nonnull deviceKey, NSString * _Nonnull macAddress, UInt16 address, UInt16 pid) {
+                        TeLogInfo(@"fast provision single success, deviceKey=%@, macAddress=%@, address=0x%x, pid=%d", [LibTools convertDataToHexStr:deviceKey], macAddress, address, pid);
+
+                        NSMutableDictionary *params = [[NSMutableDictionary alloc] init];
+                        [params setObject:[LibTools getMacStringWithMac:macAddress] forKey:@"macAddress"];
+                        [params setObject:[NSNumber numberWithUnsignedShort:address] forKey:@"meshAddress"];
+                        [params setObject:[NSNumber numberWithUnsignedShort:pid] forKey:@"productUUID"];
+                        [params setObject:[self byteData2Array:deviceKey] forKey:@"dhmKey"];
+                        [weakSelf sendEventWithName:@"deviceStatusUpdatingMesh" body:params];
+                    } finish:^(NSError * _Nullable error) {
+                        if (error) {
+                            NSLog(@"TelinkBtSig claimAllAtOnce fail: %@", error);
+                            reject(@"keyBind", @"claimAllAtOnce fail", error);
+                        } else {
+                            NSMutableDictionary *params = [[NSMutableDictionary alloc] init];
+                            resolve(params);
+                        }
+                    }];
+                } else {
+                    NSLog(@"TelinkBtSig claimAllAtOnce connect fail");
+                    reject(@"keyBind", @"claimAllAtOnce connect fail", nil);
+                }
+            }];
+        } else {
+            NSLog(@"TelinkBtSig claimAllAtOnce change node fail");
+            reject(@"keyBind", @"claimAllAtOnce change node fail", nil);
+        }
+    }];
 }
 
 RCT_EXPORT_METHOD(replaceMeshSetting:(NSString *)netKey appKey:(NSString *)appKey devices:(NSArray *)devices) {
