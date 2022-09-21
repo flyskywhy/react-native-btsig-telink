@@ -47,31 +47,13 @@ project(':react-native-btsig-telink').projectDir = new File(rootProject.projectD
 ```
 
 ### iOS
-Open `TelinkSigMeshLib/TelinkSigMeshLib.xcodeproj` by Xcode, in 'Signing & Capabilities' of Target 的 'TelinkSigMeshLib', choose `Team` to your Apple ID, then close Xcode and:
-
-    cd node_modules/react-native-btsig-telink/TelinkSigMeshLib/
-    ./Script.sh
-
-results:
-```
-TelinkSigMeshLib/Build/Products/TelinkSigMeshLib/Release-iphoneos/TelinkSigMeshLib.framework/
-```
-
-For RN >= 0.60, in `ios/Podfile`
-```
-  pod 'TelinkSigMeshLib', :path => '../node_modules/react-native-btsig-telink/TelinkSigMeshLib'
-```
-
-For RN < 0.60, in `ios/Podfile`
-```
-  pod 'TelinkSigMeshLib', :path => '../node_modules/react-native-btsig-telink/TelinkSigMeshLib'
-  pod 'RNBtSigTelink', :path => '../node_modules/react-native-btsig-telink'
-```
-
-For RN < 0.60 and RN >= 0.60
-
     cd ios
     pod install
+
+For RN < 0.60, add below in `ios/Podfile` before `pod install`
+```
+  pod 'RNBtSigTelink', :path => '../node_modules/react-native-btsig-telink'
+```
 
 ## Usage
 
