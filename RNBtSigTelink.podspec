@@ -11,7 +11,9 @@ Pod::Spec.new do |s|
   s.author                = package['author']
   s.source                = { :git => 'https://github.com/flyskywhy/react-native-btsig-telink.git', :tag => s.version.to_s }
   s.ios.deployment_target = '9.0'
-  s.source_files          = 'ios/**/*'
+  s.source_files          = 'ios/**/*',
+                            'TelinkSigMeshLib/TelinkSigMeshLib/**/*.h'
+  s.prefix_header_file    = 'TelinkSigMeshLib/TelinkSigMeshLib/TelinkSigMeshLibPrefixHeader.pch'
   s.dependency 'React'
   s.dependency 'TelinkSigMeshLib'
 end

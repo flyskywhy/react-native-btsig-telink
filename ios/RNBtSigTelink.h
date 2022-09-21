@@ -1,26 +1,8 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
 
-#import <CoreBluetooth/CoreBluetooth.h>
-#import <TelinkSigMeshLib/LibTools.h>
-#import <TelinkSigMeshLib/MeshOTAManager.h>
-#import <TelinkSigMeshLib/OTAManager.h>
-#import <TelinkSigMeshLib/SDKLibCommand.h>
-#import <TelinkSigMeshLib/SigAddDeviceManager.h>
-#import <TelinkSigMeshLib/SigBluetooth.h>
-#import <TelinkSigMeshLib/SigBearer.h>
-#import <TelinkSigMeshLib/SigConfigMessage.h>
-#import <TelinkSigMeshLib/SigConst.h>
-#import <TelinkSigMeshLib/SigDataSource.h>
-#import <TelinkSigMeshLib/SigECCEncryptHelper.h>
-#import <TelinkSigMeshLib/SigEnumeration.h>
-#import <TelinkSigMeshLib/SigFastProvisionAddManager.h>
-#import <TelinkSigMeshLib/SigGenericMessage.h>
-#import <TelinkSigMeshLib/SigHelper.h>
-#import <TelinkSigMeshLib/SigLogger.h>
-#import <TelinkSigMeshLib/SigMeshLib.h>
-#import <TelinkSigMeshLib/SigModel.h>
-#import <TelinkSigMeshLib/SigPublishManager.h>
+#import "SigECCEncryptHelper.h"
+#import "SigFastProvisionAddManager.h"
 
 @interface deviceModel : NSObject
 @property (nonatomic,strong) CBPeripheral *peripheral;
