@@ -394,14 +394,12 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
 
      __weak typeof(self) weakSelf = self;
 
-    // TODO: modify updateNodeStatusWithBaseMeshMessage in `Mesh Model/SigModel.m` to let onVendorResponse be inovked by device itself (not device reponse to APP sendCommand), or SigMessageDelegate didReceiveMessage ?
-    // device reponse to APP sendCommand can ref to anasislyResponseData() in SigMeshOC/LibHandle.m
     onVendorResponse = ^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
         
         UInt32 opcode = responseMessage.opCode;
         NSLog(@"TelinkBtSig onVendorResponse opcode=0x%x, parameters=%@", opcode, responseMessage.parameters);
         
-        // convert opcode -> opcodeJs e.g. 0xe31102 -> 0x0211e3
+        // convert opcode -> opcodeJs e.g. 0xE31102 -> 0x0211E3
         UInt32 opcodeJs = ((opcode >> 16) & 0x0000ff) | (opcode & 0x00ff00) | ((opcode << 16) & 0xff0000);
         NSLog(@"TelinkBtSig onVendorResponse opcode to JS is 0x%x", opcodeJs);
 
@@ -579,6 +577,53 @@ RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
     [dict setObject:[NSNumber numberWithInt:sequenceNumber] forKey:@"provisionerSno"];
     [dict setObject:[NSNumber numberWithBool:YES] forKey:@"hasOnlineStatusNotifyRaw"];
     [weakSelf sendEventWithName:@"saveOrUpdateJS" body:dict];
+}
+
+#pragma  mark - SigMessageDelegate
+- (void)didReceiveMessage:(SigMeshMessage *)message sentFromSource:(UInt16)source toDestination:(UInt16)destination {
+//    NSLog(@"TelinkBtSig didReceiveMessage source:%d Response: opcode=0x%x, parameters=%@", source, (unsigned int)message.opCode, message.parameters);
+
+    // getOpCodeTypeWithOpcode 0x0211E3 or 0x01B6 is used with Android (Opcode.java) and JS (index.native.js)
+    // getOpCodeTypeWithUInt32Opcode 0xE31102 or 0xB601 is used with iOS (SigEnumeration.h and SigGenericMessage.h)
+    
+    if ([SigHelper.share getOpCodeTypeWithUInt32Opcode:message.opCode] == SigOpCodeType_vendor3) {
+        onVendorResponse(source, destination, message);
+    } else {
+        switch (message.opCode) {
+            case 0x804A: // SigConfigNodeResetStatus
+                TeLogDebug("kickout in sendCommand");
+                break;
+            case 0x801F:
+                onGetModelSubscription(source, destination, (SigConfigModelSubscriptionStatus *)message);
+                break;
+            case 0x5D:
+//                onGetTimeNotify(source, destination, (SigTimeStatus *)message);
+                break;
+            case 0x5F:
+//                onGetAlarmNotify(source, destination, (SigSchedulerActionStatus *)message);
+                break;
+            case 0x8204:
+                onGetOnOffNotify(source, destination, (SigGenericOnOffStatus *)message);
+                break;
+            case 0x8208:
+                onGetLevelNotify(source, destination, (SigGenericLevelStatus *)message);
+                break;
+            case 0x824E:
+                onGetLightnessNotify(source, destination, (SigLightLightnessStatus *)message);
+                break;
+            case 0x8260:
+                onGetCtlNotify(source, destination, (SigLightCTLStatus *)message);
+                break;
+            case 0x8266:
+                onGetTempNotify(source, destination, (SigLightCTLTemperatureStatus *)message);
+                break;
+            case 0xB602:
+                onGetFirmwareInfo(source, destination, (SigFirmwareUpdateInformationStatus *)message);
+            default:
+                NSLog(@"TelinkBtSig didReceiveMessage unsupported opcode=0x%x you can add by your self", (unsigned int)message.opCode);
+                break;
+        }
+    }
 }
 
 - (void)applicationWillResignActive {
@@ -763,42 +808,17 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
 //        return;
 //    }
 
+    // getOpCodeTypeWithOpcode 0x0211E3 or 0x01B6 is used with Android (Opcode.java) and JS (index.native.js)
+    // getOpCodeTypeWithUInt32Opcode 0xE31102 or 0xB601 is used with iOS (SigEnumeration.h and SigGenericMessage.h)
+    
     IniCommandModel *model = [IniCommandModel alloc];
-    if ([SigHelper.share getOpCodeTypeWithOpcode:opcode] == SigOpCodeType_vendor3) {
+    if ([SigHelper.share getOpCodeTypeWithOpcode:(UInt8)(opcode & 0xff)] == SigOpCodeType_vendor3) {
         model = [model initVendorModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:SigDataSource.share.defaultRetryCount responseMax:0 address:meshAddress opcode:opcode & 0xff vendorId:(opcode >> 8) & 0xffff responseOpcode:rspOpcode & 0xff tidPosition:tidPosition > 0 ? tidPosition : 0 tid:(tidPosition > 0 && tidPosition <= value.count) ? ((NSNumber *)value[tidPosition - 1]).unsignedCharValue : 0  commandData:[self byteArray2Data:value]];
-        [SDKLibCommand sendIniCommandModel:model successCallback:onVendorResponse resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
-            TeLogVerbose(@"sendCommand finish");
-        }];
     } else {
         model = [model initSigModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:SigDataSource.share.defaultRetryCount responseMax:0 address:meshAddress opcode:opcode commandData:[self byteArray2Data:value]];
-        [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
-            NSString *str = [NSString stringWithFormat:@"Response: opcode=0x%x, parameters=%@",(unsigned int)responseMessage.opCode,responseMessage.parameters];
-            TeLogVerbose(@"sendCommand %@",str);
-            if ([responseMessage isKindOfClass:[SigConfigNodeResetStatus class]]) {
-                TeLogDebug("kickout in sendCommand");
-            } else if ([responseMessage isKindOfClass:[SigConfigModelSubscriptionStatus class]]) {
-                self->onGetModelSubscription(source, destination, (SigConfigModelSubscriptionStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigTimeStatus class]]) {
-//                self->onGetTimeNotify(source, destination, (SigTimeStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigSchedulerActionStatus class]]) {
-//                self->onGetAlarmNotify(source, destination, (SigSchedulerActionStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigGenericOnOffStatus class]]) {
-                self->onGetOnOffNotify(source, destination, (SigGenericOnOffStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigGenericLevelStatus class]]) {
-                self->onGetLevelNotify(source, destination, (SigGenericLevelStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigLightLightnessStatus class]]) {
-                self->onGetLightnessNotify(source, destination, (SigLightLightnessStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigLightCTLStatus class]]) {
-                self->onGetCtlNotify(source, destination, (SigLightCTLStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigLightCTLTemperatureStatus class]]) {
-                self->onGetTempNotify(source, destination, (SigLightCTLTemperatureStatus *)responseMessage);
-            } else if ([responseMessage isKindOfClass:[SigFirmwareUpdateInformationStatus class]]) {
-                self->onGetFirmwareInfo(source, destination, (SigFirmwareUpdateInformationStatus *)responseMessage);
-            }
-        } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
-            TeLogVerbose(@"sendCommand finish");
-        }];
     }
+
+    [SDKLibCommand sendIniCommandModel:model successCallback:nil resultCallback:nil];
 }
 
 RCT_EXPORT_METHOD(getFirmwareInfo:(NSInteger)meshAddress) {
