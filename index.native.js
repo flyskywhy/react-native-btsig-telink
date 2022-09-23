@@ -256,9 +256,23 @@ class TelinkBtSig {
         this.extendBearerMode);
 
         // NativeModule.setLogLevel(0x1F);
+
+        if (Platform.OS === 'ios') {
+            // On iOS, even hack add kOnlineStatusCharacteristicsID to openWithResult() in TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBearer.m
+            // still can't invode [characteristic.UUID.UUIDString isEqualToString:kOnlineStatusCharacteristicsID] in
+            // TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBluetooth.m
+            // so that can't invoke bluetoothDidUpdateOnlineStatusValueCallback (by setBluetoothDidUpdateOnlineStatusValueCallback with receiveOnlineStatusData)
+            // then can't invoke receiveOnlineStatusData->anasislyOnlineStatueDataFromUUID
+            // ->updateOnlineStatusWithDeviceAddress->discoverOutlineNodeCallback
+            //
+            // So use setInterval to call getOnlineStatue() to invoke onOnlineStatusNotify() in ios/RNBtSigTelink.m
+            this.getOnlineStatueTimer && clearInterval(this.getOnlineStatueTimer);
+            this.getOnlineStatueTimer = setInterval(NativeModule.getOnlineStatue, 5000);
+        }
     }
 
     static doDestroy() {
+        this.getOnlineStatueTimer && clearTimeout(this.getOnlineStatueTimer);
         NativeModule.doDestroy();
     }
 

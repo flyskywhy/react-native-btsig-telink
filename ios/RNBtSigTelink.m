@@ -20,7 +20,7 @@
     RCTPromiseRejectBlock mSetNodeGroupAddrReject;
     
     responseAllMessageBlock onVendorResponse;
-//    bleDidUpdateValueForCharacteristicCallback onOnlineStatusNotify;
+    responseTelinkOnlineStatusMessageBlock onOnlineStatusNotify;
     responseGenericOnOffStatusMessageBlock onGetOnOffNotify;
     responseGenericLevelStatusMessageBlock onGetLevelNotify;
     responseLightLightnessStatusMessageBlock onGetLightnessNotify;
@@ -410,17 +410,43 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
         [weakSelf sendEventWithName:@"notificationVendorResponse" body:dict];
     };
 
-//    onOnlineStatusNotify = ^(CBPeripheral * _Nonnull peripheral, CBCharacteristic * _Nonnull characteristic, NSError * _Nullable error) {
-//        NSLog(@"TelinkBtSig onOnlineStatusNotify");
-//        NSMutableArray *array = [[NSMutableArray alloc] init];
-//        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//        [dict setObject:[NSNumber numberWithInt:model.address] forKey:@"meshAddress"];
-//        [dict setObject:[NSNumber numberWithInt:model.currentValue] forKey:@"brightness"];
-//        [dict setObject:[NSNumber numberWithInt:model.pointValue] forKey:@"colorTemp"];
-//        [dict setObject:[NSNumber numberWithInt:model.currentState ? 1 : -1] forKey:@"status"];
-//        [array addObject:dict];
-//        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
-//    };
+    self.onlineStatusMessages = [NSMutableArray array];
+
+    onOnlineStatusNotify = ^(UInt16 source, UInt16 destination, SigTelinkOnlineStatusMessage * _Nonnull responseMessage) {
+        TeLogDebug(@"onOnlineStatusNotify");
+        SigTelinkOnlineStatusMessage *message = [weakSelf getOnlineStatusMessage:responseMessage.address];
+
+        if (message != nil) {
+            if (message.state == responseMessage.state && message.brightness == responseMessage.brightness && message.temperature == responseMessage.temperature) {
+                return;
+            } else {
+                message.state = responseMessage.state;
+                message.brightness = responseMessage.brightness;
+                message.temperature = responseMessage.temperature;
+            }
+        } else {
+            [weakSelf.onlineStatusMessages addObject:responseMessage];
+        }
+
+        NSMutableArray *array = [[NSMutableArray alloc] init];
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:responseMessage.address] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:responseMessage.brightness] forKey:@"brightness"];
+        [dict setObject:[NSNumber numberWithInt:responseMessage.temperature] forKey:@"colorTemp"];
+        int connectionStatus;
+        if (responseMessage.state == DeviceStateOutOfLine) {
+            connectionStatus = -1;
+        } else {
+            if (responseMessage.brightness == 0) {
+                connectionStatus = 0;
+            } else {
+                connectionStatus = 1;
+            }
+        }
+        [dict setObject:[NSNumber numberWithInt:connectionStatus] forKey:@"status"];
+        [array addObject:dict];
+        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
+    };
 
     onGetOnOffNotify = ^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {
         NSLog(@"TelinkBtSig onGetOnOffNotify");
@@ -515,28 +541,36 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     SigBearer.share.dataDelegate = self;
     SigMeshLib.share.delegateForDeveloper = self;
 
-    // TODO: Outline is not working, because peripheral:didUpdateValueForCharacteristic in Bearer/SigBluetooth.m does not call (setBluetoothDidUpdateOnlineStatusValueCallback with receiveOnlineStatusData) receiveOnlineStatusData->anasislyOnlineStatueDataFromUUID->updateOnlineStatusWithDeviceAddress->discoverOutlineNodeCallback
-    // telink demo code use startCheckOfflineTimerWithAddress, but it's period is 20s, it's too long, so we should find a way to anasislyOnlineStatueDataFromUUID work (and actually anasislyOnlineStatueDataFromUUID will produce state and bright and temperature that just onOnlineStatusNotify need!)
-    // or, just set periodModel.numberOfSteps above?
-    // or, use SigMessageDelegate didReceiveMessage
-    [SigPublishManager.share setDiscoverOutlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
-        NSMutableArray *array = [[NSMutableArray alloc] init];
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:unicastAddress forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:-1] forKey:@"status"];
-        [array addObject:dict];
-        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
-    }];
-    
-    // working, because didReceiveMessage in SigMeshLib.m calls discoverOnlineNodeCallback
-    [SigPublishManager.share setDiscoverOnlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
-        NSMutableArray *array = [[NSMutableArray alloc] init];
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:unicastAddress forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:1] forKey:@"status"];
-        [array addObject:dict];
-        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
-    }];
+    // discoverOutlineNodeCallback only be called after getOnlineStatue below is invoked,
+    // and be called despite of whether is DeviceStateOutOfLine, if hack
+    // updateOnlineStatusWithDeviceAddress in SigMeshLib.m from
+    //     if (SigPublishManager.share.discoverOutlineNodeCallback) {
+    // to
+    //     if (SigPublishManager.share.discoverOutlineNodeCallback && state == DeviceStateOutOfLine) {
+    // then discoverOutlineNodeCallback can't be called.
+    // So use onOnlineStatusNotify() above instead of setDiscoverOutlineNodeCallback() below
+//    [SigPublishManager.share setDiscoverOutlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
+//        TeLogVerbose(@"setDiscoverOutlineNodeCallback %d", unicastAddress);
+//        NSMutableArray *array = [[NSMutableArray alloc] init];
+//        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+//        [dict setObject:unicastAddress forKey:@"meshAddress"];
+//        [dict setObject:[NSNumber numberWithInt:-1] forKey:@"status"];
+//        [array addObject:dict];
+//        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
+//    }];
+
+    // even discoverOnlineNodeCallback can always be called by didReceiveMessage in
+    // SigMeshLib.m, since onOnlineStatusNotify() can cover online and outline,
+    // so use onOnlineStatusNotify() above instead of setDiscoverOnlineNodeCallback() below
+//    [SigPublishManager.share setDiscoverOnlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
+//        TeLogVerbose(@"setDiscoverOnlineNodeCallback %d", unicastAddress);
+//        NSMutableArray *array = [[NSMutableArray alloc] init];
+//        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+//        [dict setObject:unicastAddress forKey:@"meshAddress"];
+//        [dict setObject:[NSNumber numberWithInt:1] forKey:@"status"];
+//        [array addObject:dict];
+//        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
+//    }];
 
     [SDKLibCommand setBluetoothCentralUpdateStateCallback: ^(CBCentralManagerState state) {
         TeLogVerbose(@"setBluetoothCentralUpdateStateCallback state=%ld",(long)state);
@@ -581,11 +615,11 @@ RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
 
 #pragma  mark - SigMessageDelegate
 - (void)didReceiveMessage:(SigMeshMessage *)message sentFromSource:(UInt16)source toDestination:(UInt16)destination {
-//    NSLog(@"TelinkBtSig didReceiveMessage source:%d Response: opcode=0x%x, parameters=%@", source, (unsigned int)message.opCode, message.parameters);
+    TeLogDebug(@"source:%d Response: opcode=0x%x, parameters=%@", source, (unsigned int)message.opCode, message.parameters);
 
     // getOpCodeTypeWithOpcode 0x0211E3 or 0x01B6 is used with Android (Opcode.java) and JS (index.native.js)
     // getOpCodeTypeWithUInt32Opcode 0xE31102 or 0xB601 is used with iOS (SigEnumeration.h and SigGenericMessage.h)
-    
+
     if ([SigHelper.share getOpCodeTypeWithUInt32Opcode:message.opCode] == SigOpCodeType_vendor3) {
         onVendorResponse(source, destination, message);
     } else {
@@ -620,9 +654,33 @@ RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
             case 0xB602:
                 onGetFirmwareInfo(source, destination, (SigFirmwareUpdateInformationStatus *)message);
             default:
-                NSLog(@"TelinkBtSig didReceiveMessage unsupported opcode=0x%x you can add by your self", (unsigned int)message.opCode);
+                if ([message isKindOfClass:[SigTelinkOnlineStatusMessage class]]) {
+                    // message.opCode is 0
+                    onOnlineStatusNotify(source, destination, (SigTelinkOnlineStatusMessage *)message);
+                } else {
+                    NSLog(@"TelinkBtSig didReceiveMessage unsupported opcode=0x%x you can add by your self", (unsigned int)message.opCode);
+                }
                 break;
         }
+    }
+}
+
+RCT_EXPORT_METHOD(getOnlineStatue) {
+    if (SigMeshLib.share.isBusyNow) {
+        TeLogInfo(@"getOnlineStatue busy");
+        return;
+    }
+    [SDKLibCommand telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
+}
+
+- (SigTelinkOnlineStatusMessage *)getOnlineStatusMessage:(UInt16)address{
+    @synchronized(self) {
+        for (SigTelinkOnlineStatusMessage *message in self.onlineStatusMessages) {
+            if (message.address == address) {
+                return message;
+            }
+        }
+        return nil;
     }
 }
 
@@ -693,7 +751,7 @@ RCT_EXPORT_METHOD(autoConnect) {
         return;
     }
     
-    NSLog(@"TelinkBtSig deviceStatusLogin");
+    NSLog(@"TelinkBtSig deviceStatusLogin address:%d", [node address]);
     self.connectMeshAddress = [node address];
     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
     [dict setObject:[NSNumber numberWithInt:[node address]] forKey:@"connectMeshAddress"];
@@ -1338,7 +1396,7 @@ RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTime
 //        return;
 //    }
 
-    [SDKLibCommand timeGetWithDestination:meshAddress retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigTimeStatus * _Nonnull responseMessage){
+    [SDKLibCommand timeGetWithDestination:meshAddress retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigTimeStatus * _Nonnull responseMessage) {
         UInt64 taiSec = responseMessage.timeModel.TAISeconds;
         UInt64 sec = taiSec + 946684800;
 
@@ -1347,7 +1405,7 @@ RCT_EXPORT_METHOD(getTime:(NSInteger)meshAddress relayTimes:(NSInteger)relayTime
         resolve(dict);
 
         NSLog(@"TelinkBtSig onGetTime taiSec: 0x%llx, sec %llu", taiSec, sec);
-    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){
+    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
         if (!isResponseAll) {
             TeLogInfo(@"getTime fail");
             reject(@"getTime", @"getTime fail", error);
