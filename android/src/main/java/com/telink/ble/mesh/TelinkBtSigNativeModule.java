@@ -1487,13 +1487,13 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     private synchronized void onGetMeshOtaProgress(int progress) {
         WritableMap params = Arguments.createMap();
-        params.putInt("OtaSlaveProgress", progress);
+        params.putInt("otaSlaveProgress", progress);
         sendEvent(NOTIFICATION_DATA_GET_MESH_OTA_PROGRESS, params);
     }
 
     private synchronized void onGetGattOtaProgress(int progress) {
         WritableMap params = Arguments.createMap();
-        params.putInt("OtaMasterProgress", progress);
+        params.putInt("otaMasterProgress", progress);
         sendEvent(DEVICE_STATUS_OTA_MASTER_PROGRESS, params);
     }
 

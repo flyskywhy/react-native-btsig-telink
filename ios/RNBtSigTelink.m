@@ -993,7 +993,7 @@ RCT_EXPORT_METHOD(startMeshOTA:(NSArray *)meshAddresses firmware:(NSArray *)firm
 
         [MeshOTAManager.share startFirmwareUpdateWithDeviceAddresses:meshAddresses otaData:firmwareData incomingFirmwareMetadata:metaData gattDistributionProgressHandle:^(NSInteger progress) {
             NSMutableDictionary *params = [[NSMutableDictionary alloc] init];
-            [params setObject:[NSNumber numberWithInteger:progress] forKey:@"OtaMasterProgress"];
+            [params setObject:[NSNumber numberWithInteger:progress] forKey:@"otaMasterProgress"];
             [weakSelf sendEventWithName:@"deviceStatusOtaMasterProgress" body:params];
         } advDistributionProgressHandle:^(SigFirmwareDistributionReceiversList *responseMessage) {
             SigUpdatingNodeEntryModel *firstEntry = [responseMessage.receiversList firstObject];
@@ -1002,7 +1002,7 @@ RCT_EXPORT_METHOD(startMeshOTA:(NSArray *)meshAddresses firmware:(NSArray *)firm
             }
 
             NSMutableDictionary *params = [[NSMutableDictionary alloc] init];
-            [params setObject:[NSNumber numberWithInt:firstEntry.transferProgress] forKey:@"OtaSlaveProgress"];
+            [params setObject:[NSNumber numberWithInt:firstEntry.transferProgress] forKey:@"otaSlaveProgress"];
             [weakSelf sendEventWithName:@"notificationDataGetMeshOtaProgress" body:params];
         } finishHandle:^(NSArray<NSNumber *> *successAddresses, NSArray<NSNumber *> *failAddresses) {
             NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
