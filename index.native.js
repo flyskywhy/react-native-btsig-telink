@@ -1269,7 +1269,7 @@ class TelinkBtSig {
     }
 
     // when firmware set FAST_PROVISION_ENABLE to 1 , can use claimAllAtOnce()
-    // to claim many devices all at once(18s)
+    // to claim many devices all at once(18s on Android, 25s on iOS)
     // receive (devices count) EVENT_TYPE_FAST_PROVISIONING_ADDRESS_SET at 9s so emit JS event 'deviceStatusUpdatingMesh'
     // receive EVENT_TYPE_FAST_PROVISIONING_SUCCESS at 18s so Promise resolved here
     //
@@ -1295,14 +1295,6 @@ class TelinkBtSig {
                 pids.push(device.pid);
             })
             return NativeModule.claimAllAtOnce(meshAddress, pids);
-
-// TODO: on iOS, will claim only 1 device and then fail, why?
-// ==========fast provision:Success.
-// 2022-09-20 16:34:36.626182+0800 LumineoDancingLights[563:95957] [Info][-[TelinkBtSig claimAllAtOnce:pids:resolver:rejecter:]_block_invoke_5 Line 1234] fast provision single success, deviceKey=4EDB6438C1A400000000000000000000, macAddress=A4C13864DB4E, address=0x1, pid=64512
-// 2022-09-20 16:34:36.713999+0800 LumineoDancingLights[563:95957] [Info][-[SigBluetooth peripheral:didUpdateValueForCharacteristic:error:] Line 816] <--- from:PROXY, length:23
-// 2022-09-20 16:34:36.714547+0800 LumineoDancingLights[563:96244] [Error][-[SigNetworkLayer handleSecureNetworkBeacon:] Line 351] Discarding secure network beacon (ivIndex: 0x12345678, expected >= 0x0)
-// 2022-09-20 16:34:36.715717+0800 LumineoDancingLights[563:95957] [Info][-[SigBluetooth peripheral:didUpdateValueForCharacteristic:error:] Line 816] <--- from:PROXY, length:23
-// 2022-09-20 16:34:36.716051+0800 LumineoDancingLights[563:96157] [Verbose][-[SigNetworkLayer handleSecureNetworkBeacon:] Line 367] receive secure Network Beacon, ivIndex=0x0,updateActive=0
         }
 
     }
