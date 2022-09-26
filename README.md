@@ -94,9 +94,12 @@ export default class MeshModuleExample extends React.Component {
         // meshModule.devices = devicesSavedInRedux;
 
         // if you want 8KB/s not 42B/s
+        //
         // also need change firmware:
         //     set EXTENDED_ADV_ENABLE to 1 in `vendor/common/mesh_config.h`
         //     (maybe) let is_not_use_extend_adv() return 0 in `vendor/common/mesh_node.c`
+        //
+        // change JS here:
         // meshModule.extendBearerMode = meshModule.EXTEND_BEARER_MODE.GATT_ADV;
 
         meshModule.doInit();
