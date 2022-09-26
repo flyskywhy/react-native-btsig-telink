@@ -121,6 +121,10 @@ Please discover more in `index.native.js`.
 ## fastBind
 If you want fastBind, you can copy `PrivateDevice.js` to create your own and modify, then put `PrivateDevice.filterWithPid(PID).cpsData` into `configNode({cpsData})`, here `PID` comes from `productUUID` with `startScan()`.
 
+You also need enable `PROVISION_FLOW_SIMPLE_EN` in firmware code.
+
+The provision + bind time of 1 device, in telink sdk `3.1.0`, with fastBind is 7s and without fastBind is 20s, but in telink sdk `3.3.3.5`, with or without fastBind is almost the same 7s, so the fastBind is not important now.
+
 ## version
 `react-native-btsig-telink@1.x` is based on telink sdk `3.1.0`.
 

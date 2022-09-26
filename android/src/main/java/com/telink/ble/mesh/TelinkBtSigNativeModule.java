@@ -679,7 +679,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
-    public void configNode(ReadableMap node, boolean isToClaim, Promise promise) {
+    public void configNode(ReadableMap node, ReadableArray cpsDataArray, int elementCnt, boolean isToClaim, Promise promise) {
         if (isToClaim) {
             mConfigNodePromise = promise;
             String macAddress = node.getString("macAddress");
@@ -710,8 +710,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             System.arraycopy(serviceData, 0, deviceUUID, 0, uuidLen);
 // MeshLogger.d("serviceData: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(serviceData, ":"));
 // MeshLogger.d("deviceUUID: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(deviceUUID, ":"));
-// 如果打印出的如下信息中没有 11:02:01:00 ，就会导致后面 PrivateDevice.filter() 返回的是 null
-// 所以无法进行 fastBind 或者叫 defaultBound
+// 如果打印出的如下信息中没有 11:02 开头的比如 11:02:01:00 ，就会导致后面的
+// device.nodeInfo.cpsData.pid = (deviceUUID[2] & 0xFF) | ((deviceUUID[3] & 0xFF) << 8);
+// 没有被赋予正确的值
 // telink 的工程师回答说需要在设备固件代码中打开 fastbind 宏 PROVISION_FLOW_SIMPLE_EN
 // 在 fastbind 模式下 deviceUUID 前两个字节是 vid(0x0211) （即 vendor identifier ，在 CompositionData
 // 中也称为 cid 即 company identifier），第三、四个字节是 pid ，果然
@@ -769,6 +770,15 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 device.deviceUUID = deviceUUID;
                 // device.macAddress = mService.getCurDeviceMac().toUpperCase();
                 device.macAddress = advDevice.device.getAddress();
+
+                if (cpsDataArray.size() > 0) {
+                    NodeInfo nodeInfo = new NodeInfo();
+                    nodeInfo.nodeAdr = device.meshAddress;
+                    nodeInfo.elementCnt = elementCnt;
+                    nodeInfo.cpsData = CompositionData.from(readableArray2ByteArray(cpsDataArray));
+                    nodeInfo.cpsDataLen = cpsDataArray.size();
+                    device.nodeInfo = nodeInfo;
+                }
 
                 insertDevice(device);
             } else {
@@ -883,43 +893,25 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         ProvisioningDevice provisioningDevice = event.getProvisioningDevice();
 
         DeviceInfo device = getDeviceByMeshAddress(provisioningDevice.getUnicastAddress());
-        device.elementCnt = provisioningDevice.getDeviceCapability().eleNum;
-        device.deviceKey = provisioningDevice.getDeviceKey();
-
-
-        // check if private mode opened
-        // TODO: js to this.privateMode
-        // final boolean privateMode = SharedPreferenceHelper.isPrivateMode(this);
-        final boolean privateMode = true;
 
         // check if device support fast bind
-        boolean defaultBound = false;
-        byte[] deviceUUID = provisioningDevice.getDeviceUUID();
-        if (privateMode && deviceUUID != null) {
-            PrivateDevice prvDevice = PrivateDevice.filter(deviceUUID);
-            if (prvDevice != null) {
-                MeshLogger.d("private device");
-                NodeInfo nodeInfo = new NodeInfo();
-                nodeInfo.nodeAdr = device.meshAddress;
-                nodeInfo.elementCnt = device.elementCnt;
-                nodeInfo.deviceKey = device.deviceKey;
-                byte[] cpsData = prvDevice.getCpsData();
-                if ((deviceUUID[3] & 0xFF) == 0xFB ||
-                    (deviceUUID[3] & 0xFF) == 0xFC ||
-                    (deviceUUID[3] & 0xFF) == 0xFD ||
-                    (deviceUUID[3] & 0xFF) == 0xFA) { // 如果 pid 的高位字节表明这是灯串
-                    cpsData[2] = deviceUUID[2]; // 就将实际的灯珠数填进预定义好的灯串 cpsData 中 pid 的低位字节
-                }
-                cpsData[4] = deviceUUID[4]; // PrivateDevice 中预定义的版本号不一
-                cpsData[5] = deviceUUID[5]; // 定与固件中的相同，所以需要在此处替换
-                nodeInfo.cpsData = CompositionData.from(cpsData);
-                nodeInfo.cpsDataLen = cpsData.length;
-                device.nodeInfo = nodeInfo;
+        boolean defaultBound = device.nodeInfo != null;
 
-                defaultBound = true;
-            } else {
-                MeshLogger.d("private device null");
-            }
+        device.elementCnt = defaultBound ? device.nodeInfo.elementCnt : provisioningDevice.getDeviceCapability().eleNum;
+        device.deviceKey = provisioningDevice.getDeviceKey();
+
+        byte[] deviceUUID = provisioningDevice.getDeviceUUID();
+        if (defaultBound) {
+            MeshLogger.d("private device");
+            device.nodeInfo.deviceKey = device.deviceKey;
+
+            // maybe your project does not need this line
+            // pid 可能不同，比如某个灯串产品将实际的灯珠数放在预定义好的灯串 cpsData 中 pid 的低位字节，所以需要在此处替换
+            // 注意，这里一定要在可能为负数的 deviceUUID[2] 上 & 0xFF ，否则容易使得 pid 的高 8 位 字节无条件为 0xFF
+            device.nodeInfo.cpsData.pid = (deviceUUID[2] & 0xFF) | ((deviceUUID[3] & 0xFF) << 8);
+
+            // PrivateDevice.js 中预定义的版本号不一定与固件中的相同，所以需要在此处替换
+            device.nodeInfo.cpsData.vid = (deviceUUID[4] & 0xFF) | ((deviceUUID[5] & 0xFF) << 8);
         }
 
         BindingDevice bindingDevice = new BindingDevice(device.meshAddress, device.deviceUUID, mAppKeyIndex);

@@ -18,7 +18,7 @@
     NSInteger mSetNodeGroupAddrEleIdsIndex;
     RCTPromiseResolveBlock mSetNodeGroupAddrResolve;
     RCTPromiseRejectBlock mSetNodeGroupAddrReject;
-    
+
     responseAllMessageBlock onVendorResponse;
     responseTelinkOnlineStatusMessageBlock onOnlineStatusNotify;
     responseGenericOnOffStatusMessageBlock onGetOnOffNotify;
@@ -27,7 +27,7 @@
     responseLightCTLTemperatureStatusMessageBlock onGetTempNotify;
     responseLightCTLStatusMessageBlock onGetCtlNotify;
     responseFirmwareInformationStatusMessageBlock onGetFirmwareInfo;
-    
+
     responseConfigModelSubscriptionStatusMessageBlock onGetModelSubscription;
 }
 
@@ -179,7 +179,7 @@ RCT_EXPORT_MODULE()
         node.pid = @"0100";
         node.vid = @"0100";
         node.crpl = @"0100";
-        
+
         // 添加本地节点的 element
         NSMutableArray *elements = [NSMutableArray array];
         SigElementModel *element = [[SigElementModel alloc] init];
@@ -200,7 +200,7 @@ RCT_EXPORT_MODULE()
         element.parentNodeAddress = node.address;
         [elements addObject:element];
         node.elements = elements;
-        
+
         NSData *devicekeyData = [LibTools createRandomDataWithLength:16];
         node.deviceKey = [LibTools convertDataToHexStr:devicekeyData];
         SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
@@ -268,7 +268,7 @@ RCT_EXPORT_MODULE()
         if (![model.netKeys containsObject:nodeNetkey]) {
             [model.netKeys addObject:nodeNetkey];
         }
-        
+
         model.deviceKey = [LibTools convertDataToHexStr:[self byteArray2Data:device[@"dhmKey"]]];
         model.peripheralUUID = nil;
         model.macAddress = [device[@"macAddress"] stringByReplacingOccurrencesOfString:@":" withString:@""];
@@ -281,7 +281,7 @@ RCT_EXPORT_MODULE()
         [sigPage0 appendBytes:(void *)(&page) length:1];
         [sigPage0 appendData:cpsData];
         model.compositionData = [[SigPage0 alloc] initWithParameters:sigPage0];
-        
+
 //        NSLog(@"TelinkBtSig sigmodel %@", [model getDictionaryOfSigNodeModel]);
 
 //        [SigDataSource.share addAndSaveNodeToMeshNetworkWithDeviceModel:model];
@@ -323,13 +323,13 @@ RCT_EXPORT_MODULE()
 
     // 初始化添加设备的参数
     [SigAddDeviceManager.share setNeedDisconnectBetweenProvisionToKeyBind:NO];
-    
+
     // 初始化蓝牙
     [[SigBluetooth share] bleInit:^(CBCentralManager * _Nonnull central) {
         TeLogInfo(@"finish init SigBluetooth.");
         [SigMeshLib share];
     }];
- 
+
     // 默认为 NO ，连接速度更加快。设置为 YES ，表示扫描到的设备必须包含 MacAddress ，有些客户在添加流程需要通过 MacAddress 获取三元组信息，需要使用 YES
 //    [SigBluetooth.share setWaitScanRseponseEnabel:YES];
 }
@@ -395,10 +395,10 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
      __weak typeof(self) weakSelf = self;
 
     onVendorResponse = ^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
-        
+
         UInt32 opcode = responseMessage.opCode;
         NSLog(@"TelinkBtSig onVendorResponse opcode=0x%x, parameters=%@", opcode, responseMessage.parameters);
-        
+
         // convert opcode -> opcodeJs e.g. 0xE31102 -> 0x0211E3
         UInt32 opcodeJs = ((opcode >> 16) & 0x0000ff) | (opcode & 0x00ff00) | ((opcode << 16) & 0xff0000);
         NSLog(@"TelinkBtSig onVendorResponse opcode to JS is 0x%x", opcodeJs);
@@ -456,7 +456,7 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
         [dict setObject:[NSNumber numberWithInt:isOn ? 1 : 0] forKey:@"onOff"];
         [weakSelf sendEventWithName:@"notificationDataGetOnOff" body:dict];
     };
-    
+
     onGetLevelNotify = ^(UInt16 source, UInt16 destination, SigGenericLevelStatus * _Nonnull responseMessage) {
         NSLog(@"TelinkBtSig onGetLevelNotify");
         UInt16 level = responseMessage.isAcknowledged ? responseMessage.targetLevel : responseMessage.level;
@@ -587,7 +587,7 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
                 break;
         }
     }];
-    
+
     [self sendEventWithName:@"serviceConnected" body:nil];
     [self sendEventWithName:@"bluetoothEnabled" body:nil];
     [self sendEventWithName:@"deviceStatusLogout" body:nil];
@@ -750,7 +750,7 @@ RCT_EXPORT_METHOD(autoConnect) {
     if (scanRspModel.address == 0) {
         return;
     }
-    
+
     NSLog(@"TelinkBtSig deviceStatusLogin address:%d", [node address]);
     self.connectMeshAddress = [node address];
     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
@@ -855,7 +855,7 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
             return [allData subdataWithRange:NSMakeRange(18, 11)];
         }
     }
-    
+
     return nil;
 }
 
@@ -878,7 +878,7 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
 
     // getOpCodeTypeWithOpcode 0x0211E3 or 0x01B6 is used with Android (Opcode.java) and JS (index.native.js)
     // getOpCodeTypeWithUInt32Opcode 0xE31102 or 0xB601 is used with iOS (SigEnumeration.h and SigGenericMessage.h)
-    
+
     IniCommandModel *model = [IniCommandModel alloc];
     if ([SigHelper.share getOpCodeTypeWithOpcode:(UInt8)(opcode & 0xff)] == SigOpCodeType_vendor3) {
         model = [model initVendorModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:SigDataSource.share.defaultRetryCount responseMax:0 address:meshAddress opcode:opcode & 0xff vendorId:(opcode >> 8) & 0xffff responseOpcode:rspOpcode & 0xff tidPosition:tidPosition > 0 ? tidPosition : 0 tid:(tidPosition > 0 && tidPosition <= value.count) ? ((NSNumber *)value[tidPosition - 1]).unsignedCharValue : 0  commandData:[self byteArray2Data:value]];
@@ -914,7 +914,7 @@ RCT_EXPORT_METHOD(getFirmwareInfo:(NSInteger)meshAddress) {
             [LPNArray addObject:model];
         }
     }
-    
+
     NSOperationQueue *operationQueue = [[NSOperationQueue alloc] init];
     [operationQueue addOperationWithBlock:^{
         // 这个 block 语句块在子线程中执行
@@ -928,7 +928,7 @@ RCT_EXPORT_METHOD(getFirmwareInfo:(NSInteger)meshAddress) {
             // Most provide 4 seconds
             dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 10.0));
         }
-        
+
         if (LPNArray && LPNArray.count) {
             for (SigNodeModel *model in LPNArray) {
                 dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
@@ -984,7 +984,7 @@ RCT_EXPORT_METHOD(startMeshOTA:(NSArray *)meshAddresses firmware:(NSArray *)firm
 //            TeLogInfo(@"startMeshOTA busy");
 //            return;
 //        }
-        
+
         MeshOTAManager.share.updatePolicy = SigUpdatePolicyType_verifyAndApply;
         MeshOTAManager.share.phoneIsDistributor = YES;
         MeshOTAManager.share.needCheckVersionAfterApply = NO;
@@ -1141,7 +1141,7 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cpsDataArray:(NSArray *)cpsDat
                 key = [LibTools nsstringToHex:SigDataSource.share.curNetkeyModel.oldKey];
             }
         }
- 
+
         // to avoid this JS error when Debug(Release is OK):
         // Invariant Violation: No callback found with cbID 7319 and callID 3659 for  TelinkBtSig.getTime - most likely the callback was already invoked. Args: '[{"code":"getTime","message":"getTime fail","domain":"Mesh is disconnected!"
         // need clean commands has resultCallback to JS e.g. getTime()
@@ -1171,7 +1171,7 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cpsDataArray:(NSArray *)cpsDat
                 KeyBindType keyBindType = KeyBindType_Normal;
                 UInt16 pid = 0;
                 NSData *cpsData = nil;
-                
+
                 if (cpsDataArray.count > 0) {
                     keyBindType = KeyBindType_Fast;
                     pid = (((NSNumber *)[cpsDataArray objectAtIndex:3]).unsignedCharValue << 8) | ((NSNumber *)[cpsDataArray objectAtIndex:2]).unsignedCharValue;
@@ -1206,7 +1206,7 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cpsDataArray:(NSArray *)cpsDat
                     SigNodeModel *model = [SigDataSource.share getNodeWithAddress:address];
 
                     UInt16 productId = model.compositionData.productIdentifier;
-                    
+
                     //  VC_node_info_t node_info
                     UInt8 node_info_elementCnt = model.compositionData.elements.count;
                     NSMutableArray *node_info_cpsData = [self cpsDataToBytes:model.compositionData];
@@ -1215,11 +1215,14 @@ RCT_EXPORT_METHOD(configNode:(NSDictionary *)node cpsDataArray:(NSArray *)cpsDat
                         SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:identify];
                         if (scanRspModel != nil && scanRspModel.macAddress != nil && scanRspModel.CID != 0 && scanRspModel.PID != 0) {
                             productId = scanRspModel.PID;
-                            
+
                             node_info_elementCnt = elementCnt;
                             node_info_cpsData = [NSMutableArray arrayWithArray:cpsDataArray];
+
+                            // maybe your project does not need these 2 lines
                             [node_info_cpsData replaceObjectAtIndex:2 withObject:[NSNumber numberWithInt:(scanRspModel.PID) & 0xff]];
                             [node_info_cpsData replaceObjectAtIndex:3 withObject:[NSNumber numberWithInt:(scanRspModel.PID >> 8) & 0xff]];
+
                             NSLog(@"TelinkBtSig AddNewDevice replace pid %x", scanRspModel.PID);
                             if ([scanRspModel.advertisementData.allKeys containsObject:CBAdvertisementDataServiceDataKey]) {
                                 NSData *advDataServiceData = [(NSDictionary *)scanRspModel.advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
@@ -1303,7 +1306,7 @@ RCT_EXPORT_METHOD(add2defaultNodeInfos:(NSInteger)cid pid:(NSInteger)pid cpsData
 
 RCT_EXPORT_METHOD(claimAllAtOnce:(NSInteger)meshAddress pids:(NSArray *)pids resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     __weak typeof(self) weakSelf = self;
-    
+
     deviceModel * device = [self.allDevices firstObject];
     CBPeripheral *peripheral;
     if (device) {
@@ -1358,7 +1361,7 @@ RCT_EXPORT_METHOD(replaceMeshSetting:(NSString *)netKey appKey:(NSString *)appKe
     // Invariant Violation: No callback found with cbID 7319 and callID 3659 for  TelinkBtSig.getTime - most likely the callback was already invoked. Args: '[{"code":"getTime","message":"getTime fail","domain":"Mesh is disconnected!"
     // need clean commands has resultCallback to JS e.g. getTime()
     [SigMeshLib.share cleanAllCommandsAndRetry];
-    
+
     [SDKLibCommand stopMeshConnectWithComplete:^(BOOL successflu) {
         [self initMesh:netKey appKey:appKey meshAddressOfApp:32768 devices:devices provisionerSno:129 provisionerIvIndex:0 isReplaceMeshSetting:true];
         [SigDataSource.share.scanList removeAllObjects];
@@ -1434,7 +1437,7 @@ RCT_EXPORT_METHOD(setAlarm:(NSInteger)meshAddress index:(NSInteger)index year:(N
     model.week = week;
     model.action = action;
     model.sceneId = sceneId;
-    
+
     [SDKLibCommand schedulerActionSetWithDestination:meshAddress schedulerModel:model retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 ack:NO successCallback:^(UInt16 source, UInt16 destination, SigSchedulerActionStatus * _Nonnull responseMessage){} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error){}];
 }
 
@@ -1515,7 +1518,7 @@ RCT_EXPORT_METHOD(setNodeGroupAddr:(BOOL)toDel meshAddress:(NSInteger)meshAddres
             modelIdentifier = (option >> 16) & 0xFFFF;
             companyIdentifier = option & 0xFFFF;
         }
-        
+
         TeLogInfo(@"send request for edit subscribe list");
         if (self->mSetNodeGroupAddrToDel) {
             [SDKLibCommand configModelSubscriptionDeleteWithDestination:self->mSetNodeGroupMeshAddr groupAddress:self->mSetNodeGroupAddrGroupAddr elementAddress:elementAddr modelIdentifier:modelIdentifier companyIdentifier:companyIdentifier retryCount:SigDataSource.share.defaultRetryCount responseMaxCount:0 successCallback:onGetModelSubscription resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
