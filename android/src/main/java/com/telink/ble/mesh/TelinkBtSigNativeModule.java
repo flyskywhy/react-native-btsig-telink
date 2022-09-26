@@ -1616,6 +1616,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         params.putInt("productUUID", (advDevice.scanRecord[49] & 0xFF) + (((advDevice.scanRecord[50] & 0xFF) << 8)));
         // params.putInt("status", btDevice.getBondState());
         params.putArray("rsvUser", rsvUser);
+        params.putInt("rssi", advDevice.rssi);
         sendEvent(LE_SCAN, params);
     }
 

@@ -837,6 +837,8 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                     }
                     NSLog(@"TelinkBtSig ScanNewDevice rsvUser = %@", rsvUserData);
 
+                    [event setObject:RSSI forKey:@"rssi"];
+
                     [weakSelf sendEventWithName:@"leScan" body:event];
                 }
             }
