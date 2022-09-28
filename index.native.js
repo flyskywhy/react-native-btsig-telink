@@ -304,7 +304,8 @@ class TelinkBtSig {
         NativeModule.enableSystemLocation();
     }
 
-    static resetExtendBearerMode() {
+    static resetExtendBearerMode(extendBearerMode = this.extendBearerMode) {
+        this.extendBearerMode = extendBearerMode;
         NativeModule.resetExtendBearerMode(this.extendBearerMode);
     }
 
@@ -1219,14 +1220,15 @@ class TelinkBtSig {
     }
 
     // claim or delete 1 device
-    // claim speed is 7s with 1 device
+    // claim speed is 7s with 1 device despite of PrivateDevice or not
     static configNode({
         node,
-        cpsData = [],
+        cpsData = [], // cpsData.length not 0 means PrivateDevice
         isToClaim,
     }) {
         return new Promise((resolve, reject) => {
             let elementCnt = 0;
+            let originalExtendBearerMode = this.extendBearerMode;
             if (isToClaim) {
                 if (this.isClaiming) {
                     reject(new TypeError('Association already in progress. Parallel association disabled'));
@@ -1239,6 +1241,15 @@ class TelinkBtSig {
                     let compositionData = CompositionData.from(cpsData);
                     elementCnt = compositionData.elements.length;
                 }
+
+                // If APP using EXTEND_BEARER_MODE.GATT_ADV (using telink sdk 3.3.3.5) but
+                // device using telink sdk 3.1.0 (without EXTEND_BEARER_MODE idea), APP will
+                // fail when claiming device, so temporarily EXTEND_BEARER_MODE.NONE here.
+                // And found EXTEND_BEARER_MODE.NONE claim speed is also 7s with 1 device
+                // despite of cpsData.length is 0 or not
+                if (originalExtendBearerMode !== this.EXTEND_BEARER_MODE.NONE) {
+                    this.resetExtendBearerMode(this.EXTEND_BEARER_MODE.NONE);
+                }
             }
 
             let newNode = {
@@ -1250,6 +1261,9 @@ class TelinkBtSig {
             NativeModule.configNode(newNode, cpsData, elementCnt, isToClaim).then(payload => {
                 if (isToClaim) {
                     this.isClaiming = false;
+                    if (originalExtendBearerMode !== this.EXTEND_BEARER_MODE.NONE) {
+                        this.resetExtendBearerMode(originalExtendBearerMode);
+                    }
                     resolve({
                         ...payload,
                         dhmKey: this.byteArray2HexString(payload.dhmKey),
@@ -1262,6 +1276,9 @@ class TelinkBtSig {
             }, err => {
                 if (isToClaim) {
                     this.isClaiming = false;
+                    if (originalExtendBearerMode !== this.EXTEND_BEARER_MODE.NONE) {
+                        this.resetExtendBearerMode(originalExtendBearerMode);
+                    }
                 }
                 reject(err);
             });
