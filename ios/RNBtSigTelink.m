@@ -723,6 +723,15 @@ RCT_EXPORT_METHOD(enableBluetooth) {
     NSLog(@"TelinkBtSig enableBluetooth");
 }
 
+RCT_EXPORT_METHOD(resetExtendBearerMode:(NSInteger)extendBearerMode) {
+    SigDataSource.share.telinkExtendBearerMode = extendBearerMode;
+    if (extendBearerMode == SigTelinkExtendBearerMode_noExtend) {
+        SigDataSource.share.defaultUnsegmentedMessageLowerTransportPDUMaxLength = kUnsegmentedMessageLowerTransportPDUMaxLength;
+    } else {
+         SigDataSource.share.defaultUnsegmentedMessageLowerTransportPDUMaxLength = kDLEUnsegmentLength;
+    }
+}
+
 RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     resolve(@YES);
     NSLog(@"TelinkBtSig notModeAutoConnectMesh");
