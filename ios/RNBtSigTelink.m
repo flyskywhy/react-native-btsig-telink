@@ -809,6 +809,17 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                     return;
                 }
 
+                // 如 SigModel.m 中所示“固件v3.2.1及之前版本的广播包”与
+                // “固件v3.2.2及之后版本的广播包”之间的差异，其实就是固件代码
+                // mesh_commmon.c 的 mesh_scan_rsp_init() 里在新版中多广播了 2 个字节
+                // tbl_scanRsp.vendor_id = g_vendor_id 所以最终导致
+                // SigScanRspModel.initWithPeripheral 处理 3.2.1 及之前的设备时得到的
+                // _macAddress 是错误的，为了不修改官方的 SigModel.m ，就补丁在这吧。
+                NSData *advDataServiceData = [(NSDictionary *)advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
+                if (advDataServiceData.length >= 16) {
+                    scanRspModel.macAddress = [LibTools convertDataToHexStr:[LibTools turnOverData:[advDataServiceData subdataWithRange:NSMakeRange(10, 6)]]];
+                }
+
                 NSString *macAddress = [LibTools getMacStringWithMac:scanRspModel.macAddress];
                 deviceModel *device = [[deviceModel alloc] init];
                 device.peripheral = peripheral;
