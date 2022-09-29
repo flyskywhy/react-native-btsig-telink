@@ -109,7 +109,11 @@ export default class MeshModuleExample extends React.Component {
         });
     }
 
-    onLeScan = data => console.warn(data)
+    onLeScan = data => {
+        // if you want data.productUUID here is same with your device's PID, you
+        // should enable `PROVISION_FLOW_SIMPLE_EN` in your device's firmware code.
+        console.warn(data);
+    }
 
     render() {
         return (
@@ -126,7 +130,7 @@ If you want fastBind, you can copy `PrivateDevice.js` to create your own and mod
 
 You also need enable `PROVISION_FLOW_SIMPLE_EN` in firmware code.
 
-The provision + bind time of 1 device, in telink sdk `3.1.0`, with fastBind is 7s and without fastBind is 20s, but in telink sdk `3.3.3.5`, with or without fastBind is almost the same 7s, so the fastBind is not important now.
+The provision + bind time of 1 device, in telink sdk `3.1.0`, with fastBind is 7s and without fastBind is 20s, but in telink sdk `3.3.3.5`, with or without fastBind is almost the same 7s, so the fastBind is not important now, only except that you want data.productUUID in `onLeScan` to be same with your device's PID then you only need enable `PROVISION_FLOW_SIMPLE_EN` in firmware code.
 
 ## version
 `react-native-btsig-telink@1.x` is based on telink sdk `3.1.0`.
