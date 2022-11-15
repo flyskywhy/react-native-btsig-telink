@@ -898,14 +898,21 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
 //        return;
 //    }
 
+    // if retryCount is SigDataSource.share.defaultRetryCount as known is 2, the same
+    // command will be sent 3 times, while android code DEFAULT_RETRY_CNT = 2 in
+    // MeshMessage.java, but the command will only be sent 1 times on Android,
+    // so `retryCount = 0` here to match iOS and Android
+//    int retryCount = SigDataSource.share.defaultRetryCount;
+    int retryCount = 0;
+
     // getOpCodeTypeWithOpcode 0x0211E3 or 0x01B6 is used with Android (Opcode.java) and JS (index.native.js)
     // getOpCodeTypeWithUInt32Opcode 0xE31102 or 0xB601 is used with iOS (SigEnumeration.h and SigGenericMessage.h)
 
     IniCommandModel *model = [IniCommandModel alloc];
     if ([SigHelper.share getOpCodeTypeWithOpcode:(UInt8)(opcode & 0xff)] == SigOpCodeType_vendor3) {
-        model = [model initVendorModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:SigDataSource.share.defaultRetryCount responseMax:0 address:meshAddress opcode:opcode & 0xff vendorId:(opcode >> 8) & 0xffff responseOpcode:rspOpcode & 0xff tidPosition:tidPosition > 0 ? tidPosition : 0 tid:(tidPosition > 0 && tidPosition <= value.count) ? ((NSNumber *)value[tidPosition - 1]).unsignedCharValue : 0  commandData:[self byteArray2Data:value]];
+        model = [model initVendorModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:retryCount responseMax:0 address:meshAddress opcode:opcode & 0xff vendorId:(opcode >> 8) & 0xffff responseOpcode:rspOpcode & 0xff tidPosition:tidPosition > 0 ? tidPosition : 0 tid:(tidPosition > 0 && tidPosition <= value.count) ? ((NSNumber *)value[tidPosition - 1]).unsignedCharValue : 0  commandData:[self byteArray2Data:value]];
     } else {
-        model = [model initSigModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:SigDataSource.share.defaultRetryCount responseMax:0 address:meshAddress opcode:opcode commandData:[self byteArray2Data:value]];
+        model = [model initSigModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:retryCount responseMax:0 address:meshAddress opcode:opcode commandData:[self byteArray2Data:value]];
     }
 
     [SDKLibCommand sendIniCommandModel:model successCallback:nil resultCallback:nil];
