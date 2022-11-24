@@ -964,7 +964,7 @@ class TelinkBtSig {
                             //         // 然后数组中所有元素的 subdataLength 相加其实就等于上面提到的 dataLength
                             //         [
                             //             subdataLength,  // 本子数据的长度，本字节也计算在该长度之内，在本例子中，该长度为 7
-                            //             bulbsMode,      // 本小段灯珠的变化模式， 0 为简单常亮， 1 为简单闪烁， 2 为简单呼吸
+                            //             bulbsMode,      // 本小段灯珠的变化模式， 0 为擦除， 1 为简单常亮， 2 为简单闪烁， 3 为简单呼吸
                             //             bulbsStart,     // 本小段灯珠的起始地址
                             //             bulbsLength,    // 本小段灯珠的个数
                             //             bulbsColorR,    // 本小段灯珠颜色的 R 的值
@@ -1001,34 +1001,32 @@ class TelinkBtSig {
                                 let rawData = [];
                                 data.map(subdata => {
                                     let bulbsMode = subdata[0];
-                                    if (bulbsMode > 0) {
-                                        let subdataLength = 7;
-                                        let bulbsStart = subdata[1];
-                                        let bulbsLength = subdata[2];
-                                        // let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
-                                        // let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
-                                        // let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
-                                        let bulbsColorR = parseInt(this.gamma[subdata[3] >> 16 & 0xFF] * this.whiteBalance.r, 10);
-                                        let bulbsColorG = parseInt(this.gamma[subdata[3] >> 8 & 0xFF] * this.whiteBalance.g, 10);
-                                        let bulbsColorB = parseInt(this.gamma[subdata[3] & 0xFF] * this.whiteBalance.b, 10);
-                                        let safeColor = this.ledFilterBurnGreen({
-                                            r: bulbsColorR,
-                                            g: bulbsColorG,
-                                            b: bulbsColorB,
-                                        });
-                                        bulbsColorR = safeColor.r;
-                                        bulbsColorG = safeColor.g;
-                                        bulbsColorB = safeColor.b;
-                                        rawData = rawData.concat([
-                                            subdataLength,
-                                            bulbsMode,
-                                            bulbsStart,
-                                            bulbsLength,
-                                            bulbsColorR,
-                                            bulbsColorG,
-                                            bulbsColorB,
-                                        ]);
-                                    }
+                                    let subdataLength = 7;
+                                    let bulbsStart = subdata[1];
+                                    let bulbsLength = subdata[2];
+                                    // let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
+                                    // let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
+                                    // let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
+                                    let bulbsColorR = parseInt(this.gamma[subdata[3] >> 16 & 0xFF] * this.whiteBalance.r, 10);
+                                    let bulbsColorG = parseInt(this.gamma[subdata[3] >> 8 & 0xFF] * this.whiteBalance.g, 10);
+                                    let bulbsColorB = parseInt(this.gamma[subdata[3] & 0xFF] * this.whiteBalance.b, 10);
+                                    let safeColor = this.ledFilterBurnGreen({
+                                        r: bulbsColorR,
+                                        g: bulbsColorG,
+                                        b: bulbsColorB,
+                                    });
+                                    bulbsColorR = safeColor.r;
+                                    bulbsColorG = safeColor.g;
+                                    bulbsColorB = safeColor.b;
+                                    rawData = rawData.concat([
+                                        subdataLength,
+                                        bulbsMode,
+                                        bulbsStart,
+                                        bulbsLength,
+                                        bulbsColorR,
+                                        bulbsColorG,
+                                        bulbsColorB,
+                                    ]);
                                 });
                                 let dataType = 0;
                                 let dataLengthLowByte = rawData.length & 0xFF;
