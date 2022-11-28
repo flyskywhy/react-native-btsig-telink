@@ -963,9 +963,10 @@ class TelinkBtSig {
                             //     [   // 实际的 sig mesh 命令参数中是没有本中括号以及下面中括号的，放在这里是为了表明这里就像是二维数组一样，
                             //         // 然后数组中所有元素的 subdataLength 相加其实就等于上面提到的 dataLength
                             //         [
-                            //             subdataLength,  // 本子数据的长度，本字节也计算在该长度之内，在本例子中，该长度为 7
+                            //             subdataLength,  // 本子数据的长度，本字节也计算在该长度之内，在本例子中，该长度为 7 （当 bulbsStart <= 255）或 8 （当 bulbsStart > 255）
                             //             bulbsMode,      // 本小段灯珠的变化模式， 0 为擦除， 1 为简单常亮， 2 为简单闪烁， 3 为简单呼吸
-                            //             bulbsStart,     // 本小段灯珠的起始地址
+                            //             bulbsStartLsb,  // 本小段灯珠的起始地址低 8 位字节
+                            //             bulbsStartMsb,  // 本小段灯珠的起始地址高 8 位字节，当 bulbsStart <= 255 ，本字节不存在
                             //             bulbsLength,    // 本小段灯珠的个数
                             //             bulbsColorR,    // 本小段灯珠颜色的 R 的值
                             //             bulbsColorG,    // 本小段灯珠颜色的 G 的值
@@ -979,20 +980,21 @@ class TelinkBtSig {
                             //     128,// 效果的 id 也就是 0x80
                             //     2,  // 速度 暂时无用
                             //     0,  // 0 代表无压缩
-                            //     14, // 数据字节长度的低位字节
-                            //     0,  // 数据字节长度的高位字节，无压缩情况下一般只有一个灯珠的话，数据字节是 7 ，这里是 14 （结合上面的低位字节来看），代表有两段数据
+                            //     15, // 数据字节长度的低位字节
+                            //     0,  // 数据字节长度的高位字节，无压缩情况下一般只有一个灯珠的话，数据字节是 7 或 8 ，这里是 15 （结合上面的低位字节来看），代表有两段数据
                             //     7,  // subdataLength
-                            //     0,  // bulbsMode
+                            //     2,  // bulbsMode
                             //     0,  // bulbsStart
                             //     4,  // bulbsLength
                             //     255,// bulbsColorR
                             //     0,  // bulbsColorG
                             //     0,  // bulbsColorB
-                            //     7,  // 下同
-                            //     0,
-                            //     12,
-                            //     1,
-                            //     255,
+                            //     8,  // subdataLength
+                            //     1,  // bulbsMode
+                            //     55, // bulbsStartLsb
+                            //     1,  // bulbsStartMsb
+                            //     2,  // bulbsLength
+                            //     255,// bulbsColorR
                             //     0,
                             //     0
                             // ]
@@ -1001,7 +1003,6 @@ class TelinkBtSig {
                                 let rawData = [];
                                 data.map(subdata => {
                                     let bulbsMode = subdata[0];
-                                    let subdataLength = 7;
                                     let bulbsStart = subdata[1];
                                     let bulbsLength = subdata[2];
                                     // let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
@@ -1018,15 +1019,30 @@ class TelinkBtSig {
                                     bulbsColorR = safeColor.r;
                                     bulbsColorG = safeColor.g;
                                     bulbsColorB = safeColor.b;
-                                    rawData = rawData.concat([
-                                        subdataLength,
-                                        bulbsMode,
-                                        bulbsStart,
-                                        bulbsLength,
-                                        bulbsColorR,
-                                        bulbsColorG,
-                                        bulbsColorB,
-                                    ]);
+                                    if (bulbsStart > 255) {
+                                        let subdataLength = 8;
+                                        rawData = rawData.concat([
+                                            subdataLength,
+                                            bulbsMode,
+                                            bulbsStart & 0xFF,
+                                            bulbsStart >> 8 & 0xFF,
+                                            bulbsLength,
+                                            bulbsColorR,
+                                            bulbsColorG,
+                                            bulbsColorB,
+                                        ]);
+                                    } else {
+                                        let subdataLength = 7;
+                                        rawData = rawData.concat([
+                                            subdataLength,
+                                            bulbsMode,
+                                            bulbsStart,
+                                            bulbsLength,
+                                            bulbsColorR,
+                                            bulbsColorG,
+                                            bulbsColorB,
+                                        ]);
+                                    }
                                 });
                                 let dataType = 0;
                                 let dataLengthLowByte = rawData.length & 0xFF;
