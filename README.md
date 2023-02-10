@@ -8,17 +8,22 @@
 Component implementation for Bluetooth SIG Mesh SDK of Telink.
 
 ## Install
-For RN >= 0.60 and Android SDK >= 29
+For RN >= 0.60 and Android SDK >= 31 , must
 ```shell
 npm i --save react-native-btsig-telink
 ```
 
-For RN >= 0.60 and Android SDK < 29
+For RN >= 0.60 and Android SDK >= 29 but < 31 , also can
+```shell
+npm i --save react-native-btsig-telink@2.x
+```
+
+For RN >= 0.60 and Android SDK < 29 , must
 ```shell
 npm i --save react-native-btsig-telink@1.2.x
 ```
 
-For RN < 0.60
+For RN < 0.60 , must
 ```shell
 npm i --save react-native-btsig-telink@1.0.x
 ```
@@ -135,9 +140,9 @@ The provision + bind time of 1 device, in telink sdk `3.1.0`, with fastBind is 7
 ## version
 `react-native-btsig-telink@1.x` is based on telink sdk `3.1.0`.
 
-`react-native-btsig-telink@2.x` is based on telink sdk `3.3.3.5`.
+`react-native-btsig-telink@2.x` and `@3.x` is based on telink sdk `3.3.3.5`.
 
-## migrate to `react-native-btsig-telink@2.x`
+## migrate from `react-native-btsig-telink@1.x` to `react-native-btsig-telink@2.x` or `@3.x`
 Use `PrivateDevice.js` instead of `PrivateDevice.java` and `DeviceTypeModel` on iOS, ref to fastBind above.
 
 `getFirmwareVersion()` is not working by default, ref to the comments of `getFirmwareInfo()`.
