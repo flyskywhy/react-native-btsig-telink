@@ -445,36 +445,42 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 if (ContextCompat.checkSelfPermission(getCurrentActivity(),
                         Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
                     ContextCompat.checkSelfPermission(getCurrentActivity(),
-                        Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     ActivityCompat.requestPermissions(getCurrentActivity(),
                             new String[]{Manifest.permission.BLUETOOTH_SCAN,
-                                Manifest.permission.BLUETOOTH_CONNECT},
+                                Manifest.permission.BLUETOOTH_CONNECT,
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                Manifest.permission.ACCESS_FINE_LOCATION},
                             BLUETOOTH_RESULT_CODE);
                 }
-            }
-
-            boolean reqPermLoc = false;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Q is Android API 29
-                reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
-                    Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(getCurrentActivity(),
-                    Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
             } else {
-                // If use above when running on Android 9 (SDK < 29), and use
-                // checkPermissions() in doResume(), will frequently
-                // sendEvent(SYSTEM_LOCATION_ENABLED) to JS which cause APP stuck,
-                // that's why need below to prevent it.
-                // If use below when running on Android 10 (SDK >= 29), will not
-                // have any device result after startScan(), that's why need above.
-                reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
-                    Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED;
-            }
+                boolean reqPermLoc = false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Q is Android API 29
+                    reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
+                } else {
+                    // If use above when running on Android 9 (SDK < 29), and use
+                    // checkPermissions() in doResume(), will frequently
+                    // sendEvent(SYSTEM_LOCATION_ENABLED) to JS which cause APP stuck,
+                    // that's why need below to prevent it.
+                    // If use below when running on Android 10 (SDK >= 29), will not
+                    // have any device result after startScan(), that's why need above.
+                    reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED;
+                }
 
-            if (reqPermLoc) {
-                ActivityCompat.requestPermissions(getCurrentActivity(),
-                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
-                            Manifest.permission.ACCESS_FINE_LOCATION},
-                        ACCESS_COARSE_LOCATION_RESULT_CODE);
+                if (reqPermLoc) {
+                    ActivityCompat.requestPermissions(getCurrentActivity(),
+                            new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
+                                Manifest.permission.ACCESS_FINE_LOCATION},
+                            ACCESS_COARSE_LOCATION_RESULT_CODE);
+                }
             }
 
             if (ContextCompat.checkSelfPermission(getCurrentActivity(),
