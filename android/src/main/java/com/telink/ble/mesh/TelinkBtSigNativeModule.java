@@ -441,6 +441,18 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     private void checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { // M is Android API 23
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(getCurrentActivity(),
+                            new String[]{Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.BLUETOOTH_CONNECT},
+                            BLUETOOTH_RESULT_CODE);
+                }
+            }
+
             boolean reqPermLoc = false;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Q is Android API 29
                 reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
