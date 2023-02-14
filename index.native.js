@@ -634,7 +634,7 @@ class TelinkBtSig {
         meshAddress,
         sceneSyncMeshAddress,
         scene,
-        sceneMode = 0, // e.g. 二维图片的平移方向
+        sceneMode = 5, // e.g. 二维图片的平移方向
         sceneModeOpt = 0, // e.g. 二维图片斜向平移时是否填充空边
         text = 'flyskywhy',
         hue = 0,
@@ -1095,7 +1095,7 @@ class TelinkBtSig {
 //     datasCount,     // 二维数组包含几个数组。 bmp 时，一共几幅 bmp ； gif 时，总为 1
 //     chunksIndex,    // 当前 chunk 属于当前数组的第 0...n 部分
 //     chunksCount,    // 当前数组一共几段 chunk
-//     rev,            // 保留字节，也许后续有用
+//     direction,      // 平移方向， 0 为不平移， 1 为东向， 2 为东南向，以此类推，直到 8 为东北向
 //     dataType,       // 数组中数据的类型， 0: 固件自己从数据头中判断，比如 bmp 数据头二个字节一般为 BM ， gif 为 GIF ； 1: 显式指定为 gif ； 2: 显式指定为 bmp
 //     chunkLengthLowByte,  // 当前 chunk 的字节长度，由两个字节表示，本字节为低位字节，本字节并不计算在该长度之内
 //     chunkLengthHightByte,// 当前 chunk 的字节长度，由两个字节表示，本字节为高位字节，本字节并不计算在该长度之内
@@ -1110,7 +1110,7 @@ class TelinkBtSig {
 
 //     scene,          // 效果的 id
 //     action,         // 1: 保存数据。固件将之前放置在内存中的数据以 fileName[] 的名义保存到 flash 中
-//     rev,            // 保留字节，也许后续有用
+//     direction,      // 平移方向， 0 为不平移， 1 为东向， 2 为东南向，以此类推，直到 8 为东北向
 //     fileName[0],    // fileName 字符串的第一个 ascii 字符值
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
@@ -1127,7 +1127,7 @@ class TelinkBtSig {
 //     color3.r,
 //     color3.g,
 //     color3.b;       // 颜色
-//     rev,            // 保留字节，也许后续有用
+//     direction,      // 平移方向， 0 为不平移， 1 为东向， 2 为东南向，以此类推，直到 8 为东北向
 //     fileName[0],    // fileName 字符串的第一个 ascii 字符值
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
@@ -1138,7 +1138,7 @@ class TelinkBtSig {
 
 //     scene,          // 效果的 id
 //     action,         // 4: 删除数据。固件删除之前以 fileName[] 的名义保存在 flash 中的数据
-//     rev,            // 保留字节，也许后续有用
+//     direction,      // 平移方向， 0 为不平移， 1 为东向， 2 为东南向，以此类推，直到 8 为东北向
 //     fileName[0],    // fileName 字符串的第一个 ascii 字符值
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
@@ -1149,18 +1149,18 @@ class TelinkBtSig {
                                     case 0: {
                                         let chunkLengthLowByte = chunk.length & 0xFF;
                                         let chunkLengthHightByte = chunk.length >> 8 & 0xFF;
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, datasIndex, datasCount, chunksIndex, chunksCount, 1, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 1:
                                     case 4: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, sceneMode, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 2: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, sceneMode, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
