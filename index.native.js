@@ -1186,7 +1186,7 @@ class TelinkBtSig {
                         }
                     }
                     if (changed) {
-                        await this.sleepMs(this.DELAY_MS_COMMAND);
+                        // await this.sleepMs(this.DELAY_MS_COMMAND);
                         this.allowSceneCadence = true;
                         break;
                     }
