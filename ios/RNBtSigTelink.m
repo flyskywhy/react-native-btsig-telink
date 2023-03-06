@@ -885,6 +885,16 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
     [SDKLibCommand stopScan];
 }
 
+RCT_EXPORT_METHOD(setCommandsQueueIntervalMs:(NSInteger)interval) {
+    // TODO
+
+    return nil;
+}
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getCommandsQueueIntervalMs) {
+    return 240; // TODO
+}
+
 RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate) {
     if (immediate) {
         [SigMeshLib.share cleanAllCommandsAndRetry];

@@ -438,6 +438,14 @@ class TelinkBtSig {
         return res;
     }
 
+    static setCommandsQueueIntervalMs(interval) {
+        NativeModule.setCommandsQueueIntervalMs(interval);
+    }
+
+    static getCommandsQueueIntervalMs() {
+        return NativeModule.getCommandsQueueIntervalMs();
+    }
+
     static sendCommand({
         opcode,
         meshAddress,

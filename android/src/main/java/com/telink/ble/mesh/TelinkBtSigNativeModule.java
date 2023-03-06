@@ -77,6 +77,7 @@ import com.telink.ble.mesh.core.message.time.TimeGetMessage;
 import com.telink.ble.mesh.core.message.time.TimeSetMessage;
 import com.telink.ble.mesh.core.message.time.TimeStatusMessage;
 import com.telink.ble.mesh.core.networking.ExtendBearerMode;
+import com.telink.ble.mesh.core.networking.NetworkingController;
 import com.telink.ble.mesh.entity.AdvertisingDevice;
 import com.telink.ble.mesh.entity.BindingDevice;
 import com.telink.ble.mesh.entity.CompositionData;
@@ -606,6 +607,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
 
         return byteArr;
+    }
+
+    @ReactMethod
+    public void setCommandsQueueIntervalMs(int interval) {
+        NetworkingController.NETWORK_INTERVAL_DEFAULT = interval;
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public int getCommandsQueueIntervalMs() {
+        return (int)NetworkingController.NETWORK_INTERVAL_DEFAULT;
     }
 
     @ReactMethod

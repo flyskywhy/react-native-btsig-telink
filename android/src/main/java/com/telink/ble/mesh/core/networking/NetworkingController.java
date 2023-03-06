@@ -264,7 +264,7 @@ public class NetworkingController {
      */
     public static final long NETWORK_INTERVAL_FOR_FU = 180; // 240 ms // 320
 
-    public static final long NETWORK_INTERVAL_DEFAULT = 240; // 240 ms // 320
+    public static long NETWORK_INTERVAL_DEFAULT = 240; // 240 ms // 320
 
     /**
      * network packet sent to un-direct connected node should push to queue, and send periodically
