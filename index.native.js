@@ -413,6 +413,61 @@ class TelinkBtSig {
                     isOn: resRaw.params[0] !== 0,
                 };
                 break;
+            case 0x0211E7: {
+                res = {opcode: null}
+                const scene = resRaw.params[0];
+                if (scene === 0xa1) {
+                    const action = resRaw.params[1];
+                    if (action === 6) {
+                        res.opcode = 'FILES_STATUS'
+                        const filesLength = resRaw.params[3];
+                        res.fileType = resRaw.params[4];
+                        res.files = [];
+                        let offset = 5;
+                        for (let i = 0; i < filesLength; i++) {
+                            const version = resRaw.params[offset++];
+                            const nameLength = resRaw.params[offset++];
+                            const name = [];
+                            for (let j = 0; j < nameLength; j++) {
+                                name.push(resRaw.params[offset++]);
+                            }
+                            res.files.push({
+                                version,
+                                name: String.fromCharCode(...name),
+                            })
+                        }
+                    } else if (action === 7) {
+                        res.opcode = 'LOST_CHUNKS_STATUS'
+                        res.fileType = resRaw.params[4];
+                        res.fileVersion = resRaw.params[6];
+                        let offset = 7;
+
+                        const nameLength = resRaw.params[offset++];
+                        const name = [];
+                        for (let i = 0; i < nameLength; i++) {
+                            name.push(resRaw.params[offset++]);
+                        }
+                        res.fileName = String.fromCharCode(...name);
+
+                        const chunkLengthLowByte = resRaw.params[offset++];
+                        const chunkLengthHightByte = resRaw.params[offset++];
+                        res.chunkLength = (chunkLengthHightByte << 8) | chunkLengthLowByte;
+
+                        res.lostChunks = [];
+                        const lostChunksLength = resRaw.params[offset++];
+                        for (let i = 0; i < lostChunksLength; i++) {
+                            res.lostChunks.push(resRaw.params[offset++]);
+                        }
+                    }
+                }
+                res = {
+                    opcode: 'ONOFF_STATUS',
+                    meshAddress: resRaw.meshAddress,
+                    isOnline: true,
+                    isOn: resRaw.params[0] !== 0,
+                };
+                break;
+            }
             case 0x0211F6:
                 res = {
                     opcode: 'SCENE_SYNC',
@@ -644,6 +699,8 @@ class TelinkBtSig {
         scene,
         sceneMode = 5, // e.g. 二维图片的平移方向
         sceneModeOpt = 0, // e.g. 二维图片斜向平移时是否填充空边
+        fileType = 0,
+        fileVersion = 0,
         text = 'flyskywhy',
         hue = 0,
         saturation = 0,
@@ -1118,7 +1175,7 @@ class TelinkBtSig {
 
 //     scene,          // 效果的 id
 //     action,         // 1: 保存数据。固件将之前放置在内存中的数据以 fileName[] 的名义保存到 flash 中
-//     direction,      // 平移方向， 0 为不平移， 1 为东向， 2 为东南向，以此类推，直到 8 为东北向
+//     fileVersion,    // file 的文件版本，范围为 1~255 递增循环
 //     fileName[0],    // fileName 字符串的第一个 ascii 字符值
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
@@ -1146,12 +1203,66 @@ class TelinkBtSig {
 
 //     scene,          // 效果的 id
 //     action,         // 4: 删除数据。固件删除之前以 fileName[] 的名义保存在 flash 中的数据
-//     direction,      // 平移方向， 0 为不平移， 1 为东向， 2 为东南向，以此类推，直到 8 为东北向
+//     rev,            // 保留字节，也许后续有用
 //     fileName[0],    // fileName 字符串的第一个 ascii 字符值
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
 //     fileName[n],    // 以此类推
 //     0,              // 用来表明 fileName 字符串结尾以利于固件 C 代码判断之用
+
+// ### APP 向灯串发出查询文件列表请求的消息数据格式
+
+//     scene,            // 效果的 id
+//     action,           // 5: 查询文件列表
+//     reserve,          // 保留字节
+//     fileType,         // 所要查询的文件类型， 1: 为 gif ； 2: 为 bmp
+
+// ### 灯串应 APP 的查询文件列表请求而返回的消息数据格式(opcode 0x0211E7)
+
+//     scene,            // 效果的 id
+//     action,           // 6: 向 APP 返回当前的文件列表
+//     reserve,          // 保留字节
+//     filesLength,      // 文件个数
+//     fileType,         // 文件类型， 1: 为 gif ； 2: 为 bmp
+//     file0Version,     // file0 的文件版本，范围为 1~255 递增循环
+//     file0NameLength,  // file0Name 的字节长度
+//     file0Name[0],     // file0Name 字符串的第一个 ascii 字符值
+//     file0Name[1],     // file0Name 字符串的第二个 ascii 字符值
+//     ...
+//     file0Name[n],     // 以此类推
+//     file1Version,
+//     file1NameLength,  // file1Name 的字节长度
+//     file1Name[0],     // file1Name 字符串的第一个 ascii 字符值
+//     file1Name[1],     // file1Name 字符串的第二个 ascii 字符值
+//     ...
+//     file1Name[n],     // 以此类推
+//     ...
+
+// ### 灯串收到 APP 的保存命令但发现灯串自己曾有丢包因而无法保存转而向 APP 反馈的消息数据格式(opcode 0x0211E7)
+
+// 灯串向 APP 返回丢包细节的数据格式如下：
+
+//     scene,                  // 效果的 id
+//     action,                 // 7: 向 APP 返回丢包细节
+//     reserve,                // 保留字节
+//     fileType,               // 文件类型， 1: 为 gif ； 2: 为 bmp
+//     fileVersion,            // file 的文件版本，范围为 1~255 递增循环
+//     fileNameLength,         // fileName 的字节长度
+//     fileName[0],            // fileName 字符串的第一个 ascii 字符值
+//     fileName[1],            // fileName 字符串的第二个 ascii 字符值
+//     ...
+//     fileName[n],            // 以此类推
+
+//     // 这里需要考虑特殊情况——灯串丢失了所有传输命令的包，这样 chunkLength 就不可知，然后此时又收到了保存命令。
+//     // 这种情况下做这样的约定：chunkLengthLowByte 、 chunkLengthHightByte 和 lostChunksLength 皆设为 0
+//     chunkLengthLowByte,     // 当前 chunk 的字节长度，由两个字节表示，本字节为低位字节
+//     chunkLengthHightByte,   // 当前 chunk 的字节长度，由两个字节表示，本字节为高位字节
+
+//     lostChunksLength,       // 共丢失了几个 chunk
+//     lostChunksIndex[0],     // 所丢失的某个 chunk 的 chunksIndex （不一定是 0）
+//     lostChunksIndex[1],     // 所丢失的某个 chunk 的 chunksIndex （不一定是 1）
+//     ...
+//     lostChunksIndex[n],     // 以此类推
 
                                switch (bigDataAction) {
                                     case 0: {
@@ -1161,14 +1272,23 @@ class TelinkBtSig {
                                         changed = true;
                                         break;
                                     }
-                                    case 1:
-                                    case 4: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, sceneMode, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                    case 1: {
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 2: {
                                         NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, sceneMode, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        changed = true;
+                                        break;
+                                    }
+                                    case 4: {
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        changed = true;
+                                        break;
+                                    }
+                                    case 5: {
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, fileType, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
