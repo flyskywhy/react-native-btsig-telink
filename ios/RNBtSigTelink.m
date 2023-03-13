@@ -888,11 +888,11 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
 RCT_EXPORT_METHOD(setCommandsQueueIntervalMs:(NSInteger)interval) {
     // TODO
 
-    return nil;
+//    return nil;
 }
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getCommandsQueueIntervalMs) {
-    return 240; // TODO
+    return [NSNumber numberWithInt:240]; // TODO
 }
 
 RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate) {
