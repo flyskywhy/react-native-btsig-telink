@@ -352,6 +352,13 @@ class TelinkBtSig {
                         // 这就是为何下面的 parseVendorResponse() 中有 0x0211E3 存在
                         NativeModule.sendCommand(0x0211E1, this.defaultAllGroupAddress, [], this.OPCODE_INVALID, -1, false);
 
+                        // await this.sleepMs(1000);
+                        // 获取 GIF 文件列表的状态
+                        NativeModule.sendCommand(0x0211E6, this.defaultAllGroupAddress, [0xa1, 5, 1, 1, 0xFF], this.OPCODE_INVALID, -1, false)
+                        await this.sleepMs(1000);
+                        // 获取 BMP 文件列表的状态
+                        NativeModule.sendCommand(0x0211E6, this.defaultAllGroupAddress, [0xa1, 5, 1, 2, 0xFF], this.OPCODE_INVALID, -1, false)
+
                         changed = true;
                     }
                     break;
@@ -414,8 +421,10 @@ class TelinkBtSig {
                 };
                 break;
             case 0x0211E7: {
-                res = {opcode: null}
-                const scene = resRaw.params[0];
+                res = {
+                    meshAddress: resRaw.meshAddress,
+                }
+                const scene = resRaw.params[0] & 0xff;
                 if (scene === 0xa1) {
                     const action = resRaw.params[1];
                     if (action === 6) {
@@ -438,9 +447,9 @@ class TelinkBtSig {
                         }
                     } else if (action === 7) {
                         res.opcode = 'LOST_CHUNKS_STATUS'
-                        res.fileType = resRaw.params[4];
-                        res.fileVersion = resRaw.params[6];
-                        let offset = 7;
+                        res.fileType = resRaw.params[3];
+                        res.fileVersion = resRaw.params[4];
+                        let offset = 5;
 
                         const nameLength = resRaw.params[offset++];
                         const name = [];
@@ -449,9 +458,9 @@ class TelinkBtSig {
                         }
                         res.fileName = String.fromCharCode(...name);
 
-                        const chunkLengthLowByte = resRaw.params[offset++];
-                        const chunkLengthHightByte = resRaw.params[offset++];
-                        res.chunkLength = (chunkLengthHightByte << 8) | chunkLengthLowByte;
+                        const maxChunkLengthLowByte = resRaw.params[offset++] & 0xff;
+                        const maxChunkLengthHightByte = resRaw.params[offset++] & 0xff;
+                        res.maxChunkLength = (maxChunkLengthHightByte << 8) | maxChunkLengthLowByte;
 
                         res.lostChunks = [];
                         const lostChunksLength = resRaw.params[offset++];
@@ -460,12 +469,6 @@ class TelinkBtSig {
                         }
                     }
                 }
-                res = {
-                    opcode: 'ONOFF_STATUS',
-                    meshAddress: resRaw.meshAddress,
-                    isOnline: true,
-                    isOn: resRaw.params[0] !== 0,
-                };
                 break;
             }
             case 0x0211F6:
@@ -699,7 +702,6 @@ class TelinkBtSig {
         scene,
         sceneMode = 5, // e.g. 二维图片的平移方向
         sceneModeOpt = 0, // e.g. 二维图片斜向平移时是否填充空边
-        fileType = 0,
         fileVersion = 0,
         text = 'flyskywhy',
         hue = 0,
@@ -727,6 +729,7 @@ class TelinkBtSig {
         chunksIndex,
         chunksCount,
         chunk,
+        maxChunkLength = 200,
 
         type,
         productCategory = 0xFF,
@@ -1156,6 +1159,12 @@ class TelinkBtSig {
 //     scene,          // 效果的 id
 //     action,         // 0: 传输数据。固件此时可以仅仅在内存中放置数据
 //     speed,          // 速度。 bmp 时指 gif 的 fps ； gif 时该值无所谓（因为 gif 文件内含 fps ）
+//     1,              // 颜色个数为 1
+//     reserve,        // 固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t
+//     color3.r,
+//     color3.g,
+//     color3.b;       // 颜色
+//     rev,            // 保留字节，也许后续有用
 //     datasIndex,     // 当前 chunk 属于二维数组中的哪个数组。 bmp 时，表明当前 chunk 属于第 0...n 幅的 bmp ； gif 时，总为 0
 //     datasCount,     // 二维数组包含几个数组。 bmp 时，一共几幅 bmp ； gif 时，总为 1
 //     chunksIndex,    // 当前 chunk 属于当前数组的第 0...n 部分
@@ -1175,6 +1184,10 @@ class TelinkBtSig {
 
 //     scene,          // 效果的 id
 //     action,         // 1: 保存数据。固件将之前放置在内存中的数据以 fileName[] 的名义保存到 flash 中
+//     rev,            // 保留字节，也许后续有用
+//     maxChunkLengthLowByte,     // APP 分割文件时所用的基准长度，一般与第一个 chunk 的字节长度相同，由两个字节表示，本字节为低位字节
+//     maxChunkLengthHightByte,   // APP 分割文件时所用的基准长度，一般与第一个 chunk 的字节长度相同，由两个字节表示，本字节为高位字节
+//     fileType,       // 文件类型， 1: 为 gif ； 2: 为 bmp ，其实就是上面的 dataType ，放在这里是为了方便固件编写丢包细节的代码
 //     fileVersion,    // file 的文件版本，范围为 1~255 递增循环
 //     fileName[0],    // fileName 字符串的第一个 ascii 字符值
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
@@ -1193,6 +1206,7 @@ class TelinkBtSig {
 //     color3.g,
 //     color3.b;       // 颜色
 //     direction,      // 平移方向， 0 为不平移， 1 为东向， 2 为东南向，以此类推，直到 8 为东北向
+//     rev,            // 保留字节，也许后续有用
 //     fileName[0],    // fileName 字符串的第一个 ascii 字符值
 //     fileName[1],    // fileName 字符串的第二个 ascii 字符值
 //     ...
@@ -1253,10 +1267,12 @@ class TelinkBtSig {
 //     ...
 //     fileName[n],            // 以此类推
 
-//     // 这里需要考虑特殊情况——灯串丢失了所有传输命令的包，这样 chunkLength 就不可知，然后此时又收到了保存命令。
-//     // 这种情况下做这样的约定：chunkLengthLowByte 、 chunkLengthHightByte 和 lostChunksLength 皆设为 0
-//     chunkLengthLowByte,     // 当前 chunk 的字节长度，由两个字节表示，本字节为低位字节
-//     chunkLengthHightByte,   // 当前 chunk 的字节长度，由两个字节表示，本字节为高位字节
+//     // 这里需要考虑特殊情况：
+//     // 1、灯串丢失了所有传输命令的包，这样 lostChunksLength 就不可知，然后此时又收到了保存命令
+//     // 2、灯串丢失了超过 200 个包，这样本命令就有可能超过一条蓝牙命令的最大值 240 字节
+//     // 这些情况下做这样的约定：maxChunkLengthLowByte 、 maxChunkLengthLowByte 和 lostChunksLength 皆设为 0
+//     maxChunkLengthLowByte,     // APP 分割文件时所用的基准长度，一般与第一个 chunk 的字节长度相同，由两个字节表示，本字节为低位字节
+//     maxChunkLengthHightByte,   // APP 分割文件时所用的基准长度，一般与第一个 chunk 的字节长度相同，由两个字节表示，本字节为高位字节
 
 //     lostChunksLength,       // 共丢失了几个 chunk
 //     lostChunksIndex[0],     // 所丢失的某个 chunk 的 chunksIndex （不一定是 0）
@@ -1266,19 +1282,21 @@ class TelinkBtSig {
 
                                switch (bigDataAction) {
                                     case 0: {
-                                        let chunkLengthLowByte = chunk.length & 0xFF;
-                                        let chunkLengthHightByte = chunk.length >> 8 & 0xFF;
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        const chunkLengthLowByte = chunk.length & 0xff;
+                                        const chunkLengthHightByte = (chunk.length >> 8) & 0xff;
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, 1, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 1: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        const maxChunkLengthLowByte = maxChunkLength & 0xff;
+                                        const maxChunkLengthHightByte = (maxChunkLength >> 8) & 0xff;
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 2: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, sceneMode, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, sceneMode, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
@@ -1288,7 +1306,7 @@ class TelinkBtSig {
                                         break;
                                     }
                                     case 5: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, fileType, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, bigDataType, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
