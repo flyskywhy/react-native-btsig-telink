@@ -426,19 +426,19 @@ class TelinkBtSig {
                 }
                 const scene = resRaw.params[0] & 0xff;
                 if (scene === 0xa1) {
-                    const action = resRaw.params[1];
+                    const action = resRaw.params[1] & 0xff;
                     if (action === 6) {
                         res.opcode = 'FILES_STATUS'
-                        const filesLength = resRaw.params[3];
-                        res.fileType = resRaw.params[4];
+                        const filesLength = resRaw.params[3] & 0xff;
+                        res.fileType = resRaw.params[4] & 0xff;
                         res.files = [];
                         let offset = 5;
                         for (let i = 0; i < filesLength; i++) {
-                            const version = resRaw.params[offset++];
-                            const nameLength = resRaw.params[offset++];
+                            const version = resRaw.params[offset++] & 0xff;
+                            const nameLength = resRaw.params[offset++] & 0xff;
                             const name = [];
                             for (let j = 0; j < nameLength; j++) {
-                                name.push(resRaw.params[offset++]);
+                                name.push(resRaw.params[offset++] & 0xff);
                             }
                             res.files.push({
                                 version,
@@ -447,14 +447,14 @@ class TelinkBtSig {
                         }
                     } else if (action === 7) {
                         res.opcode = 'LOST_CHUNKS_STATUS'
-                        res.fileType = resRaw.params[3];
-                        res.fileVersion = resRaw.params[4];
+                        res.fileType = resRaw.params[3] & 0xff;
+                        res.fileVersion = resRaw.params[4] & 0xff;
                         let offset = 5;
 
-                        const nameLength = resRaw.params[offset++];
+                        const nameLength = resRaw.params[offset++] & 0xff;
                         const name = [];
                         for (let i = 0; i < nameLength; i++) {
-                            name.push(resRaw.params[offset++]);
+                            name.push(resRaw.params[offset++] & 0xff);
                         }
                         res.fileName = String.fromCharCode(...name);
 
@@ -463,9 +463,9 @@ class TelinkBtSig {
                         res.maxChunkLength = (maxChunkLengthHightByte << 8) | maxChunkLengthLowByte;
 
                         res.lostChunks = [];
-                        const lostChunksLength = resRaw.params[offset++];
+                        const lostChunksLength = resRaw.params[offset++] & 0xff;
                         for (let i = 0; i < lostChunksLength; i++) {
-                            res.lostChunks.push(resRaw.params[offset++]);
+                            res.lostChunks.push(resRaw.params[offset++] & 0xff);
                         }
                     }
                 }
