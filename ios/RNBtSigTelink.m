@@ -753,20 +753,31 @@ RCT_EXPORT_METHOD(autoConnect) {
 
 - (void)bearerDidOpen:(SigBearer *)bearer {
     __weak typeof(self) weakSelf = self;
-    CBPeripheral *tem = [SigBearer.share getCurrentPeripheral];
-    SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:tem.identifier.UUIDString];
-    SigNodeModel *node = [SigDataSource.share getNodeWithAddress:scanRspModel.address];
-    NSLog(@"TelinkBtSig connected %d %@ %@", scanRspModel.address, node.macAddress, tem.identifier.UUIDString);
+//    CBPeripheral *tem = [SigBearer.share getCurrentPeripheral];
+//    SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:tem.identifier.UUIDString];
 
-    // TODO: telink sdk why cause NSLog "TelinkBtSig connected 0 (null)" first?
-    if (scanRspModel.address == 0) {
+    // with telink APP sdk 3.3.3.5 and FW sdk 3.2.1, scanRspModel.address will always be 0,
+    // so not use scanRspModel here
+//    SigNodeModel *node = [SigDataSource.share getNodeWithAddress:scanRspModel.address];
+
+    // can use getCurrentConnectedNode so not use tem.identifier.UUIDString here
+//    SigNodeModel *node = [SigMeshLib.share.dataSource getNodeWithUUID:tem.identifier.UUIDString];
+
+    SigNodeModel *node = SigMeshLib.share.dataSource.getCurrentConnectedNode;
+
+    int address = [node address];
+    NSLog(@"TelinkBtSig getCurrentConnectedNode %d %@", address, node.macAddress);
+
+    // when device is pluged in, address is 0 in 1st call of bearerDidOpen,
+    // then after 620ms will 2nd call to be not 0 but e.g. 1
+    if (address == 0) {
         return;
     }
 
-    NSLog(@"TelinkBtSig deviceStatusLogin address:%d", [node address]);
-    self.connectMeshAddress = [node address];
+    NSLog(@"TelinkBtSig deviceStatusLogin address:%d", address);
+    self.connectMeshAddress = address;
     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-    [dict setObject:[NSNumber numberWithInt:[node address]] forKey:@"connectMeshAddress"];
+    [dict setObject:[NSNumber numberWithInt:address] forKey:@"connectMeshAddress"];
     [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
 }
 
