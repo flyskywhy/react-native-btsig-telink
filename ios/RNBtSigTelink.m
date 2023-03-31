@@ -342,7 +342,10 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     if (extendBearerMode == SigTelinkExtendBearerMode_noExtend) {
         SigDataSource.share.defaultUnsegmentedMessageLowerTransportPDUMaxLength = kUnsegmentedMessageLowerTransportPDUMaxLength;
     } else {
-         SigDataSource.share.defaultUnsegmentedMessageLowerTransportPDUMaxLength = kDLEUnsegmentLength;
+        // 这里 kDLEUnsegmentLength = 229 与 Android 版本中的
+        // UNSEGMENTED_ACCESS_PAYLOAD_MAX_LENGTH_LONG = 225
+        // 是能对应起来的，因为 Android 版本中可以看到 Transport 和 PAYLOAD 都是差 4 个字节
+        SigDataSource.share.defaultUnsegmentedMessageLowerTransportPDUMaxLength = kDLEUnsegmentLength;
     }
 
     SigDataSource.share.fipsP256EllipticCurve = SigFipsP256EllipticCurve_auto;
