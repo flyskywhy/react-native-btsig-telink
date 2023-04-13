@@ -875,6 +875,10 @@ public final class MeshController implements ProvisioningBridge, NetworkingBridg
         mNetworkingController.clearMeshMessage(true);
     }
 
+    public int getCommandQueueLength() {
+        return mNetworkingController.getCommandQueueLength();
+    }
+
     /**
      * send mesh message
      * include config message and common message

@@ -258,6 +258,10 @@ public class MeshService implements MeshController.EventCallback {
         mController.clearMeshMessage();
     }
 
+    public int getCommandQueueLength() {
+        return mController.getCommandQueueLength();
+    }
+
     /**
      * send mesh message
      * 1. if message is reliable (with ack), message.responseOpcode should be valued by message ack opcode

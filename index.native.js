@@ -6,10 +6,12 @@ const {
 } = require('react-native');
 const NativeModule = NativeModules.TelinkBtSig;
 const tinycolor = require("tinycolor2");
+const createNewFifo = require('fifo');
 const MeshSigModel = require("./MeshSigModel");
 const NodeInfo = require("./NodeInfo");
 const {CompositionData} = require("./CompositionData");
 const PrivateDevice = require("./PrivateDevice");
+const Opcode = require("./Opcode");
 
 class TelinkBtSig {
     static MESH_ADDRESS_MIN = 0x0001;
@@ -96,6 +98,13 @@ class TelinkBtSig {
     static ALARM_ACTION_NO = 0xF;
     static ALARM_TYPE_DAY = 0;
     static ALARM_TYPE_WEEK = 1;
+
+    static commandFifoConsumer = undefined;
+    static commandRspBusy = false;
+    static DELAY_MS_FIFO = 240;
+    // ref to getReliableMessageTimeout() in
+    // android/src/main/java/COM/TELINK/BLE/MESH/CORE/NETWORKING/NETWORKINGCONTROLLER.JAVA
+    static DELAY_MS_CMD_RSP_TIMEOUT = 5000;
 
     // ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
     static OPCODE_INVALID = -1;
@@ -269,9 +278,27 @@ class TelinkBtSig {
             this.getOnlineStatueTimer && clearInterval(this.getOnlineStatueTimer);
             this.getOnlineStatueTimer = setInterval(NativeModule.getOnlineStatue, 5000);
         }
+
+        this.DELAY_MS_FIFO = this.getCommandsQueueIntervalMs();
+        this.commandFifoConsumer = {
+            fifo: createNewFifo(),
+            consumer: (fc) => {
+                if (!this.commandRspBusy && fc.fifo.length) {
+                    const commandHandler = fc.fifo.shift();
+                    commandHandler();
+                    fc.lastWriteDate = new Date();
+                }
+                fc.timer = setTimeout(() => fc.consumer(fc), this.DELAY_MS_FIFO);
+            },
+            timer: undefined,
+            lastWriteDate: new Date(),
+        }
     }
 
     static doDestroy() {
+        commandFifoConsumer.timer && clearTimeout(commandFifoConsumer.timer);
+        commandFifoConsumer.consumer = () => {};
+
         this.getOnlineStatueTimer && clearTimeout(this.getOnlineStatueTimer);
         NativeModule.doDestroy();
     }
@@ -371,21 +398,63 @@ class TelinkBtSig {
                 // 如果后续从蓝牙设备固件代码中得知 telink 也实现了（应该实现了） sig mesh 协议中
                 // model 之间关联功能，放到这里就是实现了亮度 modle 如果亮度为 <= 0 的话就会关联
                 // 开关灯 model 为关灯状态，则此处可以不再使用 Opcode.G_ONOFF_GET 而只用 Opcode.LIGHT_CTL_GET 等代替
-                                      // Opcode.G_ONOFF_GET                    // Opcode.G_ONOFF_STATUS
-                NativeModule.sendCommand(0x0182, this.defaultAllGroupAddress, [], 0x0482, -1, immediate);
+                NativeModule.sendCommand(Opcode.G_ONOFF_GET, this.defaultAllGroupAddress, [], Opcode.G_ONOFF_STATUS, -1, immediate);
+                // await this.sendCommandRsp({
+                //     opcode: Opcode.G_ONOFF_GET,
+                //     meshAddress: this.defaultAllGroupAddress,
+                //     valueArray: [],
+                //     rspOpcode: Opcode.G_ONOFF_STATUS,
+                //     relayTimes: 0,
+                //     tidPosition: -1,
+                //     immediate: false,
+                // });
 
                 // 下面注释掉的 Get Opcode 仅用于测试
-                                         // Opcode.G_LEVEL_GET                    // Opcode.G_LEVEL_STATUS
-                // NativeModule.sendCommand(0x0582, this.defaultAllGroupAddress, [], 0x0882, -1, false);
-                                        // Opcode.LIGHTNESS_GET                   // Opcode.LIGHTNESS_STATUS
-                // NativeModule.sendCommand(0x4B82, this.defaultAllGroupAddress, [], 0x4E82, -1, false);
+
+                // NativeModule.sendCommand(Opcode.G_LEVEL_GET, this.defaultAllGroupAddress, [], Opcode.G_LEVEL_STATUS, -1, false);
+                // await this.sendCommandRsp({
+                //     opcode: Opcode.G_LEVEL_GET,
+                //     meshAddress: this.defaultAllGroupAddress,
+                //     valueArray: [],
+                //     rspOpcode: Opcode.G_LEVEL_STATUS,
+                //     relayTimes: 0,
+                //     tidPosition: -1,
+                //     immediate: false,
+                // });
+
+                // NativeModule.sendCommand(Opcode.LIGHTNESS_GET, this.defaultAllGroupAddress, [], Opcode.LIGHTNESS_STATUS, -1, false);
+                // await this.sendCommandRsp({
+                //     opcode: Opcode.LIGHTNESS_GET,
+                //     meshAddress: this.defaultAllGroupAddress,
+                //     valueArray: [],
+                //     rspOpcode: Opcode.LIGHTNESS_STATUS,
+                //     relayTimes: 0,
+                //     tidPosition: -1,
+                //     immediate: false,
+                // });
 
                 // 如 TelinkBtSigNativeModule.java 的 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
-                                      // Opcode.LIGHT_CTL_GET                  // Opcode.LIGHT_CTL_STATUS
-                NativeModule.sendCommand(0x5D82, this.defaultAllGroupAddress, [], 0x6082, -1, false);
+                NativeModule.sendCommand(Opcode.LIGHT_CTL_GET, this.defaultAllGroupAddress, [], Opcode.LIGHT_CTL_STATUS, -1, false);
+                // await this.sendCommandRsp({
+                //     opcode: Opcode.LIGHT_CTL_GET,
+                //     meshAddress: this.defaultAllGroupAddress,
+                //     valueArray: [],
+                //     rspOpcode: Opcode.LIGHT_CTL_STATUS,
+                //     relayTimes: 0,
+                //     tidPosition: -1,
+                //     immediate: false,
+                // });
 
-                                         // Opcode.LIGHT_CTL_TEMP_GET             // Opcode.LIGHT_CTL_TEMP_STATUS
-                // NativeModule.sendCommand(0x6182, this.defaultAllGroupAddress, [], 0x6682, -1, false);
+                // NativeModule.sendCommand(Opcode.LIGHT_CTL_TEMP_GET, this.defaultAllGroupAddress, [], Opcode.LIGHT_CTL_TEMP_STATUS, -1, false);
+                // await this.sendCommandRsp({
+                //     opcode: Opcode.LIGHT_CTL_TEMP_GET,
+                //     meshAddress: this.defaultAllGroupAddress,
+                //     valueArray: [],
+                //     rspOpcode: Opcode.LIGHT_CTL_TEMP_STATUS,
+                //     relayTimes: 0,
+                //     tidPosition: -1,
+                //     immediate: false,
+                // });
             }
         }
     }
@@ -498,12 +567,43 @@ class TelinkBtSig {
 
     static setCommandsQueueIntervalMs(interval) {
         NativeModule.setCommandsQueueIntervalMs(interval);
+        this.DELAY_MS_FIFO = interval;
     }
 
     static getCommandsQueueIntervalMs() {
         return NativeModule.getCommandsQueueIntervalMs();
     }
 
+    static clearCommandFifo({
+        opcodeImmediate,
+    }) {
+        NativeModule.clearCommandQueue();
+        let fc = this.commandFifoConsumer;
+        for (let i = 0; i < fc.fifo.length; i++) {
+            const cmd = fc.fifo.shift();
+            if (cmd && cmd.resolve && cmd.reject) {
+                reject(new TypeError('opcode ' + cmd.opcode.toString(16) + 'is canceled by opcode ' + opcodeImmediate.toString(16)));
+            }
+        }
+    }
+
+    static addCommandFifo(fifoData) {
+        const fc = this.commandFifoConsumer;
+        if (!this.commandRspBusy && fc.fifo.length === 0 &&
+            new Date() - fc.lastWriteDate > this.DELAY_MS_FIFO) {
+            fc.timer && clearTimeout(fc.timer);
+            fc.fifo.push(fifoData);
+            fc.consumer(fc);
+        } else {
+            fc.fifo.push(fifoData);
+        }
+    }
+
+    static getCmdRspTimeoutMs() {
+        return NativeModule.getCommandQueueLength() * this.DELAY_MS_FIFO + this.DELAY_MS_CMD_RSP_TIMEOUT;
+    }
+
+    // without response, quickly (1/3 time of this.sendCommandRsp below), but despite whether devices received cmd
     static sendCommand({
         opcode,
         meshAddress,
@@ -512,7 +612,74 @@ class TelinkBtSig {
         tidPosition = -1, // if > 0 , means the tid is stored in valueArray[tidPosition - 1]
         immediate = false,
     }) {
-        NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, immediate);
+        // NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, immediate);
+        // 在无需 rsp 时，使用上面的 NativeModule.sendCommand() 能够将命令堆入 native 层的队列中，
+        // 然后 native 会定时(240ms)从队列中取出一个命令从蓝牙硬件发送出去，如果 APP 迅速比如在循环
+        // 中多次调用 this.sendCommand() 使得 native 层的队列堆积起来，然后再将下面的 this.sendCommandRsp()
+        // 所管理的 fifo 定时(240ms)取出的一个命令堆入 native 层的队列，则一切也都可以正常工作。
+        // 实测的让这里的 this.sendCommand() 也用 fifo 管理，这两个定时貌似也能很好地匹配、当然此
+        // 时 this.sendCommand() 到蓝牙硬件发送的时间可能会稍微长一点点，如果业务需求这个时间一定要
+        // 越短越好的，则使用 {immediate: true} 即可。
+        if (immediate) {
+            this.commandFifoConsumer.fifo.length && this.clearCommandFifo({
+                opcodeImmediate: opcode,
+            })
+            NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, true);
+        } else {
+            this.addCommandFifo(() => {
+                NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, false);
+            });
+        }
+    }
+
+    // with Promise response, 3x slower than this.sendCommand() above, but more ensure
+    //
+    // here relayTimes also named responseMax, means native will not resolve Promise until
+    // receive relayTimes response with rspOpcode from device, so APP can
+    // sendCommandRsp({relayTimes: onlineCountInGroup}) where onlineCountInGroup is:
+    //   1 or 0 if MESH_ADDRESS is online or not
+    //   online count if GROUP_ADDRESS or defaultAllGroupAddress
+    static sendCommandRsp({
+        opcode,
+        meshAddress,
+        valueArray, // means the MeshMessage.params on Android, IniCommandModel.commandData on iOS
+        rspOpcode = this.OPCODE_INVALID,
+        relayTimes,
+        tidPosition = -1, // if > 0 , means the tid is stored in valueArray[tidPosition - 1]
+        immediate = false,
+    }) {
+        if (immediate) {
+            this.clearCommandFifo({
+                opcodeImmediate: opcode,
+            })
+        }
+
+        // use fifo and Promise and this.commandRspBusy to avoid the BUG: if current
+        // rsp command not get rspMax rsp to means complete, but here comes next rsp
+        // command, then will `reliable message send err: busy` with reliableBusy in
+        // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
+        // in another word, APP now can `await this.sendCommandRsp()` or just `this.sendCommandRsp()`
+        // many times quickly(no need wait 240ms), and still ensure every cmd works fine
+        return new Promise((resolve, reject) => this.addCommandFifo(() => {
+            this.commandRspBusy = true;
+            const timeout = this.getCmdRspTimeoutMs();
+            let timer = setTimeout(() => {
+                this.commandRspBusy = false;
+                // to ensure exit Promise if `reject(error)` never invoked from native
+                reject(new TypeError('sendCommandRsp @' + meshAddress + ' time out ' + timeout + 'ms'));
+            }, timeout);
+            NativeModule.sendCommandRsp(opcode, meshAddress, valueArray, rspOpcode, relayTimes, tidPosition, false).then(payload => {
+                clearTimeout(timer);
+                this.commandRspBusy = false;
+                resolve(payload);
+            }, error => {
+                clearTimeout(timer);
+                this.commandRspBusy = false;
+                // after retry in native (DEFAULT_RETRY_CNT = 2 in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java)
+                // still error then reject here to APP
+                reject(error);
+            });
+        }));
     }
 
     // 让灯爆闪几下
@@ -555,6 +722,7 @@ class TelinkBtSig {
                         changed = true;
                         // react-native-btsig-telink@1.x 测试发现还需要再次查看开关状态才能保证群发关闭 3 个设备后获得所有设备的关灯状态
                         // TODO: 在 react-native-btsig-telink@2.x 中进行测试
+                        // TODO: 将这里的 sendCommand 改为 this.sendCommandRsp 应该就能保证开关灯状态
                         await this.sleepMs(this.DELAY_MS_COMMAND);
                         NativeModule.sendCommand(0x0211E1, this.defaultAllGroupAddress, [], this.OPCODE_INVALID, -1, false);
                     }
@@ -698,6 +866,7 @@ class TelinkBtSig {
 
     static async changeScene({
         meshAddress,
+        relayTimes = 0,
         sceneSyncMeshAddress,
         scene,
         sceneMode = 5, // e.g. 二维图片的平移方向
@@ -1228,14 +1397,14 @@ class TelinkBtSig {
 
 //     scene,            // 效果的 id
 //     action,           // 5: 查询文件列表
-//     reserve,          // 保留字节
+//     rev,              // 保留字节
 //     fileType,         // 所要查询的文件类型， 1: 为 gif ； 2: 为 bmp
 
 // ### 灯串应 APP 的查询文件列表请求而返回的消息数据格式(opcode 0x0211E7)
 
 //     scene,            // 效果的 id
 //     action,           // 6: 向 APP 返回当前的文件列表
-//     reserve,          // 保留字节
+//     rev,              // 保留字节
 //     filesLength,      // 文件个数
 //     fileType,         // 文件类型， 1: 为 gif ； 2: 为 bmp
 //     file0Version,     // file0 的文件版本，范围为 1~255 递增循环
@@ -1284,29 +1453,58 @@ class TelinkBtSig {
                                     case 0: {
                                         const chunkLengthLowByte = chunk.length & 0xff;
                                         const chunkLengthHightByte = (chunk.length >> 8) & 0xff;
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, 1, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        let schema = 0;
+                                        // console.warn('transfer', meshAddress, chunksIndex + '/' + (chunksCount - 1), relayTimes);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        // 上面所花时间是下面 await rsp 的 1/3 （30个包每包200字节时测得 7s/20s），所以使用上面的
+                                        // await this.sendCommandRsp({
+                                        //     opcode: 0x0211E4,
+                                        //     meshAddress,
+                                        //     valueArray: [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory],
+                                        //     rspOpcode: 0x0211E7,
+                                        //     relayTimes,
+                                        //     tidPosition: -1,
+                                        //     immediate,
+                                        // });
                                         changed = true;
                                         break;
                                     }
                                     case 1: {
                                         const maxChunkLengthLowByte = maxChunkLength & 0xff;
                                         const maxChunkLengthHightByte = (maxChunkLength >> 8) & 0xff;
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        let schema = 0;
+                                        // console.warn('save', {meshAddress, responMax: relayTimes, bigDataAction, maxChunkLengthLowByte, bigDataType, fileVersion, text});
+                                        // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], 0x0211E7, -1, immediate);
+                                        await this.sendCommandRsp({
+                                            opcode: 0x0211E4,
+                                            meshAddress,
+                                            valueArray: [scene, bigDataAction, 1, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory],
+                                            rspOpcode: 0x0211E7,
+                                            relayTimes,
+                                            tidPosition: -1,
+                                            immediate,
+                                        });
                                         changed = true;
                                         break;
                                     }
                                     case 2: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, sceneMode, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        let rev = 0;
+                                        // console.warn('show', bigDataAction, text, sceneMode);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 4: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        let rev = 0;
+                                        // console.warn('delete', bigDataAction, text, sceneMode);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, rev, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 5: {
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, bigDataType, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        let rev = 0;
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, rev, bigDataType, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
@@ -1341,8 +1539,8 @@ class TelinkBtSig {
         }
 
         if (!changed) {
-          // 0x4282(SCENE_RECALL) in is_cmd_with_tid() vendor/common/generic_model.c is 2
-            NativeModule.sendCommand(0x4282, meshAddress, [scene], this.OPCODE_INVALID, 2, immediate);
+                       // 0x4282(SCENE_RECALL) in is_cmd_with_tid() vendor/common/generic_model.c is 2
+            NativeModule.sendCommand(Opcode.SCENE_RECALL, meshAddress, [scene], this.OPCODE_INVALID, 2, immediate);
         }
     }
 
@@ -1529,19 +1727,31 @@ class TelinkBtSig {
     }
 
     static getTime({
-        meshAddress,
-        relayTimes,
+        meshAddress, // only support mesh address, no group address
+        relayTimes, // should be 0 or 1
     }) {
-        return new Promise((resolve, reject) => {
-            let timer = setTimeout(() => reject(new TypeError('getTime time out')), 10000);
+        return new Promise((resolve, reject) => this.addCommandFifo(() => {
+            this.commandRspBusy = true;
+            const timeout = this.getCmdRspTimeoutMs();
+            let timer = setTimeout(() => {
+                this.commandRspBusy = false;
+                reject(new TypeError('getTime @' + meshAddress + ' time out ' + timeout + 'ms'))
+            }, timeout);
             NativeModule.getTime(meshAddress, relayTimes).then(payload => {
                 clearTimeout(timer);
+                this.commandRspBusy = false;
                 resolve({
                     ...payload,
                     time: parseInt(payload.time, 10), // seconds from 1970
                 });
-            }, reject);
-        });
+            }, error => {
+                clearTimeout(timer);
+                this.commandRspBusy = false;
+                // after retry in native (DEFAULT_RETRY_CNT = 2 in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java)
+                // still error then reject here to APP
+                reject(error);
+            });
+        }));
     }
 
     static setAlarm({
@@ -1570,14 +1780,20 @@ class TelinkBtSig {
     }
 
     static getAlarm({
-        meshAddress,
-        relayTimes,
+        meshAddress, // only support mesh address, no group address
+        relayTimes, // should be 0 or 1
         alarmId,
     }) {
-        return new Promise((resolve, reject) => {
-            let timer = setTimeout(() => reject(new TypeError(alarmId + ' getAlarm time out')), 10000);
+        return new Promise((resolve, reject) => this.addCommandFifo(() => {
+            this.commandRspBusy = true;
+            const timeout = this.getCmdRspTimeoutMs();
+            let timer = setTimeout(() => {
+                this.commandRspBusy = false;
+                reject(new TypeError('getAlarm ' + alarmId + '@' + meshAddress + ' time out ' + timeout + 'ms'));
+            }, timeout);
             NativeModule.getAlarm(meshAddress, relayTimes, alarmId).then(payload => {
                 clearTimeout(timer);
+                this.commandRspBusy = false;
                 if (payload.action === 0 && payload.week === 0 && payload.month === 0 && payload.year === 0) {
                     reject(new TypeError(payload.alarmId + ' getAlarm data 0'))
                 } else {
@@ -1598,8 +1814,14 @@ class TelinkBtSig {
                         type: payload.day === 0 ? this.ALARM_TYPE_WEEK : this.ALARM_TYPE_DAY,
                     });
                 }
-            }, reject);
-        });
+            }, error => {
+                clearTimeout(timer);
+                this.commandRspBusy = false;
+                // after retry in native (DEFAULT_RETRY_CNT = 2 in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java)
+                // still error then reject here to APP
+                reject(error);
+            });
+        }));
     }
 
     static cascadeLightStringGroup({ // 用于将一个组中的几个灯串级联模拟成一个灯串

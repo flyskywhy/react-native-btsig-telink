@@ -1266,6 +1266,9 @@ public class NetworkingController {
         }
     }
 
+    public int getCommandQueueLength() {
+        return mNetworkingQueue.size();
+    }
 
     /**
      * reliable command complete

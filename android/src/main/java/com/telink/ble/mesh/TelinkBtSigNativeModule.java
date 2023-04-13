@@ -102,6 +102,7 @@ import com.telink.ble.mesh.foundation.event.MeshEvent;
 import com.telink.ble.mesh.foundation.event.NetworkInfoUpdateEvent;
 import com.telink.ble.mesh.foundation.event.OnlineStatusEvent;
 import com.telink.ble.mesh.foundation.event.ProvisioningEvent;
+import com.telink.ble.mesh.foundation.event.ReliableMessageProcessEvent;
 import com.telink.ble.mesh.foundation.event.ScanEvent;
 import com.telink.ble.mesh.foundation.event.StatusNotificationEvent;
 import com.telink.ble.mesh.foundation.parameter.AutoConnectParameters;
@@ -224,6 +225,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private Promise mClaimAllAtOncePromise;
     private Promise mConfigNodeResetPromise;
     private Promise mSetNodeGroupAddrPromise;
+    private Promise mSendCommandPromise = null;
     private Promise mGetTimePromise;
     private Promise mGetAlarmPromise;
     private Promise mStartOtaPromise;
@@ -620,6 +622,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
+    public void clearCommandQueue() {
+        mService.clearMeshMessage();
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public int getCommandQueueLength() {
+        return mService.getCommandQueueLength();
+    }
+
+    @ReactMethod
     public void sendCommand(int opcode, int meshAddress, ReadableArray value, int rspOpcode, int tidPosition, boolean immediate) {
         // telink sdk 3.1.0 do not but 3.3.3.5 do has a queue to cache commands,
         // so let immediate make sense in 3.3.3.5
@@ -636,9 +648,60 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // meshMessage.setAccessType(accessType);
         meshMessage.setResponseOpcode(rspOpcode);
 
-        // meshMessage.setResponseMax(2);
-
         mService.sendMeshMessage(meshMessage);
+    }
+
+    @ReactMethod
+    public void sendCommandRsp(int opcode, int meshAddress, ReadableArray value, int rspOpcode, int relayTimes, int tidPosition, boolean immediate, Promise promise) {
+        // telink sdk 3.1.0 do not but 3.3.3.5 do has a queue to cache commands,
+        // so let immediate make sense in 3.3.3.5
+        if (immediate) {
+            mService.clearMeshMessage();
+        }
+
+        MeshMessage meshMessage = new MeshMessage();
+        meshMessage.setDestinationAddress(meshAddress);
+        meshMessage.setOpcode(opcode);
+        meshMessage.setParams(readableArray2ByteArray(value));
+        meshMessage.setAppKeyIndex(mAppKeyIndex);
+        meshMessage.setTidPosition(tidPosition);
+        // meshMessage.setAccessType(accessType);
+        meshMessage.setResponseOpcode(rspOpcode);
+        meshMessage.setResponseMax(relayTimes);
+
+        mSendCommandPromise = promise;
+        mService.sendMeshMessage(meshMessage);
+    }
+
+    private synchronized void onSendCommandCompleted(ReliableMessageProcessEvent reliableMessageProcessEvent) {
+        if (mSendCommandPromise != null) {
+            WritableMap params = Arguments.createMap();
+            params.putBoolean("success", reliableMessageProcessEvent.isSuccess());
+            params.putInt("opcode", reliableMessageProcessEvent.getOpcode());
+            mSendCommandPromise.resolve(params);
+            mSendCommandPromise = null;
+        }
+    }
+
+    private synchronized void onSendCommandFailure(ReliableMessageProcessEvent reliableMessageProcessEvent) {
+        if (mSendCommandPromise != null) {
+            mSendCommandPromise.reject(new Exception(
+                "onSendCommandFailure opcode: 0x" +
+                String.format("%04X", reliableMessageProcessEvent.getOpcode()) +
+                " rsp: " +
+                reliableMessageProcessEvent.getRspCount() +
+                "/" +
+                reliableMessageProcessEvent.getRspMax()
+            ));
+            mSendCommandPromise = null;
+        } else if (mGetAlarmPromise != null) {
+            mGetAlarmPromise.reject(new Exception("GetAlarm onSendCommandFailure"));
+            mGetAlarmPromise = null;
+        } else if (mGetTimePromise != null) {
+            mGetTimePromise.reject(new Exception("GetTime onSendCommandFailure"));
+            mGetTimePromise = null;
+        }
+
     }
 
     @ReactMethod
@@ -1305,7 +1368,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         calendar.setTimeInMillis(sec * 1000);
 
         if (calendar == null) {
-            mGetTimePromise.reject(new Exception("GetTime return null"));
+            if (mGetTimePromise != null) {
+                mGetTimePromise.reject(new Exception("GetTime return null"));
+                mGetTimePromise = null;
+            }
             return;
         }
 
@@ -1374,7 +1440,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         SchedulerActionStatusMessage schedulerActionStatusMessage = (SchedulerActionStatusMessage) message.getStatusMessage();
         Scheduler scheduler = schedulerActionStatusMessage.getScheduler();
         if (scheduler == null) {
-            mGetAlarmPromise.reject(new Exception("GetAlarm return null"));
+            if (mGetAlarmPromise != null) {
+                mGetAlarmPromise.reject(new Exception("GetAlarm return null"));
+                mGetAlarmPromise = null;
+            }
             return;
         }
 
@@ -1790,6 +1859,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 } else {
                     MeshLogger.d(String.format("Unknown status notify opcode:%04X", opcode) + " -- params:" + com.telink.ble.mesh.util.Arrays.bytesToHexString(message.getParams()));
                 }
+                break;
+            case ReliableMessageProcessEvent.EVENT_TYPE_MSG_PROCESS_COMPLETE:
+                this.onSendCommandCompleted((ReliableMessageProcessEvent) event);
+                break;
+            case ReliableMessageProcessEvent.EVENT_TYPE_MSG_PROCESS_ERROR:
+                this.onSendCommandFailure((ReliableMessageProcessEvent) event);
                 break;
             default:
                 if (eventType.equals(NodeResetStatusMessage.class.getName())) {
