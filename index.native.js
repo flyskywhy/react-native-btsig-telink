@@ -893,6 +893,7 @@ class TelinkBtSig {
 
         bigDataAction,
         bigDataType = 0,
+        bigDataLostRetry = false,
         datasIndex,
         datasCount,
         chunksIndex,
@@ -1333,7 +1334,7 @@ class TelinkBtSig {
 //     color3.r,
 //     color3.g,
 //     color3.b;       // 颜色
-//     rev,            // 保留字节，也许后续有用
+//     schema,         // 当最高位[7]为 0 时表明是正常的传输，为 1 时表明是丢包重发的传输
 //     datasIndex,     // 当前 chunk 属于二维数组中的哪个数组。 bmp 时，表明当前 chunk 属于第 0...n 幅的 bmp ； gif 时，总为 0
 //     datasCount,     // 二维数组包含几个数组。 bmp 时，一共几幅 bmp ； gif 时，总为 1
 //     chunksIndex,    // 当前 chunk 属于当前数组的第 0...n 部分
@@ -1353,7 +1354,7 @@ class TelinkBtSig {
 
 //     scene,          // 效果的 id
 //     action,         // 1: 保存数据。固件将之前放置在内存中的数据以 fileName[] 的名义保存到 flash 中
-//     rev,            // 保留字节，也许后续有用
+//     schema,         // 当最高位[7]为 0 时表明是正常的保存，为 1 时表明是丢包重发的保存
 //     maxChunkLengthLowByte,     // APP 分割文件时所用的基准长度，一般与第一个 chunk 的字节长度相同，由两个字节表示，本字节为低位字节
 //     maxChunkLengthHightByte,   // APP 分割文件时所用的基准长度，一般与第一个 chunk 的字节长度相同，由两个字节表示，本字节为高位字节
 //     fileType,       // 文件类型， 1: 为 gif ； 2: 为 bmp ，其实就是上面的 dataType ，放在这里是为了方便固件编写丢包细节的代码
@@ -1454,6 +1455,9 @@ class TelinkBtSig {
                                         const chunkLengthLowByte = chunk.length & 0xff;
                                         const chunkLengthHightByte = (chunk.length >> 8) & 0xff;
                                         let schema = 0;
+                                        if (bigDataLostRetry) {
+                                            schema |= 0x80;
+                                        }
                                         // console.warn('transfer', meshAddress, chunksIndex + '/' + (chunksCount - 1), relayTimes);
                                         NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         // 上面所花时间是下面 await rsp 的 1/3 （30个包每包200字节时测得 7s/20s），所以使用上面的
@@ -1473,6 +1477,9 @@ class TelinkBtSig {
                                         const maxChunkLengthLowByte = maxChunkLength & 0xff;
                                         const maxChunkLengthHightByte = (maxChunkLength >> 8) & 0xff;
                                         let schema = 0;
+                                        if (bigDataLostRetry) {
+                                            schema |= 0x80;
+                                        }
                                         // console.warn('save', {meshAddress, responMax: relayTimes, bigDataAction, maxChunkLengthLowByte, bigDataType, fileVersion, text});
                                         // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], 0x0211E7, -1, immediate);
