@@ -225,7 +225,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private Promise mClaimAllAtOncePromise;
     private Promise mConfigNodeResetPromise;
     private Promise mSetNodeGroupAddrPromise;
-    private Promise mSendCommandPromise = null;
+    private Promise mSendCommandRspPromise = null;
     private Promise mGetTimePromise;
     private Promise mGetAlarmPromise;
     private Promise mStartOtaPromise;
@@ -669,36 +669,36 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         meshMessage.setResponseOpcode(rspOpcode);
         meshMessage.setResponseMax(relayTimes);
 
-        mSendCommandPromise = promise;
+        mSendCommandRspPromise = promise;
         mService.sendMeshMessage(meshMessage);
     }
 
-    private synchronized void onSendCommandCompleted(ReliableMessageProcessEvent reliableMessageProcessEvent) {
-        if (mSendCommandPromise != null) {
+    private synchronized void onSendCommandRspCompleted(ReliableMessageProcessEvent reliableMessageProcessEvent) {
+        if (mSendCommandRspPromise != null) {
             WritableMap params = Arguments.createMap();
             params.putBoolean("success", reliableMessageProcessEvent.isSuccess());
             params.putInt("opcode", reliableMessageProcessEvent.getOpcode());
-            mSendCommandPromise.resolve(params);
-            mSendCommandPromise = null;
+            mSendCommandRspPromise.resolve(params);
+            mSendCommandRspPromise = null;
         }
     }
 
-    private synchronized void onSendCommandFailure(ReliableMessageProcessEvent reliableMessageProcessEvent) {
-        if (mSendCommandPromise != null) {
-            mSendCommandPromise.reject(new Exception(
-                "onSendCommandFailure opcode: 0x" +
+    private synchronized void onSendCommandRspFailure(ReliableMessageProcessEvent reliableMessageProcessEvent) {
+        if (mSendCommandRspPromise != null) {
+            mSendCommandRspPromise.reject(new Exception(
+                "onSendCommandRspFailure opcode: 0x" +
                 String.format("%04X", reliableMessageProcessEvent.getOpcode()) +
                 " rsp: " +
                 reliableMessageProcessEvent.getRspCount() +
                 "/" +
                 reliableMessageProcessEvent.getRspMax()
             ));
-            mSendCommandPromise = null;
+            mSendCommandRspPromise = null;
         } else if (mGetAlarmPromise != null) {
-            mGetAlarmPromise.reject(new Exception("GetAlarm onSendCommandFailure"));
+            mGetAlarmPromise.reject(new Exception("GetAlarm onSendCommandRspFailure"));
             mGetAlarmPromise = null;
         } else if (mGetTimePromise != null) {
-            mGetTimePromise.reject(new Exception("GetTime onSendCommandFailure"));
+            mGetTimePromise.reject(new Exception("GetTime onSendCommandRspFailure"));
             mGetTimePromise = null;
         }
 
@@ -1861,10 +1861,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
                 }
                 break;
             case ReliableMessageProcessEvent.EVENT_TYPE_MSG_PROCESS_COMPLETE:
-                this.onSendCommandCompleted((ReliableMessageProcessEvent) event);
+                this.onSendCommandRspCompleted((ReliableMessageProcessEvent) event);
                 break;
             case ReliableMessageProcessEvent.EVENT_TYPE_MSG_PROCESS_ERROR:
-                this.onSendCommandFailure((ReliableMessageProcessEvent) event);
+                this.onSendCommandRspFailure((ReliableMessageProcessEvent) event);
                 break;
             default:
                 if (eventType.equals(NodeResetStatusMessage.class.getName())) {
