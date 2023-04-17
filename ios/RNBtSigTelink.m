@@ -909,6 +909,14 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getCommandsQueueIntervalMs) {
     return [NSNumber numberWithInt:240]; // TODO
 }
 
+RCT_EXPORT_METHOD(clearCommandQueue) {
+    // TODO
+}
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getCommandQueueLength) {
+    return [NSNumber numberWithInt:0]; // TODO
+}
+
 RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate) {
     if (immediate) {
         [SigMeshLib.share cleanAllCommandsAndRetry];
@@ -940,6 +948,10 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
     }
 
     [SDKLibCommand sendIniCommandModel:model successCallback:nil resultCallback:nil];
+}
+
+RCT_EXPORT_METHOD(sendCommandRsp:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode relayTimes:(NSInteger)relayTimes retryCnt:(NSInteger)retryCnt tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+    reject(@"sendCommandRsp", @"TODO", nil);
 }
 
 RCT_EXPORT_METHOD(getFirmwareInfo:(NSInteger)meshAddress) {
