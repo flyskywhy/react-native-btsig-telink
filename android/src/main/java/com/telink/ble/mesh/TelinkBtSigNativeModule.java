@@ -652,7 +652,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod
-    public void sendCommandRsp(int opcode, int meshAddress, ReadableArray value, int rspOpcode, int relayTimes, int tidPosition, boolean immediate, Promise promise) {
+    public void sendCommandRsp(int opcode, int meshAddress, ReadableArray value, int rspOpcode, int relayTimes, int retryCnt, int tidPosition, boolean immediate, Promise promise) {
         // telink sdk 3.1.0 do not but 3.3.3.5 do has a queue to cache commands,
         // so let immediate make sense in 3.3.3.5
         if (immediate) {
@@ -668,6 +668,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // meshMessage.setAccessType(accessType);
         meshMessage.setResponseOpcode(rspOpcode);
         meshMessage.setResponseMax(relayTimes);
+        meshMessage.setRetryCnt(retryCnt);
 
         mSendCommandRspPromise = promise;
         mService.sendMeshMessage(meshMessage);

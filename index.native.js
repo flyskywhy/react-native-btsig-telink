@@ -644,7 +644,8 @@ class TelinkBtSig {
         meshAddress,
         valueArray, // means the MeshMessage.params on Android, IniCommandModel.commandData on iOS
         rspOpcode = this.OPCODE_INVALID,
-        relayTimes,
+        relayTimes = 0, // ref to `responseMax = 0` in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
+        retryCnt = 2, // ref to `DEFAULT_RETRY_CNT = 2` in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
         tidPosition = -1, // if > 0 , means the tid is stored in valueArray[tidPosition - 1]
         immediate = false,
     }) {
@@ -668,7 +669,7 @@ class TelinkBtSig {
                 // to ensure exit Promise if `reject(error)` never invoked from native
                 reject(new TypeError('sendCommandRsp @' + meshAddress + ' time out ' + timeout + 'ms'));
             }, timeout);
-            NativeModule.sendCommandRsp(opcode, meshAddress, valueArray, rspOpcode, relayTimes, tidPosition, false).then(payload => {
+            NativeModule.sendCommandRsp(opcode, meshAddress, valueArray, rspOpcode, relayTimes, retryCnt, tidPosition, false).then(payload => {
                 clearTimeout(timer);
                 this.commandRspBusy = false;
                 resolve(payload);
@@ -867,6 +868,7 @@ class TelinkBtSig {
     static async changeScene({
         meshAddress,
         relayTimes = 0,
+        retryCnt = 2,
         sceneSyncMeshAddress,
         scene,
         sceneMode = 5, // e.g. 二维图片的平移方向
@@ -1467,6 +1469,7 @@ class TelinkBtSig {
                                         //     valueArray: [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory],
                                         //     rspOpcode: 0x0211E7,
                                         //     relayTimes,
+                                        //     retryCnt,
                                         //     tidPosition: -1,
                                         //     immediate,
                                         // });
@@ -1488,6 +1491,7 @@ class TelinkBtSig {
                                             valueArray: [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory],
                                             rspOpcode: 0x0211E7,
                                             relayTimes,
+                                            retryCnt,
                                             tidPosition: -1,
                                             immediate,
                                         });
