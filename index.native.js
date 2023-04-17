@@ -1482,11 +1482,10 @@ class TelinkBtSig {
                                         }
                                         // console.warn('save', {meshAddress, responMax: relayTimes, bigDataAction, maxChunkLengthLowByte, bigDataType, fileVersion, text});
                                         // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
-                                        // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, 1, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], 0x0211E7, -1, immediate);
                                         await this.sendCommandRsp({
                                             opcode: 0x0211E4,
                                             meshAddress,
-                                            valueArray: [scene, bigDataAction, 1, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory],
+                                            valueArray: [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory],
                                             rspOpcode: 0x0211E7,
                                             relayTimes,
                                             tidPosition: -1,
