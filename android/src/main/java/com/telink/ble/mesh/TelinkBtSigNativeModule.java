@@ -702,7 +702,6 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             mGetTimePromise.reject(new Exception("GetTime onSendCommandRspFailure"));
             mGetTimePromise = null;
         }
-
     }
 
     @ReactMethod
@@ -1321,6 +1320,18 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // 导致无法进入 mesh_time_set() ，因而并不会象 telink 人员说的那样 Opcode.TIME_STATUS.value 也能顺带设置
         // 固件内置的时间，估计是一个 BUG ，所以这里需要显式 setAck(true) 来明确使用 Opcode.TIME_SET.value
         timeSetMessage.setAck(true);
+        if (mSendCommandRspPromise != null ||
+            mGetAlarmPromise != null ||
+            mGetTimePromise != null) {
+            // 由于上面 setAck(true) ，此时必然会导致 core/networking/NetworkingController.java
+            // 中的 reliableBusy 引起 `reliable message send err: busy` 进而触发预期外的
+            // onSendCommandRspFailure ，所以这里不如直接 return
+            MeshLogger.d("setTime fail is in mSendCommandRspPromise: " + (mSendCommandRspPromise != null) +
+                " mGetAlarmPromise: " + (mGetAlarmPromise != null) +
+                " mGetTimePromise: " + (mGetTimePromise != null)
+            );
+            return;
+        }
 
         boolean re = mService.sendMeshMessage(timeSetMessage);
         if (re) {
