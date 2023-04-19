@@ -614,11 +614,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void setCommandsQueueIntervalMs(int interval) {
         NetworkingController.NETWORK_INTERVAL_DEFAULT = interval;
+        NetworkingController.netPktSendInterval = interval;
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
     public int getCommandsQueueIntervalMs() {
-        return (int)NetworkingController.NETWORK_INTERVAL_DEFAULT;
+        return (int)NetworkingController.netPktSendInterval;
     }
 
     @ReactMethod
