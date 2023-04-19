@@ -100,10 +100,8 @@ class TelinkBtSig {
     static ALARM_TYPE_WEEK = 1;
 
     static commandFifoConsumer = undefined;
-    static commandRspBusy = false;
-    static DELAY_MS_FIFO = 240;
     // ref to getReliableMessageTimeout() in
-    // android/src/main/java/COM/TELINK/BLE/MESH/CORE/NETWORKING/NETWORKINGCONTROLLER.JAVA
+    // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
     static DELAY_MS_CMD_RSP_TIMEOUT = 5000;
 
     // ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
@@ -279,25 +277,26 @@ class TelinkBtSig {
             this.getOnlineStatueTimer = setInterval(NativeModule.getOnlineStatue, 5000);
         }
 
-        this.DELAY_MS_FIFO = this.getCommandsQueueIntervalMs();
         this.commandFifoConsumer = {
             fifo: createNewFifo(),
             consumer: (fc) => {
-                if (!this.commandRspBusy && fc.fifo.length) {
+                if (!fc.busy && fc.fifo.length) {
                     const commandHandler = fc.fifo.shift();
-                    commandHandler();
-                    fc.lastWriteDate = new Date();
+                    if (commandHandler) {
+                        fc.busy = true;
+                        commandHandler();
+                    }
                 }
-                fc.timer = setTimeout(() => fc.consumer(fc), this.DELAY_MS_FIFO);
             },
             timer: undefined,
-            lastWriteDate: new Date(),
+            busy: false,
         }
     }
 
     static doDestroy() {
-        commandFifoConsumer.timer && clearTimeout(commandFifoConsumer.timer);
-        commandFifoConsumer.consumer = () => {};
+        const fc = this.commandFifoConsumer;
+        fc.timer && clearTimeout(fc.timer);
+        fc.busy = false;
 
         this.getOnlineStatueTimer && clearTimeout(this.getOnlineStatueTimer);
         NativeModule.doDestroy();
@@ -567,7 +566,6 @@ class TelinkBtSig {
 
     static setCommandsQueueIntervalMs(interval) {
         NativeModule.setCommandsQueueIntervalMs(interval);
-        this.DELAY_MS_FIFO = interval;
     }
 
     static getCommandsQueueIntervalMs() {
@@ -589,8 +587,7 @@ class TelinkBtSig {
 
     static addCommandFifo(fifoData) {
         const fc = this.commandFifoConsumer;
-        if (!this.commandRspBusy && fc.fifo.length === 0 &&
-            new Date() - fc.lastWriteDate > this.DELAY_MS_FIFO) {
+        if (!fc.busy && fc.fifo.length === 0) {
             fc.timer && clearTimeout(fc.timer);
             fc.fifo.push(fifoData);
             fc.consumer(fc);
@@ -599,8 +596,21 @@ class TelinkBtSig {
         }
     }
 
+    // 这里 delayMs 之所以可以设置为 0 是因为 telink Android SDK 中本身自带 native 层队列，当 fc.consumer(fc)
+    // 被执行后就会有相应命令被堆入 native 层的队列中，然后 native 会定时(getCommandsQueueIntervalMs 得 240ms)
+    // 从队列中取出一个命令用蓝牙硬件发送出去，这里的 delayMs 可以控制 js 层 fifo 队列往 native 层队列发送的时机，
+    // 设为 0 的话可以让蓝牙命令尽快被发出。
+    // 甚至如果 SDK 没有或取消 native 层队列的话，单独使用 delayMs 配合 js 层 fifo 队列也是可以的。
+    static setNextFcTimer(delayMs = 0) {
+        const fc = this.commandFifoConsumer;
+        fc.timer = setTimeout(() => {
+            fc.busy = false;
+            fc.consumer(fc);
+        }, delayMs);
+    }
+
     static getCmdRspTimeoutMs() {
-        return NativeModule.getCommandQueueLength() * this.DELAY_MS_FIFO + this.DELAY_MS_CMD_RSP_TIMEOUT;
+        return NativeModule.getCommandQueueLength() * NativeModule.getCommandsQueueIntervalMs() + this.DELAY_MS_CMD_RSP_TIMEOUT;
     }
 
     // without response, quickly (1/3 time of this.sendCommandRsp below), but despite whether devices received cmd
@@ -612,14 +622,6 @@ class TelinkBtSig {
         tidPosition = -1, // if > 0 , means the tid is stored in valueArray[tidPosition - 1]
         immediate = false,
     }) {
-        // NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, immediate);
-        // 在无需 rsp 时，使用上面的 NativeModule.sendCommand() 能够将命令堆入 native 层的队列中，
-        // 然后 native 会定时(240ms)从队列中取出一个命令从蓝牙硬件发送出去，如果 APP 迅速比如在循环
-        // 中多次调用 this.sendCommand() 使得 native 层的队列堆积起来，然后再将下面的 this.sendCommandRsp()
-        // 所管理的 fifo 定时(240ms)取出的一个命令堆入 native 层的队列，则一切也都可以正常工作。
-        // 实测的让这里的 this.sendCommand() 也用 fifo 管理，这两个定时貌似也能很好地匹配、当然此
-        // 时 this.sendCommand() 到蓝牙硬件发送的时间可能会稍微长一点点，如果业务需求这个时间一定要
-        // 越短越好的，则使用 {immediate: true} 即可。
         if (immediate) {
             this.commandFifoConsumer.fifo.length && this.clearCommandFifo({
                 opcodeImmediate: opcode,
@@ -627,7 +629,14 @@ class TelinkBtSig {
             NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, true);
         } else {
             this.addCommandFifo(() => {
+                // if (opcode === 0x0211E6 && valueArray[0] === 0xa1 && valueArray[1] === 0) {
+                //     console.log('transfer', meshAddress.toString(16), valueArray[11] + '/' + (valueArray[12] - 1), '0x' + valueArray[8].toString(16));
+                // } else {
+                //     console.log('sendCommand', meshAddress.toString(16), 'opcode:' + opcode.toString(16), valueArray);
+                // }
+
                 NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, false);
+                this.setNextFcTimer();
             });
         }
     }
@@ -655,30 +664,32 @@ class TelinkBtSig {
             })
         }
 
-        // use fifo and Promise and this.commandRspBusy to avoid the BUG: if current
+        // use fifo and Promise and fc.busy to avoid the BUG: if current
         // rsp command not get rspMax rsp to means complete, but here comes next rsp
         // command, then will `reliable message send err: busy` with reliableBusy in
         // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
         // in another word, APP now can `await this.sendCommandRsp()` or just `this.sendCommandRsp()`
         // many times quickly(no need wait 240ms), and still ensure every cmd works fine
         return new Promise((resolve, reject) => this.addCommandFifo(() => {
-            this.commandRspBusy = true;
             const timeout = this.getCmdRspTimeoutMs();
             let timer = setTimeout(() => {
-                this.commandRspBusy = false;
                 // to ensure exit Promise if `reject(error)` never invoked from native
+                // console.warn('sendCommandRsp @' + meshAddress.toString(16) + ' time out ' + timeout + 'ms');
                 reject(new TypeError('sendCommandRsp @' + meshAddress + ' time out ' + timeout + 'ms'));
+                this.setNextFcTimer();
             }, timeout);
             NativeModule.sendCommandRsp(opcode, meshAddress, valueArray, rspOpcode, relayTimes, retryCnt, tidPosition, false).then(payload => {
                 clearTimeout(timer);
-                this.commandRspBusy = false;
+                // console.log('sendCommandRsp @' + meshAddress.toString(16) + ' opcode:' + opcode.toString(16) + ' relayTimes:' + relayTimes + ' valueArray:' + valueArray);
                 resolve(payload);
+                this.setNextFcTimer();
             }, error => {
                 clearTimeout(timer);
-                this.commandRspBusy = false;
                 // after retry in native (DEFAULT_RETRY_CNT = 2 in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java)
                 // still error then reject here to APP
+                // console.warn('sendCommandRsp @' + meshAddress.toString(16) + ' opcode:' + opcode.toString(16) + ' ' + error);
                 reject(error);
+                this.setNextFcTimer();
             });
         }));
     }
@@ -1460,8 +1471,14 @@ class TelinkBtSig {
                                         if (bigDataLostRetry) {
                                             schema |= 0x80;
                                         }
-                                        // console.warn('transfer', meshAddress, chunksIndex + '/' + (chunksCount - 1), relayTimes);
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        // console.warn('transfer', meshAddress.toString(16), chunksIndex + '/' + (chunksCount - 1), '0x' + schema.toString(16));
+                                        // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        this.sendCommand({
+                                            opcode: 0x0211E6,
+                                            meshAddress,
+                                            valueArray: [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory],
+                                            immediate,
+                                        });
                                         // 上面所花时间是下面 await rsp 的 1/3 （30个包每包200字节时测得 7s/20s），所以使用上面的
                                         // await this.sendCommandRsp({
                                         //     opcode: 0x0211E4,
@@ -1483,7 +1500,7 @@ class TelinkBtSig {
                                         if (bigDataLostRetry) {
                                             schema |= 0x80;
                                         }
-                                        // console.warn('save', {meshAddress, responMax: relayTimes, bigDataAction, maxChunkLengthLowByte, bigDataType, fileVersion, text});
+                                        // console.warn('save', {meshAddress: meshAddress.toString(16), responMax: relayTimes, bigDataAction, schema: '0x' + schema.toString(16), maxChunkLengthLowByte, bigDataType, fileVersion, text});
                                         // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         await this.sendCommandRsp({
                                             opcode: 0x0211E4,
@@ -1733,7 +1750,22 @@ class TelinkBtSig {
         second = 0,
         immediate = false,
     }) {
-        NativeModule.setTime(meshAddress);
+        if (immediate) {
+            this.commandFifoConsumer.fifo.length && this.clearCommandFifo({
+                opcodeImmediate: opcode,
+            })
+            NativeModule.setTime(meshAddress);
+        } else {
+            this.addCommandFifo(() => {
+                NativeModule.setTime(meshAddress);
+
+                // 这里 timeout 的存在理由参见
+                // android/src/main/java/com/telink/ble/mesh/TelinkBtSigNativeModule.java
+                // 中 setTime() 处的注释
+                const timeout = this.getCmdRspTimeoutMs();
+                this.setNextFcTimer(timeout);
+            });
+        }
     }
 
     static getTime({
@@ -1741,25 +1773,24 @@ class TelinkBtSig {
         relayTimes, // should be 0 or 1
     }) {
         return new Promise((resolve, reject) => this.addCommandFifo(() => {
-            this.commandRspBusy = true;
             const timeout = this.getCmdRspTimeoutMs();
             let timer = setTimeout(() => {
-                this.commandRspBusy = false;
                 reject(new TypeError('getTime @' + meshAddress + ' time out ' + timeout + 'ms'))
+                this.setNextFcTimer();
             }, timeout);
             NativeModule.getTime(meshAddress, relayTimes).then(payload => {
                 clearTimeout(timer);
-                this.commandRspBusy = false;
                 resolve({
                     ...payload,
                     time: parseInt(payload.time, 10), // seconds from 1970
                 });
+                this.setNextFcTimer();
             }, error => {
                 clearTimeout(timer);
-                this.commandRspBusy = false;
                 // after retry in native (DEFAULT_RETRY_CNT = 2 in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java)
                 // still error then reject here to APP
                 reject(error);
+                this.setNextFcTimer();
             });
         }));
     }
@@ -1786,7 +1817,17 @@ class TelinkBtSig {
             realWeek = 0;
         }
 
-        NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, realDay, hour, minute, second, realWeek, action, sceneId);
+        if (immediate) {
+            this.commandFifoConsumer.fifo.length && this.clearCommandFifo({
+                opcodeImmediate: opcode,
+            })
+            NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, realDay, hour, minute, second, realWeek, action, sceneId);
+        } else {
+            this.addCommandFifo(() => {
+                NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, realDay, hour, minute, second, realWeek, action, sceneId);
+                this.setNextFcTimer();
+            });
+        }
     }
 
     static getAlarm({
@@ -1795,15 +1836,13 @@ class TelinkBtSig {
         alarmId,
     }) {
         return new Promise((resolve, reject) => this.addCommandFifo(() => {
-            this.commandRspBusy = true;
             const timeout = this.getCmdRspTimeoutMs();
             let timer = setTimeout(() => {
-                this.commandRspBusy = false;
                 reject(new TypeError('getAlarm ' + alarmId + '@' + meshAddress + ' time out ' + timeout + 'ms'));
+                this.setNextFcTimer();
             }, timeout);
             NativeModule.getAlarm(meshAddress, relayTimes, alarmId).then(payload => {
                 clearTimeout(timer);
-                this.commandRspBusy = false;
                 if (payload.action === 0 && payload.week === 0 && payload.month === 0 && payload.year === 0) {
                     reject(new TypeError(payload.alarmId + ' getAlarm data 0'))
                 } else {
@@ -1824,12 +1863,13 @@ class TelinkBtSig {
                         type: payload.day === 0 ? this.ALARM_TYPE_WEEK : this.ALARM_TYPE_DAY,
                     });
                 }
+                this.setNextFcTimer();
             }, error => {
                 clearTimeout(timer);
-                this.commandRspBusy = false;
                 // after retry in native (DEFAULT_RETRY_CNT = 2 in android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java)
                 // still error then reject here to APP
                 reject(error);
+                this.setNextFcTimer();
             });
         }));
     }
