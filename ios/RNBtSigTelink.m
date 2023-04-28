@@ -753,22 +753,22 @@ RCT_EXPORT_METHOD(autoConnect) {
 
 - (void)bearerDidOpen:(SigBearer *)bearer {
     __weak typeof(self) weakSelf = self;
-//    CBPeripheral *tem = [SigBearer.share getCurrentPeripheral];
+    CBPeripheral *tem = [SigBearer.share getCurrentPeripheral];
 //    SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:tem.identifier.UUIDString];
 
     // with telink APP sdk 3.3.3.5 and FW sdk 3.2.1, scanRspModel.address will always be 0,
     // so not use scanRspModel here
 //    SigNodeModel *node = [SigDataSource.share getNodeWithAddress:scanRspModel.address];
 
-    // can use getCurrentConnectedNode so not use tem.identifier.UUIDString here
-//    SigNodeModel *node = [SigMeshLib.share.dataSource getNodeWithUUID:tem.identifier.UUIDString];
+    SigNodeModel *node = [SigMeshLib.share.dataSource getNodeWithUUID:tem.identifier.UUIDString];
 
-    SigNodeModel *node = SigMeshLib.share.dataSource.getCurrentConnectedNode;
+    // getCurrentConnectedNode address mostly be 0, so use tem.identifier.UUIDString above
+//    SigNodeModel *node = SigMeshLib.share.dataSource.getCurrentConnectedNode;
 
     int address = [node address];
     NSLog(@"TelinkBtSig getCurrentConnectedNode %d %@", address, node.macAddress);
 
-    // when device is pluged in, address is 0 in 1st call of bearerDidOpen,
+    // if use getCurrentConnectedNode, sometimes address is 0 in 1st call of bearerDidOpen,
     // then after 620ms will 2nd call to be not 0 but e.g. 1
     if (address == 0) {
         return;
@@ -910,11 +910,11 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getCommandsQueueIntervalMs) {
 }
 
 RCT_EXPORT_METHOD(clearCommandQueue) {
-    // TODO
+    [SigMeshLib.share cleanAllCommandsAndRetry];
 }
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getCommandQueueLength) {
-    return [NSNumber numberWithInt:0]; // TODO
+    return [NSNumber numberWithInt:(int)SigMeshLib.share.commands.count];
 }
 
 RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate) {
