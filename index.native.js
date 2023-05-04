@@ -103,6 +103,7 @@ class TelinkBtSig {
     // ref to getReliableMessageTimeout() in
     // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
     static DELAY_MS_CMD_RSP_TIMEOUT = 5000;
+    static DELAY_MS_FIFO = 240; // TODO: merge to DELAY_MS_COMMAND
 
     // ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
     static OPCODE_INVALID = -1;
@@ -264,19 +265,7 @@ class TelinkBtSig {
 
         // NativeModule.setLogLevel(0x1F);
 
-        if (Platform.OS === 'ios') {
-            // On iOS, even hack add kOnlineStatusCharacteristicsID to openWithResult() in TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBearer.m
-            // still can't invode [characteristic.UUID.UUIDString isEqualToString:kOnlineStatusCharacteristicsID] in
-            // TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBluetooth.m
-            // so that can't invoke bluetoothDidUpdateOnlineStatusValueCallback (by setBluetoothDidUpdateOnlineStatusValueCallback with receiveOnlineStatusData)
-            // then can't invoke receiveOnlineStatusData->anasislyOnlineStatueDataFromUUID
-            // ->updateOnlineStatusWithDeviceAddress->discoverOutlineNodeCallback
-            //
-            // So use setInterval to call getOnlineStatue() to invoke onOnlineStatusNotify() in ios/RNBtSigTelink.m
-            this.getOnlineStatueTimer && clearInterval(this.getOnlineStatueTimer);
-            this.getOnlineStatueTimer = setInterval(NativeModule.getOnlineStatue, 5000);
-        }
-
+        this.DELAY_MS_FIFO = NativeModule.getCommandsQueueIntervalMs();
         this.commandFifoConsumer = {
             fifo: createNewFifo(),
             consumer: (fc) => {
@@ -290,6 +279,19 @@ class TelinkBtSig {
             },
             timer: undefined,
             busy: false,
+        }
+
+        if (Platform.OS === 'ios') {
+            // On iOS, even hack add kOnlineStatusCharacteristicsID to openWithResult() in TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBearer.m
+            // still can't invode [characteristic.UUID.UUIDString isEqualToString:kOnlineStatusCharacteristicsID] in
+            // TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBluetooth.m
+            // so that can't invoke bluetoothDidUpdateOnlineStatusValueCallback (by setBluetoothDidUpdateOnlineStatusValueCallback with receiveOnlineStatusData)
+            // then can't invoke receiveOnlineStatusData->anasislyOnlineStatueDataFromUUID
+            // ->updateOnlineStatusWithDeviceAddress->discoverOutlineNodeCallback
+            //
+            // So use setInterval to call getOnlineStatue() to invoke onOnlineStatusNotify() in ios/RNBtSigTelink.m
+            this.getOnlineStatueTimer && clearInterval(this.getOnlineStatueTimer);
+            this.getOnlineStatueTimer = setInterval(this.getOnlineStatus.bind(this), 5000);
         }
     }
 
@@ -566,10 +568,11 @@ class TelinkBtSig {
 
     static setCommandsQueueIntervalMs(interval) {
         NativeModule.setCommandsQueueIntervalMs(interval);
+        this.DELAY_MS_FIFO = interval;
     }
 
     static getCommandsQueueIntervalMs() {
-        return NativeModule.getCommandsQueueIntervalMs();
+        return this.DELAY_MS_FIFO;
     }
 
     static clearCommandFifo({
@@ -601,7 +604,7 @@ class TelinkBtSig {
     // 从队列中取出一个命令用蓝牙硬件发送出去，这里的 delayMs 可以控制 js 层 fifo 队列往 native 层队列发送的时机，
     // 设为 0 的话可以让蓝牙命令尽快被发出。
     // 甚至如果 SDK 没有或取消 native 层队列的话，单独使用 delayMs 配合 js 层 fifo 队列也是可以的。
-    static setNextFcTimer(delayMs = 0) {
+    static setNextFcTimer(delayMs = this.DELAY_MS_FIF) {
         const fc = this.commandFifoConsumer;
         fc.timer = setTimeout(() => {
             fc.busy = false;
@@ -610,7 +613,7 @@ class TelinkBtSig {
     }
 
     static getCmdRspTimeoutMs() {
-        return NativeModule.getCommandQueueLength() * NativeModule.getCommandsQueueIntervalMs() + this.DELAY_MS_CMD_RSP_TIMEOUT;
+        return NativeModule.getCommandQueueLength() * this.DELAY_MS_FIFO + this.DELAY_MS_CMD_RSP_TIMEOUT;
     }
 
     // without response, quickly (1/3 time of this.sendCommandRsp below), but despite whether devices received cmd
@@ -692,6 +695,17 @@ class TelinkBtSig {
                 this.setNextFcTimer();
             });
         }));
+    }
+
+    static getOnlineStatus() {
+        const fc = this.commandFifoConsumer;
+        if (fc.fifo.length === 0) {
+            this.addCommandFifo(() => {
+                NativeModule.getOnlineStatus && NativeModule.getOnlineStatus();
+                const timeout = this.getCmdRspTimeoutMs();
+                this.setNextFcTimer(timeout);
+            });
+        }
     }
 
     // 让灯爆闪几下

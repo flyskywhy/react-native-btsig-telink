@@ -400,11 +400,11 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     onVendorResponse = ^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
 
         UInt32 opcode = responseMessage.opCode;
-        NSLog(@"TelinkBtSig onVendorResponse opcode=0x%x, parameters=%@", opcode, responseMessage.parameters);
+//        NSLog(@"TelinkBtSig onVendorResponse opcode=0x%x, parameters=%@", opcode, responseMessage.parameters);
 
         // convert opcode -> opcodeJs e.g. 0xE31102 -> 0x0211E3
         UInt32 opcodeJs = ((opcode >> 16) & 0x0000ff) | (opcode & 0x00ff00) | ((opcode << 16) & 0xff0000);
-        NSLog(@"TelinkBtSig onVendorResponse opcode to JS is 0x%x", opcodeJs);
+//        NSLog(@"TelinkBtSig onVendorResponse opcode to JS is 0x%x", opcodeJs);
 
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
         [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
@@ -668,9 +668,9 @@ RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
     }
 }
 
-RCT_EXPORT_METHOD(getOnlineStatue) {
+RCT_EXPORT_METHOD(getOnlineStatus) {
     if (SigMeshLib.share.isBusyNow) {
-        TeLogInfo(@"getOnlineStatue busy");
+        TeLogInfo(@"getOnlineStatus busy");
         return;
     }
     [SDKLibCommand telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
@@ -900,13 +900,14 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
 }
 
 RCT_EXPORT_METHOD(setCommandsQueueIntervalMs:(NSInteger)interval) {
-    // TODO
-
-//    return nil;
+    // Seems there is no working CommandsQueue in this telink iOS SDK,
+    // so just return
 }
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getCommandsQueueIntervalMs) {
-    return [NSNumber numberWithInt:240]; // TODO
+    // Seems there is no working CommandsQueue in this telink iOS SDK,
+    // so just return 240 like telink Android SDK did
+    return [NSNumber numberWithInt:240];
 }
 
 RCT_EXPORT_METHOD(clearCommandQueue) {
@@ -951,7 +952,35 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
 }
 
 RCT_EXPORT_METHOD(sendCommandRsp:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode relayTimes:(NSInteger)relayTimes retryCnt:(NSInteger)retryCnt tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    reject(@"sendCommandRsp", @"TODO", nil);
+    if (immediate) {
+        [SigMeshLib.share cleanAllCommandsAndRetry];
+    }
+    // getOpCodeTypeWithOpcode 0x0211E3 or 0x01B6 is used with Android (Opcode.java) and JS (index.native.js)
+    // getOpCodeTypeWithUInt32Opcode 0xE31102 or 0xB601 is used with iOS (SigEnumeration.h and SigGenericMessage.h)
+
+    IniCommandModel *model = [IniCommandModel alloc];
+    if ([SigHelper.share getOpCodeTypeWithOpcode:(UInt8)(opcode & 0xff)] == SigOpCodeType_vendor3) {
+        model = [model initVendorModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:retryCnt responseMax:relayTimes address:meshAddress opcode:opcode & 0xff vendorId:(opcode >> 8) & 0xffff responseOpcode:rspOpcode & 0xff tidPosition:tidPosition > 0 ? tidPosition : 0 tid:(tidPosition > 0 && tidPosition <= value.count) ? ((NSNumber *)value[tidPosition - 1]).unsignedCharValue : 0  commandData:[self byteArray2Data:value]];
+    } else {
+        model = [model initSigModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:retryCnt responseMax:relayTimes address:meshAddress opcode:opcode commandData:[self byteArray2Data:value]];
+    }
+
+    [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
+        __weak typeof(self) weakSelf = self;
+
+        UInt32 opcode = responseMessage.opCode;
+//        NSLog(@"TelinkBtSig onSendCommandRspCompleted opcode=0x%x, parameters=%@", opcode, responseMessage.parameters);
+
+        // convert opcode -> opcodeJs e.g. 0xE31102 -> 0x0211E3
+        UInt32 opcodeJs = ((opcode >> 16) & 0x0000ff) | (opcode & 0x00ff00) | ((opcode << 16) & 0xff0000);
+//        NSLog(@"TelinkBtSig onSendCommandRspCompleted opcode to JS is 0x%x", opcodeJs);
+
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+//        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:opcodeJs] forKey:@"opcode"];
+//        [dict setObject:(NSArray *)[weakSelf byteData2Array:responseMessage.parameters] forKey:@"params"];
+        resolve(dict);
+    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
 }
 
 RCT_EXPORT_METHOD(getFirmwareInfo:(NSInteger)meshAddress) {

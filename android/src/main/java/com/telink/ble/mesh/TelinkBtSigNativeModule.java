@@ -678,7 +678,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private synchronized void onSendCommandRspCompleted(ReliableMessageProcessEvent reliableMessageProcessEvent) {
         if (mSendCommandRspPromise != null) {
             WritableMap params = Arguments.createMap();
-            params.putBoolean("success", reliableMessageProcessEvent.isSuccess());
+            // params.putBoolean("success", reliableMessageProcessEvent.isSuccess());
             params.putInt("opcode", reliableMessageProcessEvent.getOpcode());
             mSendCommandRspPromise.resolve(params);
             mSendCommandRspPromise = null;
