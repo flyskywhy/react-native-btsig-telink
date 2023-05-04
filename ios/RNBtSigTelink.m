@@ -18,6 +18,8 @@
     NSInteger mSetNodeGroupAddrEleIdsIndex;
     RCTPromiseResolveBlock mSetNodeGroupAddrResolve;
     RCTPromiseRejectBlock mSetNodeGroupAddrReject;
+    RCTPromiseResolveBlock mSendCommandRspResolve;
+    RCTPromiseRejectBlock mSendCommandRspReject;
 
     responseAllMessageBlock onVendorResponse;
     responseTelinkOnlineStatusMessageBlock onOnlineStatusNotify;
@@ -965,22 +967,26 @@ RCT_EXPORT_METHOD(sendCommandRsp:(NSInteger)opcode meshAddress:(NSInteger)meshAd
         model = [model initSigModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:retryCnt responseMax:relayTimes address:meshAddress opcode:opcode commandData:[self byteArray2Data:value]];
     }
 
-    [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
-        __weak typeof(self) weakSelf = self;
+    self->mSendCommandRspResolve = resolve;
+    self->mSendCommandRspReject = reject;
 
-        UInt32 opcode = responseMessage.opCode;
-//        NSLog(@"TelinkBtSig onSendCommandRspCompleted opcode=0x%x, parameters=%@", opcode, responseMessage.parameters);
-
-        // convert opcode -> opcodeJs e.g. 0xE31102 -> 0x0211E3
-        UInt32 opcodeJs = ((opcode >> 16) & 0x0000ff) | (opcode & 0x00ff00) | ((opcode << 16) & 0xff0000);
-//        NSLog(@"TelinkBtSig onSendCommandRspCompleted opcode to JS is 0x%x", opcodeJs);
-
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//        [dict setObject:[NSNumber numberWithInt:source] forKey:@"meshAddress"];
-        [dict setObject:[NSNumber numberWithInt:opcodeJs] forKey:@"opcode"];
-//        [dict setObject:(NSArray *)[weakSelf byteData2Array:responseMessage.parameters] forKey:@"params"];
-        resolve(dict);
-    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
+    [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+        if (isResponseAll) {
+            if (self->mSendCommandRspResolve != nil) {
+                NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+                [dict setObject:[NSNumber numberWithInt:(int)rspOpcode] forKey:@"opcode"];
+                self->mSendCommandRspResolve(dict);
+                self->mSendCommandRspResolve = nil;
+                self->mSendCommandRspReject = nil;
+            }
+        } else {
+            if (self->mSendCommandRspReject != nil) {
+                self->mSendCommandRspReject(@"onSendCommandRspFailure", @"onSendCommandRspFailure isResponseAll: false", error);
+                self->mSendCommandRspReject = nil;
+                self->mSendCommandRspResolve = nil;
+            }
+        }
+    }];
 }
 
 RCT_EXPORT_METHOD(getFirmwareInfo:(NSInteger)meshAddress) {
