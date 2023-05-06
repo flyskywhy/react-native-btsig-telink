@@ -602,12 +602,13 @@ class TelinkBtSig {
         }
     }
 
-    // 这里 delayMs 之所以可以设置为 0 是因为 telink Android SDK 中本身自带 native 层队列，当 fc.consumer(fc)
-    // 被执行后就会有相应命令被堆入 native 层的队列中，然后 native 会定时(getCommandsQueueIntervalMs 得 240ms)
-    // 从队列中取出一个命令用蓝牙硬件发送出去，这里的 delayMs 可以控制 js 层 fifo 队列往 native 层队列发送的时机，
-    // 设为 0 的话可以让蓝牙命令尽快被发出。
-    // 甚至如果 SDK 没有或取消 native 层队列的话，单独使用 delayMs 配合 js 层 fifo 队列也是可以的。
-    static setNextFcTimer(delayMs = this.DELAY_MS_FIF) {
+    // 这里 delayMs 之所以可以设置为 0 是因为 telink SDK 中本身自带 native 层队列，当 fc.consumer(fc) 被执行后
+    // 就会有相应命令被堆入 native 层的队列中，然后 Android 会定时(getCommandsQueueIntervalMs 得 240ms) 从队列
+    // 中或 iOS 会在前次命令结束后立即 handleResultCallback 从队列中取出一个命令用蓝牙硬件发送出去，这里的 delayMs
+    // 可以控制 js 层 fifo 队列往 native 层队列发送的时机，设为 0 的话可以让蓝牙命令尽快被发出，特别是由于 iOS 的
+    // handleResultCallback 的关系如果设为 0 的话则在命令众多的情况下测得即使 2 设备时也会比 Android 更快速地被发出
+    // 备注：如果 SDK 没有或取消 native 层队列的话，单独使用 delayMs 配合 js 层 fifo 队列也是可以的。
+    static setNextFcTimer(delayMs = 0) {
         const fc = this.commandFifoConsumer;
         fc.timer = setTimeout(() => {
             fc.consumer(fc);
