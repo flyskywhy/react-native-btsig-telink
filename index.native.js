@@ -102,7 +102,7 @@ class TelinkBtSig {
     static commandFifoConsumer = undefined;
     // ref to getReliableMessageTimeout() in
     // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
-    static DELAY_MS_CMD_RSP_TIMEOUT = 5000;
+    static DELAY_MS_CMD_RSP_TIMEOUT = 1280;
     static DELAY_MS_FIFO = 240; // TODO: merge to DELAY_MS_COMMAND
 
     // ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
@@ -616,8 +616,8 @@ class TelinkBtSig {
         }, delayMs);
     }
 
-    static getCmdRspTimeoutMs() {
-        return NativeModule.getCommandQueueLength() * this.DELAY_MS_FIFO + this.DELAY_MS_CMD_RSP_TIMEOUT;
+    static getCmdRspTimeoutMs(retryCnt = 2) {
+        return NativeModule.getCommandQueueLength() * this.DELAY_MS_FIFO + (retryCnt + 1) * this.DELAY_MS_CMD_RSP_TIMEOUT;
     }
 
     // without response, quickly (1/3 time of this.sendCommandRsp below), but despite whether devices received cmd
@@ -678,7 +678,7 @@ class TelinkBtSig {
         // in another word, APP now can `await this.sendCommandRsp()` or just `this.sendCommandRsp()`
         // many times quickly(no need wait 240ms), and still ensure every cmd works fine
         return new Promise((resolve, reject) => this.addCommandFifo(() => {
-            const timeout = this.getCmdRspTimeoutMs();
+            const timeout = this.getCmdRspTimeoutMs(retryCnt);
             let timer = setTimeout(() => {
                 // to ensure exit Promise if `reject(error)` never invoked from native
                 // console.warn('sendCommandRsp @' + meshAddress.toString(16) + ' time out ' + timeout + 'ms');
