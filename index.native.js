@@ -105,8 +105,9 @@ class TelinkBtSig {
     static DELAY_MS_CMD_RSP_TIMEOUT = 1280;
     static DELAY_MS_FIFO = 240; // TODO: merge to DELAY_MS_COMMAND
 
-    // ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
-    static OPCODE_INVALID = -1;
+    // -1 ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
+    // 0 ref to ((vendorOpcodeResponse & 0xff) != 0) inTelinkSigMeshLib/TelinkSigMeshLib/Utils/SDKLibCommand.m
+    static OPCODE_INVALID = (Platform.OS === 'ios') ? 0 : -1;
 
     static passthroughMode = undefined; // 通过串口或者说自定义发送数据来控制蓝牙节点
     static gamma = [  // gamma 2.4 ，normal color ，据说较暗时颜色经 gamma 校正后会比较准
