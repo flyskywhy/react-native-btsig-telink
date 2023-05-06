@@ -266,19 +266,20 @@ class TelinkBtSig {
         // NativeModule.setLogLevel(0x1F);
 
         this.DELAY_MS_FIFO = NativeModule.getCommandsQueueIntervalMs();
+        this.commandFifoBusy = false;
         this.commandFifoConsumer = {
             fifo: createNewFifo(),
             consumer: (fc) => {
-                if (!fc.busy && fc.fifo.length) {
+                if (fc.fifo.length) {
                     const commandHandler = fc.fifo.shift();
                     if (commandHandler) {
-                        fc.busy = true;
                         commandHandler();
                     }
+                } else {
+                    this.commandFifoBusy = false;
                 }
             },
             timer: undefined,
-            busy: false,
         }
 
         if (Platform.OS === 'ios') {
@@ -298,7 +299,7 @@ class TelinkBtSig {
     static doDestroy() {
         const fc = this.commandFifoConsumer;
         fc.timer && clearTimeout(fc.timer);
-        fc.busy = false;
+        this.commandFifoBusy = false;
 
         this.getOnlineStatueTimer && clearTimeout(this.getOnlineStatueTimer);
         NativeModule.doDestroy();
@@ -589,13 +590,15 @@ class TelinkBtSig {
     }
 
     static addCommandFifo(fifoData) {
-        const fc = this.commandFifoConsumer;
-        if (!fc.busy && fc.fifo.length === 0) {
+        if (this.commandFifoBusy) {
+            const fc = this.commandFifoConsumer;
+            fc.fifo.push(fifoData);
+        } else {
+            this.commandFifoBusy = true;
+            const fc = this.commandFifoConsumer;
             fc.timer && clearTimeout(fc.timer);
             fc.fifo.push(fifoData);
             fc.consumer(fc);
-        } else {
-            fc.fifo.push(fifoData);
         }
     }
 
@@ -607,7 +610,6 @@ class TelinkBtSig {
     static setNextFcTimer(delayMs = this.DELAY_MS_FIF) {
         const fc = this.commandFifoConsumer;
         fc.timer = setTimeout(() => {
-            fc.busy = false;
             fc.consumer(fc);
         }, delayMs);
     }
@@ -667,7 +669,7 @@ class TelinkBtSig {
             })
         }
 
-        // use fifo and Promise and fc.busy to avoid the BUG: if current
+        // use fifo and Promise and this.commandFifoBusy to avoid the BUG: if current
         // rsp command not get rspMax rsp to means complete, but here comes next rsp
         // command, then will `reliable message send err: busy` with reliableBusy in
         // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
