@@ -583,9 +583,9 @@ class TelinkBtSig {
         NativeModule.clearCommandQueue();
         let fc = this.commandFifoConsumer;
         for (let i = 0; i < fc.fifo.length; i++) {
-            const cmd = fc.fifo.shift();
-            if (cmd && cmd.resolve && cmd.reject) {
-                reject(new TypeError('opcode ' + cmd.opcode.toString(16) + 'is canceled by opcode ' + opcodeImmediate.toString(16)));
+            const commandHandler = fc.fifo.shift();
+            if (commandHandler) {
+                commandHandler(opcodeImmediate);
             }
         }
     }
@@ -636,7 +636,11 @@ class TelinkBtSig {
             })
             NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, true);
         } else {
-            this.addCommandFifo(() => {
+            this.addCommandFifo((opcodeImmediateCancelBy) => {
+                if (opcodeImmediateCancelBy !== undefined) {
+                    return;
+                }
+
                 // if (opcode === 0x0211E6 && valueArray[0] === 0xa1 && valueArray[1] === 0) {
                 //     console.log('transfer', meshAddress.toString(16), valueArray[11] + '/' + (valueArray[12] - 1), '0x' + valueArray[8].toString(16));
                 // } else {
@@ -678,7 +682,12 @@ class TelinkBtSig {
         // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
         // in another word, APP now can `await this.sendCommandRsp()` or just `this.sendCommandRsp()`
         // many times quickly(no need wait 240ms), and still ensure every cmd works fine
-        return new Promise((resolve, reject) => this.addCommandFifo(() => {
+        return new Promise((resolve, reject) => this.addCommandFifo((opcodeImmediateCancelBy) => {
+            if (opcodeImmediateCancelBy !== undefined) {
+                reject(new TypeError('opcode ' + opcode.toString(16) + ' is canceled by opcodeImmediate ' + opcodeImmediateCancelBy.toString(16)));
+                return;
+            }
+
             const timeout = this.getCmdRspTimeoutMs(retryCnt);
             let timer = setTimeout(() => {
                 // to ensure exit Promise if `reject(error)` never invoked from native
@@ -705,7 +714,11 @@ class TelinkBtSig {
     static getOnlineStatus() {
         const fc = this.commandFifoConsumer;
         if (fc.fifo.length === 0) {
-            this.addCommandFifo(() => {
+            this.addCommandFifo((opcodeImmediateCancelBy) => {
+                if (opcodeImmediateCancelBy !== undefined) {
+                    return;
+                }
+
                 NativeModule.getOnlineStatus && NativeModule.getOnlineStatus();
                 const timeout = this.getCmdRspTimeoutMs();
                 this.setNextFcTimer(timeout);
@@ -1775,7 +1788,11 @@ class TelinkBtSig {
             })
             NativeModule.setTime(meshAddress);
         } else {
-            this.addCommandFifo(() => {
+            this.addCommandFifo((opcodeImmediateCancelBy) => {
+                if (opcodeImmediateCancelBy !== undefined) {
+                    return;
+                }
+
                 NativeModule.setTime(meshAddress);
 
                 // 这里 timeout 的存在理由参见
@@ -1791,7 +1808,12 @@ class TelinkBtSig {
         meshAddress, // only support mesh address, no group address
         relayTimes, // should be 0 or 1
     }) {
-        return new Promise((resolve, reject) => this.addCommandFifo(() => {
+        return new Promise((resolve, reject) => this.addCommandFifo((opcodeImmediateCancelBy) => {
+            if (opcodeImmediateCancelBy !== undefined) {
+                reject(new TypeError('getTime meshAddress ' + meshAddress.toString(16) + ' is canceled by opcodeImmediate ' + opcodeImmediateCancelBy.toString(16)));
+                return;
+            }
+
             const timeout = this.getCmdRspTimeoutMs();
             let timer = setTimeout(() => {
                 reject(new TypeError('getTime @' + meshAddress + ' time out ' + timeout + 'ms'))
@@ -1842,7 +1864,11 @@ class TelinkBtSig {
             })
             NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, realDay, hour, minute, second, realWeek, action, sceneId);
         } else {
-            this.addCommandFifo(() => {
+            this.addCommandFifo((opcodeImmediateCancelBy) => {
+                if (opcodeImmediateCancelBy !== undefined) {
+                    return;
+                }
+
                 NativeModule.setAlarm(meshAddress, alarmId, year, month !== undefined ? 1 << month : this.ALARM_MONTH_ALL, realDay, hour, minute, second, realWeek, action, sceneId);
                 this.setNextFcTimer();
             });
@@ -1854,7 +1880,12 @@ class TelinkBtSig {
         relayTimes, // should be 0 or 1
         alarmId,
     }) {
-        return new Promise((resolve, reject) => this.addCommandFifo(() => {
+        return new Promise((resolve, reject) => this.addCommandFifo((opcodeImmediateCancelBy) => {
+            if (opcodeImmediateCancelBy !== undefined) {
+                reject(new TypeError('getAlarm meshAddress ' + meshAddress.toString(16) + ' alarmId ' + alarmId + ' is canceled by opcodeImmediate ' + opcodeImmediateCancelBy.toString(16)));
+                return;
+            }
+
             const timeout = this.getCmdRspTimeoutMs();
             let timer = setTimeout(() => {
                 reject(new TypeError('getAlarm ' + alarmId + '@' + meshAddress + ' time out ' + timeout + 'ms'));
