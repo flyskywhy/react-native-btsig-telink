@@ -649,7 +649,7 @@ class TelinkBtSig {
                 // }
 
                 NativeModule.sendCommand(opcode, meshAddress, valueArray, rspOpcode, tidPosition, false);
-                this.setNextFcTimer();
+                this.setNextFcTimer(rspOpcode === this.OPCODE_INVALID ? undefined : this.getCmdRspTimeoutMs());
             });
         }
     }
