@@ -739,7 +739,12 @@ class TelinkBtSig {
         meshAddress,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0x0211F0, meshAddress, [], this.OPCODE_INVALID, -1, immediate);
+        this.sendCommand({
+            opcode: 0x0211F0,
+            meshAddress,
+            valueArray: [],
+            immediate,
+        });
     }
 
     static isOnline(status) {
