@@ -373,21 +373,36 @@ class TelinkBtSig {
             for (let mode in this.passthroughMode) {
                 if (this.passthroughMode[mode].includes(preDefinedType)) {
                     if (mode === 'silan') {
+                        // 获取 GIF 文件列表的状态
+                        this.sendCommand({
+                            opcode: 0x0211E6,
+                            meshAddress: this.defaultAllGroupAddress,
+                            valueArray: [0xa1, 5, 1, 1, 0xFF],
+                            immediate,
+                        });
+                        // 获取 BMP 文件列表的状态
+                        this.sendCommand({
+                            opcode: 0x0211E6,
+                            meshAddress: this.defaultAllGroupAddress,
+                            valueArray: [0xa1, 5, 1, 2, 0xFF],
+                            immediate,
+                        });
+
                         // 因为上面的 this.remind() 爆闪时导致固件有几个瞬间是处于开灯状态的，所以等待爆闪结束时
                         // 用 0x0211E1 发起开关灯状态查询，才能得到正确的开关灯状态。
                         // sleepMs 等待爆闪结束的时间长短，可以通过在关灯情况下再打开 APP 看是否能获得 2 个设备
-                        // 的关灯状态的测试方式来调节
-                        await this.sleepMs(1000);
+                        // 的关灯状态的测试方式来调节，目前测的在调用上面两个 this.sendCommand 后，在 3 个设备
+                        // 的情况下，无需 sleepMs 就能正常
+                        // await this.sleepMs(2000);
+
                         // 我们项目的固件里将 0x0211E1 返回的 TelinkBtSigNativeModule.onVendorResponse 的 opcode 设为了 0x0211E3 ，
                         // 这就是为何下面的 parseVendorResponse() 中有 0x0211E3 存在
-                        NativeModule.sendCommand(0x0211E1, this.defaultAllGroupAddress, [], this.OPCODE_INVALID, -1, false);
-
-                        // await this.sleepMs(1000);
-                        // 获取 GIF 文件列表的状态
-                        NativeModule.sendCommand(0x0211E6, this.defaultAllGroupAddress, [0xa1, 5, 1, 1, 0xFF], this.OPCODE_INVALID, -1, false)
-                        await this.sleepMs(1000);
-                        // 获取 BMP 文件列表的状态
-                        NativeModule.sendCommand(0x0211E6, this.defaultAllGroupAddress, [0xa1, 5, 1, 2, 0xFF], this.OPCODE_INVALID, -1, false)
+                        this.sendCommand({
+                            opcode: 0x0211E1,
+                            meshAddress: this.defaultAllGroupAddress,
+                            valueArray: [],
+                            immediate,
+                        });
 
                         changed = true;
                     }
@@ -401,62 +416,47 @@ class TelinkBtSig {
                 // 如果后续从蓝牙设备固件代码中得知 telink 也实现了（应该实现了） sig mesh 协议中
                 // model 之间关联功能，放到这里就是实现了亮度 modle 如果亮度为 <= 0 的话就会关联
                 // 开关灯 model 为关灯状态，则此处可以不再使用 Opcode.G_ONOFF_GET 而只用 Opcode.LIGHT_CTL_GET 等代替
-                NativeModule.sendCommand(Opcode.G_ONOFF_GET, this.defaultAllGroupAddress, [], Opcode.G_ONOFF_STATUS, -1, immediate);
-                // await this.sendCommandRsp({
-                //     opcode: Opcode.G_ONOFF_GET,
-                //     meshAddress: this.defaultAllGroupAddress,
-                //     valueArray: [],
-                //     rspOpcode: Opcode.G_ONOFF_STATUS,
-                //     relayTimes: 0,
-                //     tidPosition: -1,
-                //     immediate: false,
-                // });
+                await this.sendCommandRsp({
+                    opcode: Opcode.G_ONOFF_GET,
+                    meshAddress: this.defaultAllGroupAddress,
+                    valueArray: [],
+                    rspOpcode: Opcode.G_ONOFF_STATUS,
+                    immediate,
+                });
 
                 // 下面注释掉的 Get Opcode 仅用于测试
 
-                // NativeModule.sendCommand(Opcode.G_LEVEL_GET, this.defaultAllGroupAddress, [], Opcode.G_LEVEL_STATUS, -1, false);
                 // await this.sendCommandRsp({
                 //     opcode: Opcode.G_LEVEL_GET,
                 //     meshAddress: this.defaultAllGroupAddress,
                 //     valueArray: [],
                 //     rspOpcode: Opcode.G_LEVEL_STATUS,
-                //     relayTimes: 0,
-                //     tidPosition: -1,
-                //     immediate: false,
+                //     immediate,
                 // });
 
-                // NativeModule.sendCommand(Opcode.LIGHTNESS_GET, this.defaultAllGroupAddress, [], Opcode.LIGHTNESS_STATUS, -1, false);
                 // await this.sendCommandRsp({
                 //     opcode: Opcode.LIGHTNESS_GET,
                 //     meshAddress: this.defaultAllGroupAddress,
                 //     valueArray: [],
                 //     rspOpcode: Opcode.LIGHTNESS_STATUS,
-                //     relayTimes: 0,
-                //     tidPosition: -1,
-                //     immediate: false,
+                //     immediate,
                 // });
 
                 // 如 TelinkBtSigNativeModule.java 的 onGetLevelNotify() 中注释所说，使用 onGetCtlNotify() 更简洁
-                NativeModule.sendCommand(Opcode.LIGHT_CTL_GET, this.defaultAllGroupAddress, [], Opcode.LIGHT_CTL_STATUS, -1, false);
-                // await this.sendCommandRsp({
-                //     opcode: Opcode.LIGHT_CTL_GET,
-                //     meshAddress: this.defaultAllGroupAddress,
-                //     valueArray: [],
-                //     rspOpcode: Opcode.LIGHT_CTL_STATUS,
-                //     relayTimes: 0,
-                //     tidPosition: -1,
-                //     immediate: false,
-                // });
+                await this.sendCommandRsp({
+                    opcode: Opcode.LIGHT_CTL_GET,
+                    meshAddress: this.defaultAllGroupAddress,
+                    valueArray: [],
+                    rspOpcode: Opcode.LIGHT_CTL_STATUS,
+                    immediate,
+                });
 
-                // NativeModule.sendCommand(Opcode.LIGHT_CTL_TEMP_GET, this.defaultAllGroupAddress, [], Opcode.LIGHT_CTL_TEMP_STATUS, -1, false);
                 // await this.sendCommandRsp({
                 //     opcode: Opcode.LIGHT_CTL_TEMP_GET,
                 //     meshAddress: this.defaultAllGroupAddress,
                 //     valueArray: [],
                 //     rspOpcode: Opcode.LIGHT_CTL_TEMP_STATUS,
-                //     relayTimes: 0,
-                //     tidPosition: -1,
-                //     immediate: false,
+                //     immediate,
                 // });
             }
         }
