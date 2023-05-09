@@ -924,7 +924,8 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
     if (immediate) {
         [SigMeshLib.share cleanAllCommandsAndRetry];
     }
-    // if immediate is false and use SigMeshLib.share.isBusyNow below, will cause
+    // if immediate is false and rspOpcode is not OPCODE_INVALID in index.native.js
+    // and use SigMeshLib.share.isBusyNow below, will cause
     // 10s busy, so not use SigMeshLib.share.isBusyNow just like android code
     // (if retryCount is 0 will not busy, but still SigDataSource.share.defaultRetryCount
     // as 2 here to match android code DEFAULT_RETRY_CNT = 2 in MeshMessage.java )
@@ -933,7 +934,8 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
 //        return;
 //    }
 
-    // if retryCount is SigDataSource.share.defaultRetryCount as known is 2, the same
+    // if retryCount is SigDataSource.share.defaultRetryCount as known is 2
+    // and rspOpcode is not OPCODE_INVALID in index.native.js, the same
     // command will be sent 3 times, while android code DEFAULT_RETRY_CNT = 2 in
     // MeshMessage.java, but the command will only be sent 1 times on Android,
     // so `retryCount = 0` here to match iOS and Android
@@ -950,7 +952,7 @@ RCT_EXPORT_METHOD(sendCommand:(NSInteger)opcode meshAddress:(NSInteger)meshAddre
         model = [model initSigModelIniCommandWithNetkeyIndex:SigDataSource.share.curNetkeyModel.index appkeyIndex:SigDataSource.share.curAppkeyModel.index retryCount:retryCount responseMax:0 address:meshAddress opcode:opcode commandData:[self byteArray2Data:value]];
     }
 
-    [SDKLibCommand sendIniCommandModel:model successCallback:nil resultCallback:nil];
+    [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
 }
 
 RCT_EXPORT_METHOD(sendCommandRsp:(NSInteger)opcode meshAddress:(NSInteger)meshAddress value:(NSArray *)value rspOpcode:(NSInteger)rspOpcode relayTimes:(NSInteger)relayTimes retryCnt:(NSInteger)retryCnt tidPosition:(NSInteger)tidPosition immediate:(BOOL)immediate resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
