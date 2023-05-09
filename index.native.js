@@ -588,6 +588,7 @@ class TelinkBtSig {
                 commandHandler(opcodeImmediate);
             }
         }
+        this.commandFifoBusy = false;
     }
 
     static addCommandFifo(fifoData) {
