@@ -659,7 +659,10 @@ class TelinkBtSig {
     // can run, so please debug fw or other command just use NativeModule.sendCommand
     // directly by this.sendCommand(immediate: true)
     //
-    // here relayTimes also named responseMax, means native will not resolve Promise until
+    // if mix many NativeModule.sendCommand and this.sendCommandRsp in a short period,
+    // maybe cause once reject timeout, please adjust your APP code
+    //
+    // here relayTimes AKA responseMax, means native will not resolve Promise until
     // receive relayTimes response with rspOpcode from device, so APP can
     // sendCommandRsp({relayTimes: onlineCountInGroup}) where onlineCountInGroup is:
     //   1 or 0 if MESH_ADDRESS is online or not
@@ -752,7 +755,7 @@ class TelinkBtSig {
         type,
         productCategory = 0xFF, // 不可为 0 ，否则 E0 命令在固件收到后变成了 1、2、3、4 ... 而非 0 (BUG 或是没有 TODO: 设置好 tid?)，虽然 F3 之类的命令不会如此，但统一起见，都 0xFF 吧
         delaySec = 0,
-        immediate = false,
+        immediate = true,
     }) {
         let changed = false;
 
@@ -763,8 +766,6 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         // 不论这里是 this.OPCODE_INVALID 还是 0x0211E3 ，返回的 TelinkBtSigNativeModule.onVendorResponse 的 opcode 都是 0x0211E3 ，
                         // 究其根本原因其实是我们自己的固件代码中写成了只要收到开关灯命令，就一定通过 E3 返回开关灯状态
-                        // NativeModule.sendCommand(this.hasOnlineStatusNotifyRaw ? 0x0211E2 : 0x0211E0, meshAddress, [value], 0x0211E3, -1, immediate);
-                        // 如果使用下面带 fifo 的 this.sendCommand ，会导致开关灯延迟很大，所以使用上面的 NativeModule.sendCommand
                         // this.sendCommand({
                         //     opcode: this.hasOnlineStatusNotifyRaw ? 0x0211E2 : 0x0211E0,
                         //     meshAddress,
@@ -775,29 +776,17 @@ class TelinkBtSig {
                         // 按说在 this.hasOnlineStatusNotifyRaw 被 saveOrUpdateJS 事件设为 true 的情况下，只要使用上面
                         // 的不带返回值的开关命令 E2 即可，但是发现当在界面上快速点击开关的情况下，只有下面的带返回值的开关命
                         // 令 E0 额外返回的开关状态才能保证开关按钮的状态能够快速切换且能快速地开关灯。
-                        NativeModule.sendCommand(0x0211E0, meshAddress, [value, productCategory], 0x0211E3, -1, immediate);
-                        // 如果使用下面带 fifo 的 this.sendCommandRsp ，会导致开关灯延迟很大，所以使用上面的 NativeModule.sendCommand
-                        // this.sendCommandRsp({
-                        //     opcode: 0x0211E0,
-                        //     meshAddress,
-                        //     valueArray: [value, productCategory],
-                        //     rspOpcode: 0x0211E3,
-                        //     immediate,
-                        // });
+                        // NativeModule.sendCommand(0x0211E0, meshAddress, [value, productCategory], 0x0211E3, -1, immediate);
+                        // 如果使用下面带 fifo 的 this.sendCommandRsp ，则当 immediate 为 false 且用户短时间内连续点击开关灯
+                        // 时，会导致用户松手后仍然会自动开关灯连续切换一段时间，所以下面 immediate 最好为 true
+                        this.sendCommandRsp({
+                            opcode: 0x0211E0,
+                            meshAddress,
+                            valueArray: [value, productCategory],
+                            rspOpcode: 0x0211E3,
+                            immediate,
+                        });
                         changed = true;
-                        // react-native-btsig-telink@1.x 测试发现还需要再次查看开关状态才能保证群发关闭 3 个设备后获得所有设备的关灯状态
-                        // TODO: 在 react-native-btsig-telink@2.x 中进行测试
-                        // TODO: 将这里的 NativeModule.sendCommand 改为 this.sendCommandRsp 应该就能保证开关灯状态
-                        await this.sleepMs(this.DELAY_MS_COMMAND);
-                        NativeModule.sendCommand(0x0211E1, this.defaultAllGroupAddress, [], this.OPCODE_INVALID, -1, false);
-                        // 如果使用下面带 fifo 的 this.sendCommandRsp ，会导致开关灯延迟很大，所以使用上面的 NativeModule.sendCommand
-                        // this.sendCommandRsp({
-                        //     opcode: 0x0211E1,
-                        //     meshAddress,
-                        //     valueArray: [],
-                        //     rspOpcode: 0x0211E3,
-                        //     immediate: false,
-                        // });
                     }
                     break;
                 }

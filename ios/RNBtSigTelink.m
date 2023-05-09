@@ -972,8 +972,10 @@ RCT_EXPORT_METHOD(sendCommandRsp:(NSInteger)opcode meshAddress:(NSInteger)meshAd
     self->mSendCommandRspResolve = resolve;
     self->mSendCommandRspReject = reject;
 
-    [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
-        if (isResponseAll) {
+    [SDKLibCommand sendIniCommandModel:model successCallback:^(UInt16 source, UInt16 destination, SigMeshMessage * _Nonnull responseMessage) {
+//        NSLog(@"TelinkBtSig sendCommandRsp successCallback source = %x", source);
+        // resultCallback will not be invoked if relayTimes AKA responseMax be 0 , so be here
+        if (relayTimes == 0) {
             if (self->mSendCommandRspResolve != nil) {
                 NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
                 [dict setObject:[NSNumber numberWithInt:(int)rspOpcode] forKey:@"opcode"];
@@ -981,11 +983,23 @@ RCT_EXPORT_METHOD(sendCommandRsp:(NSInteger)opcode meshAddress:(NSInteger)meshAd
                 self->mSendCommandRspResolve = nil;
                 self->mSendCommandRspReject = nil;
             }
-        } else {
-            if (self->mSendCommandRspReject != nil) {
-                self->mSendCommandRspReject(@"onSendCommandRspFailure", @"onSendCommandRspFailure isResponseAll: false", error);
-                self->mSendCommandRspReject = nil;
-                self->mSendCommandRspResolve = nil;
+        }
+    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+        if (relayTimes != 0) {
+            if (isResponseAll) {
+                if (self->mSendCommandRspResolve != nil) {
+                    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+                    [dict setObject:[NSNumber numberWithInt:(int)rspOpcode] forKey:@"opcode"];
+                    self->mSendCommandRspResolve(dict);
+                    self->mSendCommandRspResolve = nil;
+                    self->mSendCommandRspReject = nil;
+                }
+            } else {
+                if (self->mSendCommandRspReject != nil) {
+                    self->mSendCommandRspReject(@"onSendCommandRspFailure", @"onSendCommandRspFailure isResponseAll: false", error);
+                    self->mSendCommandRspReject = nil;
+                    self->mSendCommandRspResolve = nil;
+                }
             }
         }
     }];
