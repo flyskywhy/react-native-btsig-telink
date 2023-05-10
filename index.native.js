@@ -107,6 +107,9 @@ class TelinkBtSig {
 
     // -1 ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
     // 0 ref to ((vendorOpcodeResponse & 0xff) != 0) inTelinkSigMeshLib/TelinkSigMeshLib/Utils/SDKLibCommand.m
+    // whether op_rsp is -1 or 0, it only affect APP SDK to determine if the command is rsp, it
+    // will not affect FW because cb_par->op_rsp only can be the definition that match op in
+    // telink_sig_mesh/vendor/comon/generic_model.c
     static OPCODE_INVALID = (Platform.OS === 'ios') ? 0 : -1;
 
     static passthroughMode = undefined; // 通过串口或者说自定义发送数据来控制蓝牙节点
