@@ -291,7 +291,9 @@ class TelinkBtSig {
             // then can't invoke receiveOnlineStatusData->anasislyOnlineStatueDataFromUUID
             // ->updateOnlineStatusWithDeviceAddress->discoverOutlineNodeCallback
             //
-            // So use setInterval to call getOnlineStatue() to invoke onOnlineStatusNotify() in ios/RNBtSigTelink.m
+            // In one word, can't be offline automatically.
+            //
+            // So workaround by using setInterval to call getOnlineStatue() to invoke onOnlineStatusNotify() in ios/RNBtSigTelink.m
             this.getOnlineStatueTimer && clearInterval(this.getOnlineStatueTimer);
             this.getOnlineStatueTimer = setInterval(this.getOnlineStatus.bind(this), 5000);
         }
@@ -721,7 +723,7 @@ class TelinkBtSig {
 
     static getOnlineStatus() {
         const fc = this.commandFifoConsumer;
-        if (fc.fifo.length === 0) {
+        if (!this.commandFifoBusy) {
             this.addCommandFifo((opcodeImmediateCancelBy) => {
                 if (opcodeImmediateCancelBy !== undefined) {
                     return;
