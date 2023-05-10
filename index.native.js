@@ -763,7 +763,7 @@ class TelinkBtSig {
         type,
         productCategory = 0xFF, // 不可为 0 ，否则 E0 命令在固件收到后变成了 1、2、3、4 ... 而非 0 (BUG 或是没有 TODO: 设置好 tid?)，虽然 F3 之类的命令不会如此，但统一起见，都 0xFF 吧
         delaySec = 0,
-        immediate = true,
+        immediate = true, // ack is true in native code and that will cause delay if changePower again in short time, except immediate is true
     }) {
         let changed = false;
 
