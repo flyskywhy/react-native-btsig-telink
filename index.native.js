@@ -285,21 +285,6 @@ class TelinkBtSig {
             },
             timer: undefined,
         }
-
-        if (Platform.OS === 'ios') {
-            // On iOS, even hack add kOnlineStatusCharacteristicsID to openWithResult() in TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBearer.m
-            // still can't invode [characteristic.UUID.UUIDString isEqualToString:kOnlineStatusCharacteristicsID] in
-            // TelinkSigMeshLib/TelinkSigMeshLib/Bearer/SigBluetooth.m
-            // so that can't invoke bluetoothDidUpdateOnlineStatusValueCallback (by setBluetoothDidUpdateOnlineStatusValueCallback with receiveOnlineStatusData)
-            // then can't invoke receiveOnlineStatusData->anasislyOnlineStatueDataFromUUID
-            // ->updateOnlineStatusWithDeviceAddress->discoverOutlineNodeCallback
-            //
-            // In one word, can't be offline automatically.
-            //
-            // So workaround by using setInterval to call getOnlineStatue() to invoke onOnlineStatusNotify() in ios/RNBtSigTelink.m
-            this.getOnlineStatueTimer && clearInterval(this.getOnlineStatueTimer);
-            this.getOnlineStatueTimer = setInterval(this.getOnlineStatus.bind(this), 5000);
-        }
     }
 
     static doDestroy() {
@@ -722,21 +707,6 @@ class TelinkBtSig {
                 this.setNextFcTimer();
             });
         }));
-    }
-
-    static getOnlineStatus() {
-        const fc = this.commandFifoConsumer;
-        if (!this.commandFifoBusy) {
-            this.addCommandFifo((opcodeImmediateCancelBy) => {
-                if (opcodeImmediateCancelBy !== undefined) {
-                    return;
-                }
-
-                NativeModule.getOnlineStatus && NativeModule.getOnlineStatus();
-                const timeout = this.getCmdRspTimeoutMs();
-                this.setNextFcTimer(timeout);
-            });
-        }
     }
 
     // 让灯爆闪几下

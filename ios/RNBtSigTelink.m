@@ -317,8 +317,6 @@ RCT_EXPORT_MODULE()
 - (void)startMeshSDK:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex {
     // 初始化本地存储的 mesh 网络数据
     [self initMesh:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex isReplaceMeshSetting:false];
-    // init Bluetooth
-    [SigBluetooth share];
 
     // 初始化 ECC 算法的公钥( iphone 6s 耗时 0.6~1.3 秒，放到背景线程调用)
     [SigECCEncryptHelper.share performSelectorInBackground:@selector(eccInit) withObject:nil];
@@ -330,6 +328,8 @@ RCT_EXPORT_MODULE()
     [[SigBluetooth share] bleInit:^(CBCentralManager * _Nonnull central) {
         TeLogInfo(@"finish init SigBluetooth.");
         [SigMeshLib share];
+
+//        SigBluetooth.share.delegate = self;
     }];
 
     // 默认为 NO ，连接速度更加快。设置为 YES ，表示扫描到的设备必须包含 MacAddress ，有些客户在添加流程需要通过 MacAddress 获取三元组信息，需要使用 YES
@@ -542,33 +542,26 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     };
 
     SigDataSource.share.delegate = self;
-    SigBluetooth.share.delegate = self;
     SigBearer.share.dataDelegate = self;
     SigMeshLib.share.delegateForDeveloper = self;
 
-    // discoverOutlineNodeCallback only be called after getOnlineStatue below is invoked,
-    // and be called despite of whether is DeviceStateOutOfLine, if hack
-    // updateOnlineStatusWithDeviceAddress in SigMeshLib.m from
-    //     if (SigPublishManager.share.discoverOutlineNodeCallback) {
-    // to
-    //     if (SigPublishManager.share.discoverOutlineNodeCallback && state == DeviceStateOutOfLine) {
-    // then discoverOutlineNodeCallback can't be called.
-    // So use onOnlineStatusNotify() above instead of setDiscoverOutlineNodeCallback() below
-//    [SigPublishManager.share setDiscoverOutlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
-//        TeLogVerbose(@"setDiscoverOutlineNodeCallback %d", unicastAddress);
-//        NSMutableArray *array = [[NSMutableArray alloc] init];
-//        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-//        [dict setObject:unicastAddress forKey:@"meshAddress"];
-//        [dict setObject:[NSNumber numberWithInt:-1] forKey:@"status"];
-//        [array addObject:dict];
-//        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
-//    }];
+    // only telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount() is called at least once
+    // after bearerDidOpen below, then discoverOutlineNodeCallback() can work normally
+    [SigPublishManager.share setDiscoverOutlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
+        TeLogVerbose(@"setDiscoverOutlineNodeCallback %@", unicastAddress);
+        NSMutableArray *array = [[NSMutableArray alloc] init];
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:unicastAddress forKey:@"meshAddress"];
+        [dict setObject:[NSNumber numberWithInt:-1] forKey:@"status"];
+        [array addObject:dict];
+        [weakSelf sendEventWithName:@"notificationOnlineStatus" body:array];
+    }];
 
-    // even discoverOnlineNodeCallback can always be called by didReceiveMessage in
-    // SigMeshLib.m, since onOnlineStatusNotify() can cover online and outline,
-    // so use onOnlineStatusNotify() above instead of setDiscoverOnlineNodeCallback() below
+    // discoverOnlineNodeCallback() is not guarantee of being called by
+    // didReceiveMessage() in SigMeshLib.m, so use onOnlineStatusNotify()
+    // above instead of setDiscoverOnlineNodeCallback() below
 //    [SigPublishManager.share setDiscoverOnlineNodeCallback:^(NSNumber * _Nonnull unicastAddress) {
-//        TeLogVerbose(@"setDiscoverOnlineNodeCallback %d", unicastAddress);
+//        TeLogVerbose(@"setDiscoverOnlineNodeCallback %@", unicastAddress);
 //        NSMutableArray *array = [[NSMutableArray alloc] init];
 //        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
 //        [dict setObject:unicastAddress forKey:@"meshAddress"];
@@ -670,14 +663,6 @@ RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
     }
 }
 
-RCT_EXPORT_METHOD(getOnlineStatus) {
-    if (SigMeshLib.share.isBusyNow) {
-        TeLogInfo(@"getOnlineStatus busy");
-        return;
-    }
-    [SDKLibCommand telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {} resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
-}
-
 - (SigTelinkOnlineStatusMessage *)getOnlineStatusMessage:(UInt16)address{
     @synchronized(self) {
         for (SigTelinkOnlineStatusMessage *message in self.onlineStatusMessages) {
@@ -776,11 +761,15 @@ RCT_EXPORT_METHOD(autoConnect) {
         return;
     }
 
-    NSLog(@"TelinkBtSig deviceStatusLogin address:%d", address);
-    self.connectMeshAddress = address;
-    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-    [dict setObject:[NSNumber numberWithInt:address] forKey:@"connectMeshAddress"];
-    [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
+    // only telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount() is called at least once
+    // after bearerDidOpen, then discoverOutlineNodeCallback() above can work normally
+    [SDKLibCommand telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {
+        NSLog(@"TelinkBtSig deviceStatusLogin address:%d", address);
+        self.connectMeshAddress = address;
+        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+        [dict setObject:[NSNumber numberWithInt:address] forKey:@"connectMeshAddress"];
+        [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
+    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
 }
 
 - (void)bearer:(SigBearer *)bearer didCloseWithError:(NSError *)error {
