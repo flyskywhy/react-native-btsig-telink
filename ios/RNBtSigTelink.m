@@ -730,15 +730,15 @@ RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve rejecte
 RCT_EXPORT_METHOD(autoConnect) {
     NSLog(@"TelinkBtSig autoConnect");
     if ([SDKLibCommand isBLEInitFinish]) {
-        [SigBearer.share startMeshConnectWithComplete:nil];
+        [SigBearer.share startMeshConnectWithComplete:^(BOOL successful) {
+            if (successful) {
+                [self meshDidConnected];
+            }
+        }];
     }
 }
 
-#pragma  mark - SigBearerDataDelegate
-- (void)bearerDidConnectedAndDiscoverServices:(SigBearer *)bearer {
-}
-
-- (void)bearerDidOpen:(SigBearer *)bearer {
+- (void)meshDidConnected {
     __weak typeof(self) weakSelf = self;
     CBPeripheral *tem = [SigBearer.share getCurrentPeripheral];
 //    SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:tem.identifier.UUIDString];
@@ -761,14 +761,22 @@ RCT_EXPORT_METHOD(autoConnect) {
         return;
     }
 
+    NSLog(@"TelinkBtSig deviceStatusLogin address:%d", address);
+    self.connectMeshAddress = address;
+    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+    [dict setObject:[NSNumber numberWithInt:address] forKey:@"connectMeshAddress"];
+    [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
+}
+
+#pragma  mark - SigBearerDataDelegate
+- (void)bearerDidConnectedAndDiscoverServices:(SigBearer *)bearer {
+}
+
+- (void)bearerDidOpen:(SigBearer *)bearer {
     // only telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount() is called at least once
     // after bearerDidOpen, then discoverOutlineNodeCallback() above can work normally
     [SDKLibCommand telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {
-        NSLog(@"TelinkBtSig deviceStatusLogin address:%d", address);
-        self.connectMeshAddress = address;
-        NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSNumber numberWithInt:address] forKey:@"connectMeshAddress"];
-        [weakSelf sendEventWithName:@"deviceStatusLogin" body:dict];
+        [self meshDidConnected];
     } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
 }
 
