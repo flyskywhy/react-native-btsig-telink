@@ -151,7 +151,7 @@ static SigMeshLib *shareLib = nil;
             command.responseAllMessageCallBack(address, weakSelf.dataSource.curLocationNodeModel.address, message);
         });
     }
-    if (SigPublishManager.share.discoverOutlineNodeCallback) {
+    if (SigPublishManager.share.discoverOutlineNodeCallback && state == DeviceStateOutOfLine) {
         dispatch_async(dispatch_get_main_queue(), ^{
             SigPublishManager.share.discoverOutlineNodeCallback(@(address));
         });
