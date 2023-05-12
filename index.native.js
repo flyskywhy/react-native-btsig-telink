@@ -72,7 +72,7 @@ class TelinkBtSig {
     // telink_sig_mesh_sdk_v3.1.0 中没有自带命令队列然后自动在命令间加入延时，所以需要
     // 手动加入足够延时，否则比如连续两次设置开关，则第 2 个设备极有可能收不到开关命令
     // 虽然 telink_sig_mesh_sdk_v3.3.3.5 中已经自带命令队列，但还是沿用该经验值吧
-    static DELAY_MS_COMMAND = 500;
+    static DELAY_MS_COMMAND = 240;
     static ALARM_CREATE = 0;
     static ALARM_REMOVE = 1;
     static ALARM_UPDATE = 2;
@@ -103,7 +103,6 @@ class TelinkBtSig {
     // ref to getReliableMessageTimeout() in
     // android/src/main/java/com/telink/ble/mesh/core/networking/NetworkingController.java
     static DELAY_MS_CMD_RSP_TIMEOUT = 1280;
-    static DELAY_MS_FIFO = 240; // TODO: merge to DELAY_MS_COMMAND
 
     // -1 ref to android/src/main/java/com/telink/ble/mesh/core/message/MeshMessage.java
     // 0 ref to ((vendorOpcodeResponse & 0xff) != 0) inTelinkSigMeshLib/TelinkSigMeshLib/Utils/SDKLibCommand.m
@@ -269,7 +268,7 @@ class TelinkBtSig {
 
         // NativeModule.setLogLevel(0x1F);
 
-        this.DELAY_MS_FIFO = NativeModule.getCommandsQueueIntervalMs();
+        this.DELAY_MS_COMMAND = NativeModule.getCommandsQueueIntervalMs();
         this.commandFifoBusy = false;
         this.commandFifoConsumer = {
             fifo: createNewFifo(),
@@ -560,11 +559,11 @@ class TelinkBtSig {
 
     static setCommandsQueueIntervalMs(interval) {
         NativeModule.setCommandsQueueIntervalMs(interval);
-        this.DELAY_MS_FIFO = interval;
+        this.DELAY_MS_COMMAND = interval;
     }
 
     static getCommandsQueueIntervalMs() {
-        return this.DELAY_MS_FIFO;
+        return this.DELAY_MS_COMMAND;
     }
 
     static clearCommandFifo({
@@ -601,7 +600,7 @@ class TelinkBtSig {
     // handleResultCallback 的关系如果设为 0 的话则在命令众多的情况下测得即使 2 设备时也会比 Android 更快速地被发
     // 出，但由于如果命令多到十几个的情况下容易丢几个命令，所以当为 iOS 时这里还是不使用 0 而是就当作这个备注了：
     // 备注：如果 SDK 没有或取消 native 层队列的话，单独使用 delayMs 配合 js 层 fifo 队列也是可以的。
-    static setNextFcTimer(delayMs = this.DELAY_MS_FIFO) {
+    static setNextFcTimer(delayMs = this.DELAY_MS_COMMAND) {
         const fc = this.commandFifoConsumer;
         fc.timer = setTimeout(() => {
             fc.consumer(fc);
@@ -609,7 +608,7 @@ class TelinkBtSig {
     }
 
     static getCmdRspTimeoutMs(retryCnt = 2) {
-        return NativeModule.getCommandQueueLength() * this.DELAY_MS_FIFO + (retryCnt + 1) * this.DELAY_MS_CMD_RSP_TIMEOUT;
+        return NativeModule.getCommandQueueLength() * this.DELAY_MS_COMMAND + (retryCnt + 1) * this.DELAY_MS_CMD_RSP_TIMEOUT;
     }
 
     // without response, quickly (1/3 time of this.sendCommandRsp below), but despite whether devices received cmd
