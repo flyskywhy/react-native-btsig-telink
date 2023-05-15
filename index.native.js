@@ -69,9 +69,6 @@ class TelinkBtSig {
     static NODE_STATUS_OFFLINE = -1;
     static RELAY_TIMES_MAX = 16;
     static DELAY_MS_AFTER_UPDATE_MESH_COMPLETED = 500;
-    // telink_sig_mesh_sdk_v3.1.0 中没有自带命令队列然后自动在命令间加入延时，所以需要
-    // 手动加入足够延时，否则比如连续两次设置开关，则第 2 个设备极有可能收不到开关命令
-    // 虽然 telink_sig_mesh_sdk_v3.3.3.5 中已经自带命令队列，但还是沿用该经验值吧
     static DELAY_MS_COMMAND = 240;
     static ALARM_CREATE = 0;
     static ALARM_REMOVE = 1;
