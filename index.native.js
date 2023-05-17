@@ -2000,6 +2000,10 @@ class TelinkBtSig {
         }
     }
 
+    // If node comes from configNode(), the nodeInfo comes from device, so the version in nodeInfo is correct;
+    // if node comes from claimAllAtOnce(), the nodeInfo comes from predefined value in PrivateDevice.js ,
+    // so the version in nodeInfo is not correct, except developer can invoke valid getFirmwareVersion()
+    // and update nodeInfo by getNodeInfoWithNewFwVer() later
     static getFwVerInNodeInfo({
         nodeInfo = '',
     }) {
