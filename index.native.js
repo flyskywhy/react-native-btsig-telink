@@ -217,6 +217,14 @@ class TelinkBtSig {
     };
     static extendBearerMode = this.EXTEND_BEARER_MODE.NONE;
 
+    // after telink sig mesh sdk 3.2.1 , by default, not support
+    // FirmwareUpdateInfoGetMessage (0x01B6) and startMeshOta() , only support startGattOta() ,
+    // you should register on https://www.bluetooth.com/ then get mesh OTA code from telink,
+    // before that, use getFwVerInNodeInfo() and NativeModule.startOta() instead,
+    // and use valid (even canMeshOta is false) getFirmwareVersion() to get version then use
+    // getNodeInfoWithNewFwVer() to update device.nodeInfo after NativeModule.startOta() resolved
+    static canMeshOta = false;
+
     static provisionerSno = 0;
     static provisionerIvIndex = 0;
 
@@ -538,6 +546,26 @@ class TelinkBtSig {
                     sceneID: resRaw.params[1] & 0xFF,
                     sceneSyncTime: resRaw.params[1] && new Date().getTime(),
                 };
+                break;
+            case 0x0211FB:
+                switch (resRaw.params[0]) {
+                    case 1:
+                        res = {
+                            opcode: 'notificationDataGetVersion',
+                            meshAddress: resRaw.meshAddress,
+
+                            // 为了保持兼容性，返回的 version 格式仍然沿用
+                            // telink_sig_mesh_sdk_v3.1.0/firmware/vendor/common/version.h
+                            // 中 FW_VERSION_TELINK_RELEASE 的 (VERSION_GET(0x31, 0x42)) 定义方法，所以弃用
+                            // telink_sig_mesh_sdk_v3.3.3.5/firmware/vendor/common/version.h
+                            // 中 ((SW_VERSION_SPEC << 4) + (SW_VERSION_MAJOR << 0) 的定义方法
+                            version: String.fromCharCode(resRaw.params[1], resRaw.params[2]),
+                        };
+                        break;
+                    default:
+                        res = {};
+                        break;
+                }
                 break;
             case 0x0211FF:
                 res = {
@@ -2026,24 +2054,23 @@ class TelinkBtSig {
         }
     }
 
-    // 为了保持兼容性，返回的 version 格式仍然沿用
-    // telink_sig_mesh_sdk_v3.1.0/firmware/vendor/common/version.h
-    // 中 FW_VERSION_TELINK_RELEASE 的 (VERSION_GET(0x31, 0x42)) 定义方法，所以请自行弃用
-    // telink_sig_mesh_sdk_v3.3.3.5/firmware/vendor/common/version.h
-    // 中 ((SW_VERSION_SPEC << 4) + (SW_VERSION_MAJOR << 0) 的定义方法
-    //
-    // after telink sig mesh sdk 3.2.1 , by default, not support
-    // FirmwareUpdateInfoGetMessage (0x01B6) and startMeshOta() , only support startGattOta() ,
-    // you should register on https://www.bluetooth.com/ then get mesh OTA code from telink,
-    // before that, use getFwVerInNodeInfo() above and NativeModule.startOta() below instead,
-    // and use getNodeInfoWithNewFwVer() above to update device.nodeInfo after NativeModule.startOta() resolved
     static getFirmwareVersion({
         meshAddress = this.defaultAllGroupAddress,
         relayTimes = 7,
         immediate = false,
     }) {
-        NativeModule.sendCommand(0x01B6, meshAddress, [0, 1], 0x02B6, -1, immediate);
-        // NativeModule.getFirmwareInfo(meshAddress);
+        if (this.canMeshOta) {
+            NativeModule.sendCommand(0x01B6, meshAddress, [0, 1], 0x02B6, -1, immediate);
+            // NativeModule.getFirmwareInfo(meshAddress);
+        } else {
+            this.sendCommandRsp({
+                opcode: 0x0211F9,
+                meshAddress,
+                valueArray: [1],        // 0x0211F9 means get, and 1 means (get) fw version in my product
+                rspOpcode: 0x0211FB,    // 0x0211FB means status in my product
+                immediate,
+            });
+        }
     }
 
     // 是否是两个发布版本之间的测试版本
