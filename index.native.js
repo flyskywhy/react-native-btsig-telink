@@ -1371,6 +1371,11 @@ class TelinkBtSig {
                                 changed = true;
                                 break;
                             }
+                            case 0x9f: {
+                                NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, colorsLength, ...colors3, sceneMode, sceneModeOpt, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                changed = true;
+                                break;
+                            }
                             case 0xa0: {
                                                                                                                                 // 这里的 1 是保留字节，也许后续有用                          // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
                                 NativeModule.sendCommand(0x0211E6, meshAddress, [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
