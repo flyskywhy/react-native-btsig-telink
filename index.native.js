@@ -2078,6 +2078,28 @@ class TelinkBtSig {
         }
     }
 
+    static setScene2d({
+        meshAddress = this.defaultAllGroupAddress,
+        scene = 11,
+        isScene2d = true,
+        productCategory = 0xFF,
+        relayTimes = 7,
+        immediate = false,
+    }) {
+        this.sendCommand({
+            opcode: 0x0211FA,           // 0x0211FA means set without rsp in my product
+            meshAddress,
+            valueArray: [
+                2,                      // 2 means (set) scene 2d in my product
+                scene,
+                isScene2d ? 1 : 0,
+                productCategory,
+            ],
+            immediate,
+        });
+
+    }
+
     // 是否是两个发布版本之间的测试版本
     static isTestFw({
         fwVer,
