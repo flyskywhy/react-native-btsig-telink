@@ -957,6 +957,7 @@ class TelinkBtSig {
         colorId = 1,
         data = [],
         isEditingCustom = false,
+        needPostProcessColor = true,
         speed = -2,
 
         bigDataAction,
@@ -989,7 +990,7 @@ class TelinkBtSig {
                     s: saturation / this.SATURATION_MAX,
                     v: value / this.BRIGHTNESS_MAX,
                 }).toRgb();
-            } else {
+            } else if (needPostProcessColor) {
                 // color3.r = this.ledFilter3040(color3.r);
                 // color3.g = this.ledFilter3040(color3.g);
                 // color3.b = this.ledFilter3040(color3.b);
@@ -1002,7 +1003,7 @@ class TelinkBtSig {
                 color3.b = safeColor.b;
             }
             let color3Bg = colorBg && tinycolor(colorBg).toRgb();
-            if (color3Bg) {
+            if (color3Bg && needPostProcessColor) {
                 // color3Bg.r = this.ledFilter3040(color3Bg.r);
                 // color3Bg.g = this.ledFilter3040(color3Bg.g);
                 // color3Bg.b = this.ledFilter3040(color3Bg.b);
@@ -1018,19 +1019,21 @@ class TelinkBtSig {
             colors.map((colour, index) => {
                 colors3.push(reserves[index] || 0);    // reserve 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）
                 let rgb = tinycolor(colour).toRgb();
-                // rgb.r = this.ledFilter3040(rgb.r);
-                // rgb.g = this.ledFilter3040(rgb.g);
-                // rgb.b = this.ledFilter3040(rgb.b);
-                rgb.r = parseInt(this.gamma[rgb.r] * this.whiteBalance.r, 10);
-                rgb.g = parseInt(this.gamma[rgb.g] * this.whiteBalance.g, 10);
-                rgb.b = parseInt(this.gamma[rgb.b] * this.whiteBalance.b, 10);
-                let safeColor = this.ledFilterBurnGreen({
-                    ...rgb,
-                    scene,
-                });
-                rgb.r = safeColor.r;
-                rgb.g = safeColor.g;
-                rgb.b = safeColor.b;
+                if (needPostProcessColor) {
+                    // rgb.r = this.ledFilter3040(rgb.r);
+                    // rgb.g = this.ledFilter3040(rgb.g);
+                    // rgb.b = this.ledFilter3040(rgb.b);
+                    rgb.r = parseInt(this.gamma[rgb.r] * this.whiteBalance.r, 10);
+                    rgb.g = parseInt(this.gamma[rgb.g] * this.whiteBalance.g, 10);
+                    rgb.b = parseInt(this.gamma[rgb.b] * this.whiteBalance.b, 10);
+                    let safeColor = this.ledFilterBurnGreen({
+                        ...rgb,
+                        scene,
+                    });
+                    rgb.r = safeColor.r;
+                    rgb.g = safeColor.g;
+                    rgb.b = safeColor.b;
+                }
                 colors3.push(rgb.r);
                 colors3.push(rgb.g);
                 colors3.push(rgb.b);
@@ -1311,20 +1314,25 @@ class TelinkBtSig {
                                     let bulbsMode = subdata[0];
                                     let bulbsStart = subdata[1];
                                     let bulbsLength = subdata[2];
-                                    // let bulbsColorR = this.ledFilter3040(subdata[3] >> 16 & 0xFF);
-                                    // let bulbsColorG = this.ledFilter3040(subdata[3] >> 8 & 0xFF);
-                                    // let bulbsColorB = this.ledFilter3040(subdata[3] & 0xFF);
-                                    let bulbsColorR = parseInt(this.gamma[subdata[3] >> 16 & 0xFF] * this.whiteBalance.r, 10);
-                                    let bulbsColorG = parseInt(this.gamma[subdata[3] >> 8 & 0xFF] * this.whiteBalance.g, 10);
-                                    let bulbsColorB = parseInt(this.gamma[subdata[3] & 0xFF] * this.whiteBalance.b, 10);
-                                    let safeColor = this.ledFilterBurnGreen({
-                                        r: bulbsColorR,
-                                        g: bulbsColorG,
-                                        b: bulbsColorB,
-                                    });
-                                    bulbsColorR = safeColor.r;
-                                    bulbsColorG = safeColor.g;
-                                    bulbsColorB = safeColor.b;
+                                    let bulbsColorR = subdata[3] >> 16 & 0xFF;
+                                    let bulbsColorG = subdata[3] >> 8 & 0xFF;
+                                    let bulbsColorB = subdata[3] & 0xFF;
+                                    if (needPostProcessColor) {
+                                        // let bulbsColorR = this.ledFilter3040(bulbsColorR);
+                                        // let bulbsColorG = this.ledFilter3040(bulbsColorG);
+                                        // let bulbsColorB = this.ledFilter3040(bulbsColorB);
+                                        let bulbsColorR = parseInt(this.gamma[bulbsColorR] * this.whiteBalance.r, 10);
+                                        let bulbsColorG = parseInt(this.gamma[bulbsColorG] * this.whiteBalance.g, 10);
+                                        let bulbsColorB = parseInt(this.gamma[bulbsColorB] * this.whiteBalance.b, 10);
+                                        let safeColor = this.ledFilterBurnGreen({
+                                            r: bulbsColorR,
+                                            g: bulbsColorG,
+                                            b: bulbsColorB,
+                                        });
+                                        bulbsColorR = safeColor.r;
+                                        bulbsColorG = safeColor.g;
+                                        bulbsColorB = safeColor.b;
+                                    }
                                     if (bulbsStart > 255) {
                                         let subdataLength = 8;
                                         rawData = rawData.concat([
