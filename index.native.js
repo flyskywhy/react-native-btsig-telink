@@ -976,7 +976,14 @@ class TelinkBtSig {
     }) {
         if (this.isSceneCadenceBusy) {
             this.allowSceneCadence = false;
+            // 因 Cadence 韵律功能是不停地（每隔 100ms）在发送 changeBrightness 蓝牙消息，
+            // 这样切换效果时，如果不在这里等待足够长时间以便让韵律消息发送完成，就无法切换效果
             await this.sleepMs(this.DELAY_MS_COMMAND);
+            if (this.extendBearerMode !== this.EXTEND_BEARER_MODE.GATT_ADV) {
+                // 如果不是 EXTEND_BEARER_MODE.GATT_ADV 高速模式，实测需要更多等待才能
+                // 切换那些字节数较多的效果比如 colorsLength 大于 3 的效果
+                await this.sleepMs(this.DELAY_MS_COMMAND);
+            }
             this.isSceneCadenceBusy = false;
         }
 
