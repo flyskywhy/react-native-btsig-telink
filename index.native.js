@@ -233,6 +233,19 @@ class TelinkBtSig {
 
     static lastSceneSyncMeshAddress = undefined;
 
+    // default is false, if set to true, can use enableSystemLocation() later
+    static set manuallyCheckSystemLocation(isManually) {
+        if (Platform.OS === 'android') {
+            NativeModule.setManuallyCheckSystemLocation(isManually);
+        }
+    }
+
+    static get manuallyCheckSystemLocation() {
+        if (Platform.OS === 'android') {
+            return NativeModule.getManuallyCheckSystemLocation();
+        }
+    }
+
     static doInit() {
         NativeModule.doInit(this.netKey, this.appKey, this.meshAddressOfApp, this.devices.map(device => {
             // for debug

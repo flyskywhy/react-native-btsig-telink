@@ -209,6 +209,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public int mMeshAddressOfApp; // localAddress in telink demo
     public List<DeviceInfo> devices = new ArrayList<>();
     DistributorType otaDistributorType = DistributorType.PHONE;
+    private boolean manuallyCheckSystemLocation = false;
 
     private boolean hasOnlineStatusNotifyRaw;
     private boolean kickDirect; // is kicking out direct connected device?
@@ -409,7 +410,21 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
         sendEvent(DEVICE_STATUS_LOGOUT);
 
-        checkPermissions();
+        if (manuallyCheckSystemLocation) {
+            checkSystemLocation();
+        } else {
+            checkPermissions();
+        }
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public void setManuallyCheckSystemLocation(boolean isManually) {
+        manuallyCheckSystemLocation = isManually;
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public boolean getManuallyCheckSystemLocation() {
+        return manuallyCheckSystemLocation;
     }
 
     @ReactMethod
@@ -502,12 +517,53 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         }
     }
 
+    private boolean isLocationPermissionsGranted() {
+        boolean reqPermLoc = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { // M is Android API 23
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Q is Android API 29
+                    reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
+                } else {
+                    reqPermLoc = ContextCompat.checkSelfPermission(getCurrentActivity(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED;
+                }
+            }
+        }
+        return !reqPermLoc;
+    }
+
+    // @Override
+    // public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    //     super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    //     if (requestCode == ACCESS_COARSE_LOCATION_RESULT_CODE || requestCode == BLUETOOTH_RESULT_CODE) {
+    //         if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+    //             checkSystemLocation();
+    //         }
+    //     }
+    // }
+
     private void checkSystemLocation() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextUtil.isLocationEnable(mContext)) {
+            if (isLocationPermissionsGranted() && ContextUtil.isLocationEnable(mContext)) {
                 sendEvent(SYSTEM_LOCATION_ENABLED);
             } else {
                 sendEvent(SYSTEM_LOCATION_DISABLED);
+            }
+        }
+    }
+
+    private void checkSystemLocationEnabled() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (isLocationPermissionsGranted() && ContextUtil.isLocationEnable(mContext)) {
+                sendEvent(SYSTEM_LOCATION_ENABLED);
             }
         }
     }
@@ -521,8 +577,24 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void enableSystemLocation() {
-        Intent locationIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-        getCurrentActivity().startActivityForResult(locationIntent, REQUEST_CODE_LOCATION_SETTINGS);
+        // Intent locationIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+        // getCurrentActivity().startActivityForResult(locationIntent, REQUEST_CODE_LOCATION_SETTINGS);
+
+        checkPermissions();
+
+        // TODO: extends AppCompatActivity so that can use onRequestPermissionsResult instead of timeout below
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkSystemLocationEnabled();
+            }
+        }, 5000);
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkSystemLocationEnabled();
+            }
+        }, 10000);
     }
 
 
