@@ -233,16 +233,16 @@ class TelinkBtSig {
 
     static lastSceneSyncMeshAddress = undefined;
 
-    // default is false, if set to true, can use enableSystemLocation() later
-    static set manuallyCheckSystemLocation(isManually) {
+    // default is false, if set to true, can use isLocationPermissionsGranted() and requestLocationPermissions() later
+    static set manuallyRequestLocationPermissions(isManually) {
         if (Platform.OS === 'android') {
-            NativeModule.setManuallyCheckSystemLocation(isManually);
+            NativeModule.setManuallyRequestLocationPermissions(isManually);
         }
     }
 
-    static get manuallyCheckSystemLocation() {
+    static get manuallyRequestLocationPermissions() {
         if (Platform.OS === 'android') {
-            return NativeModule.getManuallyCheckSystemLocation();
+            return NativeModule.getRequestLocationPermissions();
         }
     }
 
@@ -333,12 +333,24 @@ class TelinkBtSig {
         }
     }
 
+    static isLocationPermissionsGranted() {
+        if (Platform.OS === 'android') {
+            return NativeModule.isLocationPermissionsGranted();
+        }
+    }
+
     static enableBluetooth() {
         NativeModule.enableBluetooth();
     }
 
     static enableSystemLocation() {
         NativeModule.enableSystemLocation();
+    }
+
+    static requestLocationPermissions() {
+        if (Platform.OS === 'android') {
+            NativeModule.requestLocationPermissions();
+        }
     }
 
     static resetExtendBearerMode(extendBearerMode = this.extendBearerMode) {
