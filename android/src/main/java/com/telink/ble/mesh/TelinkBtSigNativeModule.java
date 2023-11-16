@@ -209,6 +209,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public int mMeshAddressOfApp; // localAddress in telink demo
     public List<DeviceInfo> devices = new ArrayList<>();
     DistributorType otaDistributorType = DistributorType.PHONE;
+    private boolean manuallyCheckSystemLocation = false;
     private boolean manuallyRequestLocationPermissions = false;
 
     private boolean hasOnlineStatusNotifyRaw;
@@ -294,10 +295,14 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         //     }
         // }
 
-        // checkSystemLocation() will be invoked in onHostResume(), so it's redundant here
-        // if (requestCode == REQUEST_CODE_LOCATION_SETTINGS) {
-        //     checkSystemLocation();
-        // }
+        if (requestCode == REQUEST_CODE_LOCATION_SETTINGS) {
+            // checkSystemLocation() will be invoked in onHostResume() if
+            // not in manuallyCheckSystemLocation, we don't want redundant,
+            // so be if here
+            if (manuallyCheckSystemLocation) {
+                checkSystemLocation();
+            }
+        }
     }
 
     @Override
@@ -417,6 +422,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
+    public void setManuallyCheckSystemLocation(boolean isManually) {
+        manuallyCheckSystemLocation = isManually;
+     }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public boolean getManuallyCheckSystemLocation() {
+        return manuallyCheckSystemLocation;
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
     public void setManuallyRequestLocationPermissions(boolean isManually) {
         manuallyRequestLocationPermissions = isManually;
     }
@@ -453,7 +468,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // that's why need move checkPermissions() into doInit().
         // checkPermissions();
 
-        checkSystemLocation();
+        if (!manuallyCheckSystemLocation) {
+            checkSystemLocation();
+        }
     }
 
     private void checkPermissions() {
@@ -540,7 +557,21 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         return !reqPermLoc;
     }
 
-    private void checkSystemLocation() {
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public boolean isSystemLocationEnabled() {
+        boolean enabled = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextUtil.isLocationEnable(mContext)) {
+                enabled = true;
+            } else {
+                enabled = false;
+            }
+        }
+        return enabled;
+    }
+
+    @ReactMethod
+    public void checkSystemLocation() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ContextUtil.isLocationEnable(mContext)) {
                 sendEvent(SYSTEM_LOCATION_ENABLED);

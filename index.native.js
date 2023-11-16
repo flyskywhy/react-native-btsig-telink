@@ -233,6 +233,21 @@ class TelinkBtSig {
 
     static lastSceneSyncMeshAddress = undefined;
 
+    // why manuallyCheckSystemLocation and manuallyRequestLocationPermissions?
+    // because it's more convenient to deal with location privacy policy of Google Play
+    // default is false
+    static set manuallyCheckSystemLocation(isManually) {
+        if (Platform.OS === 'android') {
+            NativeModule.setManuallyCheckSystemLocation(isManually);
+        }
+    }
+
+    static get manuallyCheckSystemLocation() {
+        if (Platform.OS === 'android') {
+            return NativeModule.getManuallyCheckSystemLocation();
+        }
+    }
+
     // default is false, if set to true, can use isLocationPermissionsGranted() and requestLocationPermissions() later
     static set manuallyRequestLocationPermissions(isManually) {
         if (Platform.OS === 'android') {
@@ -341,6 +356,19 @@ class TelinkBtSig {
 
     static enableBluetooth() {
         NativeModule.enableBluetooth();
+    }
+
+    static isSystemLocationEnabled() {
+        if (Platform.OS === 'android') {
+            return NativeModule.isSystemLocationEnabled();
+        }
+    }
+
+    // will receive event of 'systemLocationEnabled' or 'systemLocationDisabled'
+    static checkSystemLocation() {
+        if (Platform.OS === 'android') {
+            NativeModule.checkSystemLocation();
+        }
     }
 
     static enableSystemLocation() {
