@@ -1032,11 +1032,6 @@ class TelinkBtSig {
             // 因 Cadence 韵律功能是不停地（每隔 100ms）在发送 changeBrightness 蓝牙消息，
             // 这样切换效果时，如果不在这里等待足够长时间以便让韵律消息发送完成，就无法切换效果
             await this.sleepMs(this.DELAY_MS_COMMAND);
-            if (this.extendBearerMode !== this.EXTEND_BEARER_MODE.GATT_ADV) {
-                // 如果不是 EXTEND_BEARER_MODE.GATT_ADV 高速模式，实测需要更多等待才能
-                // 切换那些字节数较多的效果比如 colorsLength 大于 3 的效果
-                await this.sleepMs(this.DELAY_MS_COMMAND);
-            }
             this.isSceneCadenceBusy = false;
         }
 
@@ -1685,7 +1680,12 @@ class TelinkBtSig {
                         }
                     }
                     if (changed) {
-                        // await this.sleepMs(this.DELAY_MS_COMMAND);
+                        if (!this.allowSceneCadence && this.extendBearerMode !== this.EXTEND_BEARER_MODE.GATT_ADV) {
+                            // 如果不是 EXTEND_BEARER_MODE.GATT_ADV 高速模式，实测这里需要等待才能切换那些字节数较多
+                            // 的不只一个消息包的效果比如 colorsLength 大于 3 的效果，因为需要等待足够长时间以便让切换
+                            // 效果的那些消息包发送完成，以免被 immediate 为 true 的 changeBrightness() 给打断
+                            await this.sleepMs(this.DELAY_MS_COMMAND);
+                        }
                         this.allowSceneCadence = true;
                         break;
                     }
