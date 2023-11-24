@@ -1685,6 +1685,8 @@ class TelinkBtSig {
                             // 的不只一个消息包的效果比如 colorsLength 大于 3 的效果，因为需要等待足够长时间以便让切换
                             // 效果的那些消息包发送完成，以免被 immediate 为 true 的 changeBrightness() 给打断
                             await this.sleepMs(this.DELAY_MS_COMMAND);
+                            // 实测发现，当电磁环境复杂时，需要更多延时
+                            await this.sleepMs(this.DELAY_MS_COMMAND);
                         }
                         this.allowSceneCadence = true;
                         break;
