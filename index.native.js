@@ -1687,6 +1687,7 @@ class TelinkBtSig {
                             await this.sleepMs(this.DELAY_MS_COMMAND);
                             // 实测发现，当电磁环境复杂时，需要更多延时
                             await this.sleepMs(this.DELAY_MS_COMMAND);
+                            await this.sleepMs(this.DELAY_MS_COMMAND);
                         }
                         this.allowSceneCadence = true;
                         break;
