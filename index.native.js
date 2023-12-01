@@ -880,7 +880,7 @@ class TelinkBtSig {
                 meshAddress,
                 valueArray: [
                     3,                  // 3 means setAudioFrequencyHistogram in my product
-                    loudness,
+                    this.gamma[loudness],
                     value.length, // how many frequency
                     ...value,
                     productCategory,
@@ -938,7 +938,7 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         if (this.allowSceneCadence) {
                             this.isSceneCadenceBusy = true;
-                            NativeModule.sendCommand(0x0211F3, meshAddress, [value, productCategory], this.OPCODE_INVALID, -1, immediate);
+                            NativeModule.sendCommand(0x0211F3, meshAddress, [this.gamma[value], productCategory], this.OPCODE_INVALID, -1, immediate);
                         }
                         changed = true;
                     }
