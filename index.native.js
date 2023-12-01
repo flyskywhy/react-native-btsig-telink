@@ -856,6 +856,69 @@ class TelinkBtSig {
         }
     }
 
+    static setAudioFrequencyHistogram({
+        meshAddress = this.defaultAllGroupAddress,
+        value = [
+            10, // height of frequency 0 on histogram
+            90, // height of frequency 1 on histogram
+            40, // ...
+            90,
+            10,
+            0,
+            0,
+            1,
+        ],
+        productCategory = 0xFF,
+        relayTimes = 7,
+        immediate = false,
+    }) {
+        if (this.allowSceneCadence) {
+            this.isSceneCadenceBusy = true;
+            this.sendCommand({
+                opcode: 0x0211FA,       // 0x0211FA means set without rsp in my product
+                meshAddress,
+                valueArray: [
+                    3,                  // 3 means setAudioFrequencyHistogram in my product
+                    0, // reserve
+                    value.length, // how many frequency
+                    ...value,
+                    productCategory,
+                ],
+                immediate,
+            });
+        }
+    }
+
+    static async onOffAudioFrequencyHistogram({
+        meshAddress = this.defaultAllGroupAddress,
+        value = 0, // 0: off, 1: on
+        productCategory = 0xFF,
+        relayTimes = 7,
+        immediate = false,
+    }) {
+        if (this.isSceneCadenceBusy) {
+            this.allowSceneCadence = false;
+            // 因音乐图谱功能是不停地（每隔 50ms 左右）在发送 setAudioFrequencyHistogram 蓝牙消息，
+            // 这样关闭音乐图谱功能时，如果不在这里等待足够长时间以便让那些图谱消息发送完成，有时就就无法关闭
+            await this.sleepMs(this.DELAY_MS_COMMAND);
+            this.isSceneCadenceBusy = false;
+        }
+
+        this.sendCommand({
+            opcode: 0x0211FA,       // 0x0211FA means set without rsp in my product
+            meshAddress,
+            valueArray: [
+                4,                  // 4 means onOffAudioFrequencyHistogram in my product
+                value,
+                0, // reserve
+                productCategory,
+            ],
+            immediate,
+        });
+
+        this.allowSceneCadence = true;
+    }
+
     static changeBrightness({
         meshAddress,
         hue = 0,
@@ -1029,7 +1092,7 @@ class TelinkBtSig {
     }) {
         if (this.isSceneCadenceBusy) {
             this.allowSceneCadence = false;
-            // 因 Cadence 韵律功能是不停地（每隔 100ms）在发送 changeBrightness 蓝牙消息，
+            // 因 Cadence 韵律功能是不停地（每隔 50ms 左右）在发送 changeBrightness 蓝牙消息，
             // 这样切换效果时，如果不在这里等待足够长时间以便让韵律消息发送完成，就无法切换效果
             await this.sleepMs(this.DELAY_MS_COMMAND);
             this.isSceneCadenceBusy = false;
@@ -1680,10 +1743,14 @@ class TelinkBtSig {
                         }
                     }
                     if (changed) {
-                        if (!this.allowSceneCadence && this.extendBearerMode !== this.EXTEND_BEARER_MODE.GATT_ADV) {
+                        // if (!this.allowSceneCadence && this.extendBearerMode !== this.EXTEND_BEARER_MODE.GATT_ADV) {
+                        if (!this.allowSceneCadence) {
                             // 如果不是 EXTEND_BEARER_MODE.GATT_ADV 高速模式，实测这里需要等待才能切换那些字节数较多
                             // 的不只一个消息包的效果比如 colorsLength 大于 3 的效果，因为需要等待足够长时间以便让切换
                             // 效果的那些消息包发送完成，以免被 immediate 为 true 的 changeBrightness() 给打断
+                            //
+                            // 另外如果使用了 https://github.com/flyskywhy/react-native-live-audio-fft 提供的
+                            // 频繁韵律能力，则不论是否 EXTEND_BEARER_MODE.GATT_ADV ，貌似都需要等待足够长时间
                             await this.sleepMs(this.DELAY_MS_COMMAND);
                             // 实测发现，当电磁环境复杂时，需要更多延时
                             await this.sleepMs(this.DELAY_MS_COMMAND);
