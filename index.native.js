@@ -858,6 +858,7 @@ class TelinkBtSig {
 
     static setAudioFrequencyHistogram({
         meshAddress = this.defaultAllGroupAddress,
+        loudness = 0,
         value = [
             10, // height of frequency 0 on histogram
             90, // height of frequency 1 on histogram
@@ -879,7 +880,7 @@ class TelinkBtSig {
                 meshAddress,
                 valueArray: [
                     3,                  // 3 means setAudioFrequencyHistogram in my product
-                    0, // reserve
+                    loudness,
                     value.length, // how many frequency
                     ...value,
                     productCategory,
