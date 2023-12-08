@@ -2103,10 +2103,10 @@ class TelinkBtSig {
         NativeModule.sendCommand(0x0211EE, meshAddress, [
             cascadeSeq,
             groupNodes,
-            groupBulbs >>> 8 & 0xFF,
             groupBulbs & 0xFF,
-            bulbOffset >>> 8 & 0xFF,
+            groupBulbs >>> 8 & 0xFF,
             bulbOffset & 0xFF,
+            bulbOffset >>> 8 & 0xFF,
             largestBulbs,
         ], this.OPCODE_INVALID, -1, immediate);
     }
