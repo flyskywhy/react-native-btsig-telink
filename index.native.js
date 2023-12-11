@@ -2097,7 +2097,15 @@ class TelinkBtSig {
         groupNodes = 4, // 参与级联的灯串总数，也即 group.length
         groupBulbs = 96 * 4, // 参与级联总灯珠个数
         bulbOffset = 0, // 当前灯串首个灯珠地址偏移量，从 0 开始计数
-        largestBulbs = 96, // 组中最多灯珠的灯串上的灯珠数
+        largestBulbs = 96, // 拥有最多灯珠的那个灯串上的灯珠数
+        groupWidth = 0, // 用于二维，表示所有灯串整体覆盖范围的宽度
+        groupHeight = 0,
+        nodeX = 0, // 用于二维，表示某个灯串的左上角在 groupWidth 中的坐标
+        nodeY = 0,
+        nodeWidth = 0, // 用于二维，表示某个灯串的宽度
+        nodeHeight = 0,
+        largestWidth = 0, // 用于二维，表示宽度最宽的灯串的宽度，该灯串不一定是 largestHeight 相关的同一个灯串
+        largestHeight = 0,
         immediate = false,
     }) {
         NativeModule.sendCommand(0x0211EE, meshAddress, [
@@ -2107,7 +2115,20 @@ class TelinkBtSig {
             groupBulbs >>> 8 & 0xFF,
             bulbOffset & 0xFF,
             bulbOffset >>> 8 & 0xFF,
-            largestBulbs,
+            largestBulbs & 0xFF,
+            largestBulbs >>> 8 & 0xFF,
+            groupWidth & 0xFF,
+            groupWidth >>> 8 & 0xFF,
+            groupHeight & 0xFF,
+            groupHeight >>> 8 & 0xFF,
+            nodeX & 0xFF,
+            nodeX >>> 8 & 0xFF,
+            nodeY & 0xFF,
+            nodeY >>> 8 & 0xFF,
+            nodeWidth,
+            nodeHeight,
+            largestWidth,
+            largestHeight,
         ], this.OPCODE_INVALID, -1, immediate);
     }
 
