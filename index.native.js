@@ -257,7 +257,7 @@ class TelinkBtSig {
 
     static get manuallyRequestLocationPermissions() {
         if (Platform.OS === 'android') {
-            return NativeModule.getRequestLocationPermissions();
+            return NativeModule.getManuallyRequestLocationPermissions();
         }
     }
 
