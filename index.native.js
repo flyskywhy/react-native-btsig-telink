@@ -248,7 +248,9 @@ class TelinkBtSig {
         }
     }
 
-    // default is false, if set to true, can use isLocationPermissionsGranted() and requestLocationPermissions() later
+    // default is false, if set to true, can use isLocationPermissionsGranted() and requestLocationPermissions() later,
+    // if set to true and on Android 13, also need doInitAfterCheckPermissions() after them and doInit() to avoid crash
+    // cause Android 13 is a shit.
     static set manuallyRequestLocationPermissions(isManually) {
         if (Platform.OS === 'android') {
             NativeModule.setManuallyRequestLocationPermissions(isManually);
@@ -316,6 +318,12 @@ class TelinkBtSig {
                 }
             },
             timer: undefined,
+        }
+    }
+
+    static doInitAfterCheckPermissions() {
+        if (Platform.OS === 'android') {
+            NativeModule.doInitAfterCheckPermissions();
         }
     }
 

@@ -208,6 +208,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public int ivIndex = 0;
     public int mMeshAddressOfApp; // localAddress in telink demo
     public List<DeviceInfo> devices = new ArrayList<>();
+    public ExtendBearerMode extendBearerMode = ExtendBearerMode.NONE;
     DistributorType otaDistributorType = DistributorType.PHONE;
     private boolean manuallyCheckSystemLocation = false;
     private boolean manuallyRequestLocationPermissions = false;
@@ -370,14 +371,14 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     /**
      * init and setup mesh network
      */
-    private void startMeshService(int extendBearerMode) {
+    private void startMeshService(ExtendBearerMode extendBearerMode) {
         // init
         mService.init(getCurrentActivity().getApplication(), this);
 
         mService.setupMeshNetwork(convertToConfiguration());
 
         // set DLE enable
-        mService.resetExtendBearerMode(ExtendBearerMode.values()[extendBearerMode]);
+        mService.resetExtendBearerMode(extendBearerMode);
     }
 
     @ReactMethod
@@ -388,7 +389,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         sno = provisionerSno;
         ivIndex = provisionerIvIndex;
         setDevices(devices);
+        this.extendBearerMode = ExtendBearerMode.values()[extendBearerMode];
 
+        if (!manuallyRequestLocationPermissions) {
+            checkPermissions();
+            doInitAfterCheckPermissions();
+        }
+    }
+
+    @ReactMethod
+    public void doInitAfterCheckPermissions() {
         if (mService != null) {
             return;
         }
@@ -415,11 +425,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mReactContext.registerReceiver(mBluetoothStateReceiver, intentFilter);
 
         sendEvent(DEVICE_STATUS_LOGOUT);
-
-        if (!manuallyRequestLocationPermissions) {
-            checkPermissions();
-        }
-    }
+     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
     public void setManuallyCheckSystemLocation(boolean isManually) {
@@ -597,12 +603,16 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     @ReactMethod
     public void requestLocationPermissions() {
         checkPermissions();
+        if (manuallyRequestLocationPermissions) {
+            doInitAfterCheckPermissions();
+        }
     }
 
 
     @ReactMethod
     public void resetExtendBearerMode(int extendBearerMode) {
-        mService.resetExtendBearerMode(ExtendBearerMode.values()[extendBearerMode]);
+        this.extendBearerMode = ExtendBearerMode.values()[extendBearerMode];
+        mService.resetExtendBearerMode(this.extendBearerMode);
     }
 
     @ReactMethod
