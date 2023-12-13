@@ -315,9 +315,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     @Override
     public void onHostResume() {
         if (D) Log.d(TAG, "Host resume");
-        if (mService != null) {
+        // if (mService != null) {
             this.doResume();
-        }
+        // }
     }
 
     @Override
@@ -390,6 +390,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         ivIndex = provisionerIvIndex;
         setDevices(devices);
         this.extendBearerMode = ExtendBearerMode.values()[extendBearerMode];
+
+        // on Android 13, onHostResume() will not be invoked, so use it to
+        // call checkSystemLocation(), Android 13 is a shit!
+        this.doResume();
 
         if (!manuallyRequestLocationPermissions) {
             checkPermissions();

@@ -1,4 +1,5 @@
 const {
+    AppState,
     NativeModules,
     DeviceEventEmitter,
     NativeEventEmitter,
@@ -264,6 +265,16 @@ class TelinkBtSig {
     }
 
     static doInit() {
+        if (Platform.OS === 'android') {
+            // on Android 13, java onHostResume() will not be invoked, so use it to
+            // call checkSystemLocation(), Android 13 is a shit!
+            AppState.addEventListener('change', (newState) => {
+                if (newState === 'active') {
+                    this.checkSystemLocation();
+                }
+            });
+        }
+
         NativeModule.doInit(this.netKey, this.appKey, this.meshAddressOfApp, this.devices.map(device => {
             // for debug
             // if (device.meshAddress === 1) {
