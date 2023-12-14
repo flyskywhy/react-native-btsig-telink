@@ -130,6 +130,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private static final int REQUEST_CODE_LOCATION_SETTINGS = 2;
     private static final int ACCESS_COARSE_LOCATION_RESULT_CODE = 4;
     private static final int BLUETOOTH_RESULT_CODE = 5;
+    private static final int REQUEST_ENABLE_BT = 7;
 
     // TODO: why telink_sig_mesh_sdk_v3.3.3.5/app/android/TelinkBleMesh/TelinkBleMesh/TelinkBleMeshDemo/src/main/java/com/telink/ble/mesh/ui/MeshOTAActivity.java
     // use 0xC00F ?
@@ -593,9 +594,14 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     @ReactMethod
     public void enableBluetooth() {
-        if (mBluetoothAdapter != null && !mBluetoothAdapter.isEnabled()) {
-            mBluetoothAdapter.enable();
-        }
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        // getCurrentActivity().startActivityForResult(intent, REQUEST_ENABLE_BT);
+        getCurrentActivity().startActivity(intent);
+
+        // below not working on Android 13, so use above instead
+        // if (mBluetoothAdapter != null && !mBluetoothAdapter.isEnabled()) {
+        //     mBluetoothAdapter.enable();
+        // }
     }
 
     @ReactMethod
