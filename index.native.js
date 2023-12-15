@@ -274,7 +274,7 @@ class TelinkBtSig {
         if (Platform.OS === 'android') {
             // on Android 13, java onHostResume() will not be invoked, so use it to
             // call checkSystemLocation(), Android 13 is a shit!
-            AppState.addEventListener('change', this._handleAppStateChange);
+            AppState.addEventListener('change', this._handleAppStateChange.bind(this));
         }
 
         NativeModule.doInit(this.netKey, this.appKey, this.meshAddressOfApp, this.devices.map(device => {
@@ -348,7 +348,7 @@ class TelinkBtSig {
         this.getOnlineStatueTimer && clearTimeout(this.getOnlineStatueTimer);
         NativeModule.doDestroy();
         if (Platform.OS === 'android') {
-            AppState.removeEventListener('change', this._handleAppStateChange);
+            AppState.removeEventListener('change', this._handleAppStateChange.bind(this));
         }
    }
 
