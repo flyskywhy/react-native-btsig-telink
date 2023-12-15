@@ -392,9 +392,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         setDevices(devices);
         this.extendBearerMode = ExtendBearerMode.values()[extendBearerMode];
 
-        // on Android 13, onHostResume() will not be invoked, so use it to
-        // call checkSystemLocation(), Android 13 is a shit!
-        this.doResume();
+        // on Android 13, onHostResume() will not be invoked, so use it
+        if (!manuallyCheckSystemLocation) {
+            checkSystemLocation();
+        }
+
 
         if (!manuallyRequestLocationPermissions) {
             checkPermissions();
@@ -479,9 +481,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // that's why need move checkPermissions() into doInit().
         // checkPermissions();
 
-        if (!manuallyCheckSystemLocation) {
-            checkSystemLocation();
-        }
+        // on Android 13, onHostResume() will not be invoked, but less than Android 13
+        // will be invoked, so use AppState.addEventListener in js instead
+        // if (!manuallyCheckSystemLocation) {
+        //     checkSystemLocation();
+        // }
     }
 
     private void checkPermissions() {
