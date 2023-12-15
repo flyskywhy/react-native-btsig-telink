@@ -1812,6 +1812,11 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
             rsvUser.pushInt(advDevice.scanRecord[i] & 0xFF);
         }
 
+        WritableArray version = Arguments.createArray();
+        for (int i = 15; i < 17; i++) {
+            version.pushInt(advDevice.scanRecord[i] & 0xFF);
+        }
+
         WritableMap params = Arguments.createMap();
         params.putString("macAddress", btDevice.getAddress());
         // params.putString("deviceName", btDevice.getName());
@@ -1822,6 +1827,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // params.putInt("status", btDevice.getBondState());
         params.putArray("rsvUser", rsvUser);
         params.putInt("rssi", advDevice.rssi);
+        params.putArray("version", version);
         sendEvent(LE_SCAN, params);
     }
 
