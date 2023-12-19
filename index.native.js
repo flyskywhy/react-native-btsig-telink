@@ -861,7 +861,7 @@ class TelinkBtSig {
                         // NativeModule.sendCommand(0x0211E0, meshAddress, [value, productCategory], 0x0211E3, -1, immediate);
                         // 如果使用下面带 fifo 的 this.sendCommandRsp ，则当 immediate 为 false 且用户短时间内连续点击开关灯
                         // 时，会导致用户松手后仍然会自动开关灯连续切换一段时间，所以下面 immediate 最好为 true
-                        this.sendCommandRsp({
+                        await this.sendCommandRsp({
                             opcode: 0x0211E0,
                             meshAddress,
                             valueArray: [value, productCategory],
