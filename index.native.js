@@ -1729,7 +1729,7 @@ class TelinkBtSig {
                                     case 2: {
                                         let rev = 0;
                                         // console.warn('show', bigDataAction, text, sceneMode);
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, sceneModeOpt, bigDataType, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
