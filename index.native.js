@@ -1080,6 +1080,8 @@ class TelinkBtSig {
         scene,
         sceneMode = 5, // e.g. 二维图片的平移方向
         sceneModeOpt = 0, // e.g. 二维图片斜向平移时是否填充空边
+        sceneDisplayRange = 0, // 显示范围
+        sceneImageResizeMode = 0, // 图片缩放模式
         fileVersion = 0,
         text = 'flyskywhy',
         hue = 0,
@@ -1729,7 +1731,7 @@ class TelinkBtSig {
                                     case 2: {
                                         let rev = 0;
                                         // console.warn('show', bigDataAction, text, sceneMode);
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, sceneModeOpt, bigDataType, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, sceneModeOpt, sceneDisplayRange, sceneImageResizeMode, bigDataType, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
