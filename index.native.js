@@ -2333,7 +2333,7 @@ class TelinkBtSig {
         firmware,
     }) {
         if (meshAddresses) {
-            // TODO: debug, cause getFirmwareInfo above and startMeshOTA here need mesh OTA code as described in comments of getFirmwareInfo,
+            // TODO: debug, cause getFirmwareInfo above and startMeshOTA here need mesh OTA code as described in comments of `canMeshOta =`,
             // please use startOta instead for now
             NativeModule.startMeshOTA(meshAddresses, firmware);
         } else {

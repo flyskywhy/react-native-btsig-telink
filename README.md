@@ -145,7 +145,7 @@ The provision + bind time of 1 device, in telink sdk `3.1.0`, with fastBind is 7
 ## migrate from `react-native-btsig-telink@1.x` to `react-native-btsig-telink@2.x` or `@3.x`
 Use `PrivateDevice.js` instead of `PrivateDevice.java` and `DeviceTypeModel` on iOS, ref to fastBind above.
 
-`getFirmwareVersion()` is not working by default, ref to the comments of `getFirmwareInfo()`.
+`getFirmwareVersion()` is not working by default, ref to the comments of `canMeshOta =`.
 
 To keep data usage after APP upgrade from `react-native-btsig-telink@1.x` based to `react-native-btsig-telink@2.x` based, data comes from (provision then bind function) `configNode()` still use `nodeInfo`, ref to `NodeInfo.js` which comes from `react-native-btsig-telink@1.x/android/src/main/java/com/telink/sig/mesh/model/NodeInfo.java`.
 
