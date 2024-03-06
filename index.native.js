@@ -896,7 +896,6 @@ class TelinkBtSig {
             0,
             1,
         ],
-        productCategory = 0xFF,
         relayTimes = 7,
         immediate = false,
     }) {
@@ -910,7 +909,6 @@ class TelinkBtSig {
                     this.gamma[loudness],
                     value.length, // how many frequency
                     ...value,
-                    productCategory,
                 ],
                 immediate,
             });
@@ -920,7 +918,6 @@ class TelinkBtSig {
     static async onOffAudioFrequencyHistogram({
         meshAddress = this.defaultAllGroupAddress,
         value = 0, // 0: off, 1: on
-        productCategory = 0xFF,
         relayTimes = 7,
         immediate = false,
     }) {
@@ -939,7 +936,6 @@ class TelinkBtSig {
                 4,                  // 4 means onOffAudioFrequencyHistogram in my product
                 value,
                 0, // reserve
-                productCategory,
             ],
             immediate,
         });
@@ -953,7 +949,6 @@ class TelinkBtSig {
         saturation = 0,
         value,
         type,
-        productCategory = 0xFF,
         immediate = false,
     }) {
         let changed = false;
@@ -965,7 +960,7 @@ class TelinkBtSig {
                     if (mode === 'silan') {
                         if (this.allowSceneCadence) {
                             this.isSceneCadenceBusy = true;
-                            NativeModule.sendCommand(0x0211F3, meshAddress, [this.gamma[value], productCategory], this.OPCODE_INVALID, -1, immediate);
+                            NativeModule.sendCommand(0x0211F3, meshAddress, [this.gamma[value]], this.OPCODE_INVALID, -1, immediate);
                         }
                         changed = true;
                     }
