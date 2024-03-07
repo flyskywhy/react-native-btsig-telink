@@ -29,6 +29,14 @@ class TelinkBtSig {
     // static MESH_ADDRESS_MAX = 0x7EFF;
     // static MESH_ADDRESS_MAX = 0x7FFF;
 
+    // since telink_sig_mesh_sdk_v3.3.3.5 increase the bytes per packet and speed,
+    // act in concert with defaultAllGroupAddress and longCommandParams, maybe
+    // it's better to use meshAddresses in packet instead of group address.
+    static useAddressesInsteadOfGroup = false;
+    static PAR_VER_init = 1;
+    static PAR_VER_useAddressesInsteadOfGroup = 2;
+    static PAR_VER_useDurationInsteadOfAddresses = 3;
+
     static GROUP_ADDRESS_MIN = 0xC001;
     static GROUP_ADDRESS_MAX = 0xC0FF;
     // `telink_sig_mesh_sdk_v3.3.3.5/app/android/TelinkBleMesh/TelinkBleMesh/TelinkBleMeshDemo/src/main/java/com/telink/ble/mesh/model/Scene.java`
@@ -836,9 +844,10 @@ class TelinkBtSig {
 
     static async changePower({
         meshAddress,
+        meshAddresses = [],
         value,
         type,
-        productCategory = 0xFF, // 不可为 0 ，否则 E0 命令在固件收到后变成了 1、2、3、4 ... 而非 0 (BUG 或是没有 TODO: 设置好 tid?)，虽然 F3 之类的命令不会如此，但统一起见，都 0xFF 吧
+        parVer = this.useAddressesInsteadOfGroup === true ? this.PAR_VER_useAddressesInsteadOfGroup : this.PAR_VER_init,
         delaySec = 0,
         immediate = true, // ack is true in native code and that will cause delay if changePower again in short time, except immediate is true
     }) {
@@ -861,13 +870,27 @@ class TelinkBtSig {
                         // 按说在 this.hasOnlineStatusNotifyRaw 被 saveOrUpdateJS 事件设为 true 的情况下，只要使用上面
                         // 的不带返回值的开关命令 E2 即可，但是发现当在界面上快速点击开关的情况下，只有下面的带返回值的开关命
                         // 令 E0 额外返回的开关状态才能保证开关按钮的状态能够快速切换且能快速地开关灯。
-                        // NativeModule.sendCommand(0x0211E0, meshAddress, [value, productCategory], 0x0211E3, -1, immediate);
+
+                        const par = [value];
+                        if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                            par.push(parVer);
+                            par.push(meshAddresses.length);
+                            par.push(...meshAddresses);
+
+                            if (meshAddresses.length === 0) {
+                                // 当 meshAddresses.length 为 0 时，如果不使用下面的语句，则 par 最后一个字节为 0 ，
+                                // 但不可为 0，否则 E0 命令在固件收到后变成了 1、2、3、4 ... 而非 0 (BUG 或是没有
+                                // TODO: 设置好 tid?)，虽然 F3 之类的命令不会如此，所以这里添加一个不为 0 的比如 0xFF
+                                par.push(0xFF);
+                            }
+                        }
+                        // NativeModule.sendCommand(0x0211E0, meshAddress, par, 0x0211E3, -1, immediate);
                         // 如果使用下面带 fifo 的 this.sendCommandRsp ，则当 immediate 为 false 且用户短时间内连续点击开关灯
                         // 时，会导致用户松手后仍然会自动开关灯连续切换一段时间，所以下面 immediate 最好为 true
                         await this.sendCommandRsp({
                             opcode: 0x0211E0,
                             meshAddress,
-                            valueArray: [value, productCategory],
+                            valueArray: par,
                             rspOpcode: 0x0211E3,
                             immediate,
                         });
@@ -1104,6 +1127,7 @@ class TelinkBtSig {
 
     static async changeScene({
         meshAddress,
+        meshAddresses = [],
         relayTimes = 0,
         retryCnt = 2,
         sceneSyncMeshAddress,
@@ -1133,6 +1157,11 @@ class TelinkBtSig {
         needPostProcessColor = true,
         speed = -2,
 
+        // 效果持续播放的毫秒数，如果为 0 ，则表示无限时长（无限循环），
+        // 一般只在 this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses
+        // 时才需要折腾，于是固件收到的数据中不包含 ms 的也定义为表示无限时长
+        ms = 10100,
+
         bigDataAction,
         bigDataType = 0,
         bigDataLostRetry = false,
@@ -1144,7 +1173,7 @@ class TelinkBtSig {
         maxChunkLength = 200,
 
         type,
-        productCategory = 0xFF,
+        parVer = this.useAddressesInsteadOfGroup === true ? this.PAR_VER_useAddressesInsteadOfGroup : this.PAR_VER_init,
         immediate = false,
     }) {
         if (this.isSceneCadenceBusy && !this.isCreatingSceneParList) {
@@ -1246,7 +1275,18 @@ class TelinkBtSig {
                             case 0x9e:
                             case 50: {
                                                   // 这里的 1 是颜色个数， reserve 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
-                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b, productCategory];
+                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -1282,7 +1322,18 @@ class TelinkBtSig {
                             case 51:
                             case 52:
                             case 53: {
-                                const par = [scene, speed, colorsLength, ...colors3, productCategory];
+                                const par = [scene, speed, colorsLength, ...colors3];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -1296,7 +1347,18 @@ class TelinkBtSig {
                             case 26:
                             case 34:
                             case 42: {
-                                const par = [scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b, productCategory];
+                                const par = [scene, speed, 2, reserve, color3.r, color3.g, color3.b, reserveBg, color3Bg.r, color3Bg.g, color3Bg.b];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -1306,7 +1368,18 @@ class TelinkBtSig {
                                 break;
                             }
                             case 46: {
-                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory];
+                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -1418,9 +1491,20 @@ class TelinkBtSig {
 
                                 // TODO: 后续将 0x0211F4 整合进 0x0211E6 中
                                 if (isEditingCustom) {
-                                    NativeModule.sendCommand(0x0211F4, meshAddress, [scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                    NativeModule.sendCommand(0x0211F4, meshAddress, [scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], this.OPCODE_INVALID, -1, immediate);
                                 } else {
-                                    const par = [scene, speed, 0, productCategory];
+                                    const par = [scene, speed, 0];
+                                    if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                        par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                        par.push(ms & 0xff);
+                                        par.push((ms >>> 8) & 0xff);
+                                        par.push((ms >>> 16) & 0xff);
+                                        par.push((ms >>> 24) & 0xff);
+                                    } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                        par.push(parVer);
+                                        par.push(meshAddresses.length);
+                                        par.push(...meshAddresses);
+                                    }
                                     if (this.isCreatingSceneParList) {
                                         this.sceneParList.push(par);
                                         return;
@@ -1433,13 +1517,24 @@ class TelinkBtSig {
                                     // 为是瑕疵，但这个瑕疵可以让用户在创建自定义页面重新保存到固件来解决，所以用户也不一定认为是 BUG
                                     // await this.sleepMs(this.DELAY_MS_COMMAND);
                                     // 这里一定要先发上面的效果切换命令 0xE6 ，再发下面的自定义效果数据命令 0xF4 ，否则数据较大时无法切换
-                                    // NativeModule.sendCommand(0x0211F4, meshAddress, [scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                    // NativeModule.sendCommand(0x0211F4, meshAddress, [scene, speed, dataType, dataLengthLowByte, dataLengthHightByte, ...rawData], this.OPCODE_INVALID, -1, immediate);
                                 }
                                 changed = true;
                                 break;
                             }
                             case 0x9f: {
-                                const par = [scene, speed, colorsLength, ...colors3, sceneMode, sceneModeOpt, productCategory];
+                                const par = [scene, speed, colorsLength, ...colors3, sceneMode, sceneModeOpt];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -1450,7 +1545,18 @@ class TelinkBtSig {
                             }
                             case 0xa0: {
                                                                                             // 这里的 1 是保留字节，也许后续有用                           // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
-                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory];
+                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -1609,18 +1715,18 @@ class TelinkBtSig {
                                             schema |= 0x80;
                                         }
                                         // console.warn('transfer', meshAddress.toString(16), chunksIndex + '/' + (chunksCount - 1), '0x' + schema.toString(16));
-                                        // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk], this.OPCODE_INVALID, -1, immediate);
                                         this.sendCommand({
                                             opcode: 0x0211E6,
                                             meshAddress,
-                                            valueArray: [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory],
+                                            valueArray: [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk],
                                             immediate,
                                         });
                                         // 上面所花时间是下面 await rsp 的 1/3 （30个包每包200字节时测得 7s/20s），所以使用上面的
                                         // await this.sendCommandRsp({
                                         //     opcode: 0x0211E4,
                                         //     meshAddress,
-                                        //     valueArray: [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk, productCategory],
+                                        //     valueArray: [scene, bigDataAction, speed, 1, reserve, color3.r, color3.g, color3.b, schema, datasIndex, datasCount, chunksIndex, chunksCount, sceneMode, bigDataType, chunkLengthLowByte, chunkLengthHightByte, ...chunk],
                                         //     rspOpcode: 0x0211E7,
                                         //     relayTimes,
                                         //     retryCnt,
@@ -1638,12 +1744,18 @@ class TelinkBtSig {
                                             schema |= 0x80;
                                         }
                                         // console.warn('save', {meshAddress: meshAddress.toString(16), responMax: relayTimes, bigDataAction, schema: '0x' + schema.toString(16), maxChunkLengthLowByte, bigDataType, fileVersion, text});
-                                        // NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        const par = [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                        if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                            par.push(parVer);
+                                            par.push(meshAddresses.length);
+                                            par.push(...meshAddresses);
+                                        }
+                                        // NativeModule.sendCommand(0x0211E6, meshAddress, par, this.OPCODE_INVALID, -1, immediate);
                                         try {
                                             await this.sendCommandRsp({
                                                 opcode: 0x0211E4,
                                                 meshAddress,
-                                                valueArray: [scene, bigDataAction, schema, maxChunkLengthLowByte, maxChunkLengthHightByte, bigDataType, fileVersion, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory],
+                                                valueArray: par,
                                                 rspOpcode: 0x0211E7,
                                                 relayTimes,
                                                 retryCnt,
@@ -1659,7 +1771,18 @@ class TelinkBtSig {
                                     case 2: {
                                         let rev = 0;
                                         // console.warn('show', bigDataAction, text, sceneMode);
-                                        const par = [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, sceneModeOpt, sceneDisplayRange, sceneImageResizeMode, bigDataType, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory];
+                                        const par = [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, sceneModeOpt, sceneDisplayRange, sceneImageResizeMode, bigDataType, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                        if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                            par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                            par.push(ms & 0xff);
+                                            par.push((ms >>> 8) & 0xff);
+                                            par.push((ms >>> 16) & 0xff);
+                                            par.push((ms >>> 24) & 0xff);
+                                        } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                            par.push(parVer);
+                                            par.push(meshAddresses.length);
+                                            par.push(...meshAddresses);
+                                        }
                                         if (this.isCreatingSceneParList) {
                                             this.sceneParList.push(par);
                                             return;
@@ -1671,13 +1794,26 @@ class TelinkBtSig {
                                     case 4: {
                                         let rev = 0;
                                         // console.warn('delete', bigDataAction, text, sceneMode);
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, rev, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        const par = [scene, bigDataAction, rev, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                        if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                            par.push(parVer);
+                                            par.push(meshAddresses.length);
+                                            par.push(...meshAddresses);
+                                        }
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, par, this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
                                     case 5: {
                                         let rev = 0;
-                                        NativeModule.sendCommand(0x0211E6, meshAddress, [scene, bigDataAction, rev, bigDataType, productCategory], this.OPCODE_INVALID, -1, immediate);
+                                        // console.warn('query', bigDataAction, bigDataType);
+                                        const par = [scene, bigDataAction, rev, bigDataType];
+                                        if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                            par.push(parVer);
+                                            par.push(meshAddresses.length);
+                                            par.push(...meshAddresses);
+                                        }
+                                        NativeModule.sendCommand(0x0211E6, meshAddress, par, this.OPCODE_INVALID, -1, immediate);
                                         changed = true;
                                         break;
                                     }
@@ -1688,7 +1824,18 @@ class TelinkBtSig {
                             }
                             case 0xa2: {
                                                                                             // 这里的 1 是保留字节，也许后续有用                           // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
-                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory];
+                                const par = [scene, speed, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -1699,7 +1846,18 @@ class TelinkBtSig {
                             }
                             case 0xa3: {
                                                                                                                      // 这里的 1 是保留字节，也许后续有用                           // 这里的 0 是用来表明字符串结尾以利于固件 C 代码判断之用？
-                                const par = [scene, speed, sceneMode, sceneModeOpt, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0, productCategory];
+                                const par = [scene, speed, sceneMode, sceneModeOpt, 1, reserve, color3.r, color3.g, color3.b, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
+                                    par.push(this.PAR_VER_useDurationInsteadOfAddresses);
+                                    par.push(ms & 0xff);
+                                    par.push((ms >>> 8) & 0xff);
+                                    par.push((ms >>> 16) & 0xff);
+                                    par.push((ms >>> 24) & 0xff);
+                                } else if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+                                    par.push(parVer);
+                                    par.push(meshAddresses.length);
+                                    par.push(...meshAddresses);
+                                }
                                 if (this.isCreatingSceneParList) {
                                     this.sceneParList.push(par);
                                     return;
@@ -2209,21 +2367,27 @@ class TelinkBtSig {
 
     static setScene2d({
         meshAddress = this.defaultAllGroupAddress,
+        meshAddresses = [],
         scene = 11,
         isScene2d = true,
-        productCategory = 0xFF,
+        parVer = this.useAddressesInsteadOfGroup === true ? this.PAR_VER_useAddressesInsteadOfGroup : this.PAR_VER_init,
         relayTimes = 7,
         immediate = false,
     }) {
+        const par =[
+            2,                          // 2 means (set) scene 2d in my product
+            scene,
+            isScene2d ? 1 : 0,
+        ];
+        if (parVer === this.PAR_VER_useAddressesInsteadOfGroup) {
+            par.push(parVer);
+            par.push(meshAddresses.length);
+            par.push(...meshAddresses);
+        }
         this.sendCommand({
             opcode: 0x0211FA,           // 0x0211FA means set without rsp in my product
             meshAddress,
-            valueArray: [
-                2,                      // 2 means (set) scene 2d in my product
-                scene,
-                isScene2d ? 1 : 0,
-                productCategory,
-            ],
+            valueArray: par,
             immediate,
         });
 
