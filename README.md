@@ -142,6 +142,8 @@ The provision + bind time of 1 device, in telink sdk `3.1.0`, with fastBind is 7
 
 `react-native-btsig-telink@2.x` and `@3.x` is based on telink sdk `3.3.3.5`.
 
+`react-native-btsig-telink@4.x` suggest useAddressesInsteadOfGroup but default still false.
+
 ## migrate from `react-native-btsig-telink@1.x` to `react-native-btsig-telink@2.x` or `@3.x`
 Use `PrivateDevice.js` instead of `PrivateDevice.java` and `DeviceTypeModel` on iOS, ref to fastBind above.
 
