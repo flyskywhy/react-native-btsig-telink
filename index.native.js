@@ -30,9 +30,9 @@ class TelinkBtSig {
     // static MESH_ADDRESS_MAX = 0x7FFF;
 
     // since telink_sig_mesh_sdk_v3.3.3.5 increase the bytes per packet and speed,
-    // act in concert with defaultAllGroupAddress and longCommandParams, maybe
+    // act in concert with defaultAllGroupAddress and longCommandParams,
     // it's better to use meshAddresses in packet instead of group address.
-    static useAddressesInsteadOfGroup = false;
+    static useAddressesInsteadOfGroup = true;
     static PAR_VER_init = 1;
     static PAR_VER_useAddressesInsteadOfGroup = 2;
     static PAR_VER_useDurationInsteadOfAddresses = 3;
