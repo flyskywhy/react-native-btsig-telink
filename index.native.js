@@ -1134,6 +1134,8 @@ class TelinkBtSig {
         scene,
         sceneMode = 5, // e.g. 二维图片的平移方向
         sceneModeOpt = 0, // e.g. 二维图片斜向平移时是否填充空边
+        sceneRotate = 0, // 图片旋转
+        sceneMirror = 0, // 图片镜像翻转
         sceneDisplayRange = 0, // 显示范围
         sceneImageResizeMode = 0, // 图片缩放模式
         fileVersion = 0,
@@ -1770,8 +1772,8 @@ class TelinkBtSig {
                                     }
                                     case 2: {
                                         let rev = 0;
-                                        // console.warn('show', bigDataAction, text, sceneMode);
-                                        const par = [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, sceneModeOpt, sceneDisplayRange, sceneImageResizeMode, bigDataType, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0];
+                                        // console.warn('show', bigDataAction, text, sceneMode, sceneRotate, sceneMirror);
+                                        const par = [scene, bigDataAction, speed, rev, reserve, color3.r, color3.g, color3.b, sceneMode, sceneModeOpt, sceneRotate, sceneMirror, sceneDisplayRange, sceneImageResizeMode, bigDataType, 1, ...Array.from(text).map((char) => char.charCodeAt()), 0];
                                         if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
                                             par.push(this.PAR_VER_useDurationInsteadOfAddresses);
                                             par.push(ms & 0xff);
