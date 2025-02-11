@@ -1323,7 +1323,11 @@ class TelinkBtSig {
                             case 45:
                             case 51:
                             case 52:
-                            case 53: {
+                            case 53:
+                            case 60:
+                            case 61:
+                            case 62:
+                            case 63: {
                                 const par = [scene, speed, colorsLength, ...colors3];
                                 if (this.isCreatingSceneParList || parVer === this.PAR_VER_useDurationInsteadOfAddresses) {
                                     par.push(this.PAR_VER_useDurationInsteadOfAddresses);
