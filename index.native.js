@@ -1274,6 +1274,7 @@ class TelinkBtSig {
                             case 39:
                             case 47:
                             case 49:
+                            case 61:
                             case 0x9e:
                             case 50: {
                                                   // 这里的 1 是颜色个数， reserve 是固件代码中某个颜色的保留字节（固件代码中每个颜色有 4 个字节）对应固件代码中的 ltstr_scene_status_t，下同
@@ -1325,7 +1326,6 @@ class TelinkBtSig {
                             case 52:
                             case 53:
                             case 60:
-                            case 61:
                             case 62:
                             case 63: {
                                 const par = [scene, speed, colorsLength, ...colors3];
