@@ -37,10 +37,10 @@ class TelinkBtSig {
     static PAR_VER_useAddressesInsteadOfGroup = 2;
     static PAR_VER_useDurationInsteadOfAddresses = 3;
 
-    static GROUP_ADDRESS_MIN = 0xC001;
+    static GROUP_ADDRESS_MIN = 0xC000;
     static GROUP_ADDRESS_MAX = 0xC0FF;
     // `telink_sig_mesh_sdk_v3.3.3.5/app/android/TelinkBleMesh/TelinkBleMesh/TelinkBleMeshDemo/src/main/java/com/telink/ble/mesh/model/Scene.java`
-    // 中提到组地址范围是 C000 - 0xFEFF ？
+    // 中提到组地址范围是 C000 - 0xFEFF
     // static GROUP_ADDRESS_MAX = 0xFEFF;
     static GROUP_ADDRESS_MASK = 0x00FF;
     static HUE_MIN = 0;

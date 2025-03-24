@@ -3,7 +3,7 @@ var pako = require('pako');
 class TelinkBtSig {
     static MESH_ADDRESS_MIN = 0x0001;
     static MESH_ADDRESS_MAX = 0x00FF;
-    static GROUP_ADDRESS_MIN = 0xC001;
+    static GROUP_ADDRESS_MIN = 0xC000;
     static GROUP_ADDRESS_MAX = 0xC0FF;
     static GROUP_ADDRESS_MASK = 0x00FF;
     static HUE_MIN = 0;
