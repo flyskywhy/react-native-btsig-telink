@@ -827,7 +827,19 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
             TeLogInfo(@"==========peripheral=%@,advertisementData=%@,RSSI=%@,unprovisioned=%d",peripheral,advertisementData,RSSI,unprovisioned);
             if (unprovisioned) {
                 SigScanRspModel *scanRspModel = [SigDataSource.share getScanRspModelWithUUID:peripheral.identifier.UUIDString];
-                if (scanRspModel == nil || scanRspModel.macAddress == nil || scanRspModel.PID == 0) {
+                NSData *advDataServiceData = [(NSDictionary *)advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
+                BOOL isEsp32 = false;
+                if (scanRspModel.macAddress == nil && scanRspModel.CID == 0xDDDD) { // advDataServiceData also start with DDDD
+                    isEsp32 = true;
+                }
+                if (isEsp32) {
+                    if (advDataServiceData.length >= 8) {
+                        scanRspModel.macAddress = [LibTools convertDataToHexStr:[advDataServiceData subdataWithRange:NSMakeRange(2, 6)]];
+                        scanRspModel.PID=0;
+                    }
+                }
+
+                if (scanRspModel == nil || scanRspModel.macAddress == nil) {
                     return;
                 }
 
@@ -837,8 +849,7 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                 // tbl_scanRsp.vendor_id = g_vendor_id 所以最终导致
                 // SigScanRspModel.initWithPeripheral 处理 3.2.1 及之前的设备时得到的
                 // _macAddress 是错误的，为了不修改官方的 SigModel.m ，就补丁在这吧。
-                NSData *advDataServiceData = [(NSDictionary *)advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
-                if (advDataServiceData.length >= 16) {
+                if (!isEsp32 && advDataServiceData.length >= 16) {
                     scanRspModel.macAddress = [LibTools convertDataToHexStr:[LibTools turnOverData:[advDataServiceData subdataWithRange:NSMakeRange(10, 6)]]];
                 }
 
