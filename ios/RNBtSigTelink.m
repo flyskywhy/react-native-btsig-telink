@@ -878,6 +878,12 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                             [rsvUser addObject:[NSNumber numberWithUnsignedChar:buffer[i]]];
                         }
                         [event setObject:rsvUser forKey:@"rsvUser"];
+                    } else {
+                        NSMutableArray *rsvUser = [[NSMutableArray alloc] init];
+                        for (int i = 0; i < 11; i++) { // 11 comes from Android
+                            [rsvUser addObject:[NSNumber numberWithUnsignedChar:0]];
+                        }
+                        [event setObject:rsvUser forKey:@"rsvUser"];
                     }
                     NSLog(@"TelinkBtSig ScanNewDevice rsvUser = %@", rsvUserData);
 
