@@ -404,6 +404,7 @@ public final class MeshController implements ProvisioningBridge, NetworkingBridg
 
     private void initScanningController(HandlerThread handlerThread) {
         mBleScanner = new BleScanner(BleScanner.ScannerType.DEFAULT, handlerThread);
+        // TODO: mBleScanner = new BleScanner(BleScanner.ScannerType.Lollipop, handlerThread);
         mBleScanner.setScannerCallback(this.scanCallback);
     }
 

@@ -347,6 +347,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     public void saveOrUpdateJS() {
         WritableMap params = Arguments.createMap();
         params.putInt("provisionerSno", sno);
+        params.putInt("provisionerIvIndex", ivIndex);
         params.putBoolean("hasOnlineStatusNotifyRaw", hasOnlineStatusNotifyRaw);
         sendEvent(SAVE_OR_UPDATE_JS, params);
     }
