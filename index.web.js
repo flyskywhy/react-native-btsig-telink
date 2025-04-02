@@ -130,6 +130,8 @@ class TelinkBtSig {
         isSingleNode,
     }) {}
 
+    static getCommandQueueLength() {}
+
     static sendCommand({
         opcode,
         meshAddress,

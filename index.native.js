@@ -720,6 +720,11 @@ class TelinkBtSig {
         }, delayMs);
     }
 
+    // telink, why do you have so many ack cmd in queue if there are many device? I have to use {immediate: true}
+    static getCommandQueueLength() {
+        return NativeModule.getCommandQueueLength();
+    }
+
     static getCmdRspTimeoutMs(retryCnt = 2) {
         return NativeModule.getCommandQueueLength() * this.DELAY_MS_COMMAND + (retryCnt + 1) * this.DELAY_MS_CMD_RSP_TIMEOUT;
     }
