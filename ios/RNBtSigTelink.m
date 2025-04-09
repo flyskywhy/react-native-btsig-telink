@@ -12,6 +12,7 @@
 
 @implementation TelinkBtSig {
     BOOL mSetNodeGroupAddrToDel;
+    NSInteger mMeshAddressOfApp;
     NSInteger mSetNodeGroupMeshAddr;
     NSInteger mSetNodeGroupAddrGroupAddr;
     NSArray *mSetNodeGroupAddrEleIds;
@@ -159,62 +160,57 @@ RCT_EXPORT_MODULE()
     // 4. add new provisioner (or old provisioner if isReplaceMeshSetting) to nodes, ref to addLocationNodeWithProvisioner() in SigDataSource.m
     SigDataSource.share.curNodes = nil;
     SigNodeModel *node = [[SigNodeModel alloc] init];
-    if (isReplaceMeshSetting) {
-        node = [[[NSMutableArray alloc] initWithArray:SigDataSource.share.nodes copyItems:YES] firstObject];
-        node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
-        [SigDataSource.share.nodes removeAllObjects];
-    } else {
-        [SigDataSource.share.nodes removeAllObjects];
 
-        // init default data
-        node.UUID = provisioner.UUID;
-        node.secureNetworkBeacon = YES;
-        node.defaultTTL = TTL_DEFAULT;
-        node.features.proxyFeature = SigNodeFeaturesState_notSupported;
-        node.features.friendFeature = SigNodeFeaturesState_notEnabled;
-        node.features.relayFeature = SigNodeFeaturesState_notSupported;
-        node.relayRetransmit.relayRetransmitCount = 5;
-        node.relayRetransmit.relayRetransmitIntervalSteps = 2;
-        node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
-        node.name = @"Telink iOS provisioner node";
-        node.cid = @"0211";
-        node.pid = @"0100";
-        node.vid = @"0100";
-        node.crpl = @"0100";
+    [SigDataSource.share.nodes removeAllObjects];
 
-        // 添加本地节点的 element
-        NSMutableArray *elements = [NSMutableArray array];
-        SigElementModel *element = [[SigElementModel alloc] init];
-        element.name = @"Primary Element";
-        element.location = @"0000";
-        element.index = 0;
-        NSMutableArray *models = [NSMutableArray array];
+    // init default data
+    node.UUID = provisioner.UUID;
+    node.secureNetworkBeacon = YES;
+    node.defaultTTL = TTL_DEFAULT;
+    node.features.proxyFeature = SigNodeFeaturesState_notSupported;
+    node.features.friendFeature = SigNodeFeaturesState_notEnabled;
+    node.features.relayFeature = SigNodeFeaturesState_notSupported;
+    node.relayRetransmit.relayRetransmitCount = 5;
+    node.relayRetransmit.relayRetransmitIntervalSteps = 2;
+    node.unicastAddress = [NSString stringWithFormat:@"%04X",(UInt16)meshAddressOfApp];
+    node.name = @"Telink iOS provisioner node";
+    node.cid = @"0211";
+    node.pid = @"0100";
+    node.vid = @"0100";
+    node.crpl = @"0100";
+
+    // 添加本地节点的 element
+    NSMutableArray *elements = [NSMutableArray array];
+    SigElementModel *element = [[SigElementModel alloc] init];
+    element.name = @"Primary Element";
+    element.location = @"0000";
+    element.index = 0;
+    NSMutableArray *models = [NSMutableArray array];
 //        NSArray *defaultModelIDs = @[@"0000",@"0001",@"0002",@"0003",@"0005",@"FE00",@"FE01",@"FE02",@"FE03",@"FF00",@"FF01",@"1202",@"1001",@"1003",@"1005",@"1008",@"1205",@"1208",@"1302",@"1305",@"1309",@"1311",@"1015",@"00010211"];
-        NSArray *defaultModelIDs = @[@"0000",@"0001"];
-        for (NSString *modelID in defaultModelIDs) {
-            SigModelIDModel *modelIDModel = [[SigModelIDModel alloc] init];
-            modelIDModel.modelId = modelID;
-            modelIDModel.subscribe = [NSMutableArray array];
-            modelIDModel.bind = [NSMutableArray arrayWithArray:@[@(0)]];
-            [models addObject:modelIDModel];
-        }
-        element.models = models;
-        element.parentNodeAddress = node.address;
-        [elements addObject:element];
-        node.elements = elements;
+    NSArray *defaultModelIDs = @[@"0000",@"0001"];
+    for (NSString *modelID in defaultModelIDs) {
+        SigModelIDModel *modelIDModel = [[SigModelIDModel alloc] init];
+        modelIDModel.modelId = modelID;
+        modelIDModel.subscribe = [NSMutableArray array];
+        modelIDModel.bind = [NSMutableArray arrayWithArray:@[@(0)]];
+        [models addObject:modelIDModel];
+    }
+    element.models = models;
+    element.parentNodeAddress = node.address;
+    [elements addObject:element];
+    node.elements = elements;
 
-        NSData *devicekeyData = [LibTools createRandomDataWithLength:16];
-        node.deviceKey = [LibTools convertDataToHexStr:devicekeyData];
-        SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
-        nodeAppkey.index = SigDataSource.share.curAppkeyModel.index;
-        if (![node.appKeys containsObject:nodeAppkey]) {
-            [node.appKeys addObject:nodeAppkey];
-        }
-        SigNodeKeyModel *nodeNetkey = [[SigNodeKeyModel alloc] init];
-        nodeNetkey.index = SigDataSource.share.curNetkeyModel.index;
-        if (![node.netKeys containsObject:nodeNetkey]) {
-            [node.netKeys addObject:nodeNetkey];
-        }
+    NSData *devicekeyData = [LibTools createRandomDataWithLength:16];
+    node.deviceKey = [LibTools convertDataToHexStr:devicekeyData];
+    SigNodeKeyModel *nodeAppkey = [[SigNodeKeyModel alloc] init];
+    nodeAppkey.index = SigDataSource.share.curAppkeyModel.index;
+    if (![node.appKeys containsObject:nodeAppkey]) {
+        [node.appKeys addObject:nodeAppkey];
+    }
+    SigNodeKeyModel *nodeNetkey = [[SigNodeKeyModel alloc] init];
+    nodeNetkey.index = SigDataSource.share.curNetkeyModel.index;
+    if (![node.netKeys containsObject:nodeNetkey]) {
+        [node.netKeys addObject:nodeNetkey];
     }
 
     [SigDataSource.share.nodes addObject:node];
@@ -337,6 +333,7 @@ RCT_EXPORT_MODULE()
 }
 
 RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex extendBearerMode:(NSInteger)extendBearerMode) {
+    self->mMeshAddressOfApp = meshAddressOfApp;
     self.allowSendLogoutWhenDisconnect = YES;
     self.connectMeshAddress = -1;
 
@@ -1493,7 +1490,7 @@ RCT_EXPORT_METHOD(replaceMeshSetting:(NSString *)netKey appKey:(NSString *)appKe
     [SigMeshLib.share cleanAllCommandsAndRetry];
 
     [SDKLibCommand stopMeshConnectWithComplete:^(BOOL successflu) {
-        [self initMesh:netKey appKey:appKey meshAddressOfApp:32768 devices:devices provisionerSno:129 provisionerIvIndex:0 isReplaceMeshSetting:true];
+        [self initMesh:netKey appKey:appKey meshAddressOfApp:self->mMeshAddressOfApp devices:devices provisionerSno:129 provisionerIvIndex:0 isReplaceMeshSetting:true];
         [SigDataSource.share.scanList removeAllObjects];
     }];
 
