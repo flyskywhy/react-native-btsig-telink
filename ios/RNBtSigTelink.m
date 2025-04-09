@@ -604,6 +604,7 @@ RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
     NSLog(@"TelinkBtSig onSequenceNumberUpdate %d", sequenceNumber);
     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
     [dict setObject:[NSNumber numberWithInt:sequenceNumber] forKey:@"provisionerSno"];
+    [dict setObject:[NSNumber numberWithInt:ivIndex] forKey:@"provisionerIvIndex"];
     [dict setObject:[NSNumber numberWithBool:YES] forKey:@"hasOnlineStatusNotifyRaw"];
     [weakSelf sendEventWithName:@"saveOrUpdateJS" body:dict];
 }
