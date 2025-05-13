@@ -201,10 +201,12 @@ class TelinkBtSig {
 
     // 测试得：手机 mesh 地址不能设为 0 ，也不能设为 >= 32768
     // 分享相同蓝牙设备数据的两台手机各自的 APP 需要不同的手机 mesh 地址，否则无法同时控制设备。
-    // 而且这样得到了一个额外好处：本来如果每次启动 (仅有 Android ？) APP 时使用与上次连接时相同的 meshAddressOfApp ，则需要
+    // 随机地址的好处：本来如果每次启动 (仅有 Android ？) APP 时使用与上次连接时相同的 meshAddressOfApp ，则需要
     // 很长时间才能连接上设备，除非将设备断电再上电才能不受相同 meshAddressOfApp 的影响，感觉好像设备中保存着上次连接的（或是
     // mesh_proxy_filter_add_adr 增加的白名单）手机地址与这次想要连接的手机地址相同的话，就需要很长时间才能连接上设备，而现在
     // 每次启动 APP 时使用一个随机 meshAddressOfApp 就能解决这个问题。
+    // 随机地址的坏处：实际上设备中有一张 CRPL 表，里面针对每个短地址记录着 sno ，所以如果太多设备比如太多随机地址的手机 APP
+    // 连过设备的话，可能 CRPL 无法再记录新的地址。这可能也解释了上面每次都能快速连接上设备——因为 CRPL 中新来地址的 sno 从 0 开始
     static meshAddressOfApp = this.MESH_ADDRESS_MAX + parseInt(Math.random() * 10000, 10);
 
     static devices = [];
@@ -300,10 +302,12 @@ class TelinkBtSig {
                 nodeInfo: this.hexString2ByteArray(device.nodeInfo),
             };
 
-        // }), this.provisionerSno, this.provisionerIvIndex,
+        }), this.provisionerSno, this.provisionerIvIndex,
         // telink sdk 3.1.0 实测发现，不管上面的 ivIndex ，甚至也不用管 sno ，而是每次打开 APP 时将这两者都设为 0 ，然后每次就都可以连接上了。
         // 唯一的例外是如果 APP 一直开在那里足够长时间，然后 sno 足够大时让 ivIndex 变成 1 后，就再也连不上了，而按照
-        // int sno 溢出计算，这个“足够长时间”是好几年，而一般 APP 应用情景不可能连续开启几年，所以这两者都设为 0 就可以了。
+        // int sno 溢出计算，这个“足够长时间”是好几年，而一般 APP 应用情景不可能连续开启几年，所以一般这两者都设为 0 就可以了。
+        // 但有些应用场景里，设备可能与网关不停在交互比如提供电压信息等以便网关传给网页服务器，那么 sno 随着这些消息不停增加然后在较短时间内 ivIndex
+        // 就增加了，此时 APP 可能就需要这个新的 ivIndex 来进行连接。
 
         // telink sdk 3.1.0 以下现象在 Android 上测了许多次，在 iOS 测得少一点，但也有此现象：
         // 0、不论之前 sno 是多少，（上面随机 meshAddressOfApp 所提到的额外好处？）再次用 sno 0 （会瞬间由手机上的 sdk store 变为 128）来打开手机，仍然能够连上蓝牙设备
@@ -322,7 +326,7 @@ class TelinkBtSig {
 
         // telink sdk 3.1.0 上测得如果不设成 129 而设成 0 的话，有时候删除设备时会一直没有任何动静
         // telink sdk 3.3.3.5 上懒得再把上面都测一遍了，就这样吧
-        }), 129, 0,
+        // }), 129, 0,
         this.extendBearerMode);
 
         // NativeModule.setLogLevel(0x1F);
