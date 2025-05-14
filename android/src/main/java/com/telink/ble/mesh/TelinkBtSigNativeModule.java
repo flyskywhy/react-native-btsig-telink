@@ -223,6 +223,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private int mSetNodeGroupAddrGroupAddr;
     private ReadableArray mSetNodeGroupAddrEleIds;
     private int mSetNodeGroupAddrEleIdsIndex = 0;
+    private int mBindRetryCount = 3;
 
     // Promises
     private Promise mConfigNodePromise;
@@ -1109,6 +1110,7 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         BindingDevice bindingDevice = new BindingDevice(device.meshAddress, device.deviceUUID, mAppKeyIndex);
         bindingDevice.setDefaultBound(defaultBound);
         bindingDevice.setBearer(BindingBearer.GattOnly);
+        mBindRetryCount = 3;
         mService.startBinding(new BindingParameters(bindingDevice));
     }
 
@@ -1179,10 +1181,18 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
     private void onUpdateMeshFailure(BindingEvent event) {
         BindingDevice bindingDevice = event.getBindingDevice();
-        if (D) Log.d(TAG, "onUpdateMeshFailure");
-        kickDirect = true;
-        mService.sendMeshMessage(new NodeResetMessage(bindingDevice.getMeshAddress()));
-        // mConfigNodePromise 将在 onKickOutFinish() 中被置 null
+        if (mBindRetryCount > 0) {
+            if (D) Log.d(TAG, "onUpdateMeshFailure, retry " + mBindRetryCount);
+            mBindRetryCount--;
+            mService.startBinding(new BindingParameters(bindingDevice));
+        } else {
+            onUpdateMeshFailure();
+
+            // 真实设备并未被重置，看来 bind 失败后发送 NodeResetMessage 是没有意义的，所以不用下面而用上面代码
+            // kickDirect = true;
+            // mService.sendMeshMessage(new NodeResetMessage(bindingDevice.getMeshAddress()));
+            // mConfigNodePromise 将在 onKickOutFinish() 中被置 null
+        }
     }
 
     private void onUpdateMeshFailure() {
