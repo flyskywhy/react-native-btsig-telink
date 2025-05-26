@@ -2476,11 +2476,17 @@ class TelinkBtSig {
     // instantly connect to device, you should let your APP call
     // replaceMeshSetting then call autoConnect
     static replaceMeshSetting() {
-        NativeModule.replaceMeshSetting(this.netKey, this.appKey, this.devices.map(device => {
+        // NativeModule.replaceMeshSetting(this.netKey, this.appKey, this.devices.map(device => {
+        //     return { ...device,
+        //         dhmKey: this.hexString2ByteArray(device.dhmKey),
+        //         nodeInfo: this.hexString2ByteArray(device.nodeInfo),
+        //     };})
+        // );
+        NativeModule.replaceMeshSetting6(this.netKey, this.appKey, this.meshAddressOfApp, this.devices.map(device => {
             return { ...device,
                 dhmKey: this.hexString2ByteArray(device.dhmKey),
                 nodeInfo: this.hexString2ByteArray(device.nodeInfo),
-            };})
+            };}), this.provisionerSno, this.provisionerIvIndex
         );
     }
 

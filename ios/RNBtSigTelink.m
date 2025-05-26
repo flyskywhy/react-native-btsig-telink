@@ -234,17 +234,7 @@ RCT_EXPORT_MODULE()
     SigDataSource.share.version = @"1.0.0";
     SigDataSource.share.timestamp = timestamp;
 
-//    if (!isReplaceMeshSetting) {
-//        SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08lX",(long)provisionerIvIndex];
-//    }
-    // In telink sdk 3.1.0, the first use of SigDataSource.share above will call init()
-    // in SigDataSource.m and cause _ivIndex = @"11223344" , for share with android
-    // telink sdk which set ivIndex to 0 as default, we need above.
-    // In telink sdk 3.3.3.5, already init to kDefaultIvIndex which is 0, and telink
-    // demo also use below, so just use below now
-    SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08X",(unsigned int)kDefaultIvIndex];
-
-//    SigDataSource.share.defaultIvIndexA.index = 0;
+    SigDataSource.share.ivIndex = [NSString stringWithFormat:@"%08lX",(long)provisionerIvIndex];
 
     // set devices, ref to provisionSuccess() in SigProvisioningManager.m
     for (int i = 0; i < devices.count; i++) {
@@ -1502,8 +1492,22 @@ RCT_EXPORT_METHOD(replaceMeshSetting:(NSString *)netKey appKey:(NSString *)appKe
     // need clean commands has resultCallback to JS e.g. getTime()
     [SigMeshLib.share cleanAllCommandsAndRetry];
 
+    // TODO: maybe let not provisionerSno:129 provisionerIvIndex:0 but use current like Android
     [SDKLibCommand stopMeshConnectWithComplete:^(BOOL successflu) {
         [self initMesh:netKey appKey:appKey meshAddressOfApp:self->mMeshAddressOfApp devices:devices provisionerSno:129 provisionerIvIndex:0 isReplaceMeshSetting:true];
+        [SigDataSource.share.scanList removeAllObjects];
+    }];
+
+}
+
+RCT_EXPORT_METHOD(replaceMeshSetting6:(NSString *)netKey appKey:(NSString *)appKey meshAddressOfApp:(NSInteger)meshAddressOfApp devices:(NSArray *)devices provisionerSno:(NSInteger)provisionerSno provisionerIvIndex:(NSInteger)provisionerIvIndex) {
+    // to avoid this JS error when Debug(Release is OK):
+    // Invariant Violation: No callback found with cbID 7319 and callID 3659 for  TelinkBtSig.getTime - most likely the callback was already invoked. Args: '[{"code":"getTime","message":"getTime fail","domain":"Mesh is disconnected!"
+    // need clean commands has resultCallback to JS e.g. getTime()
+    [SigMeshLib.share cleanAllCommandsAndRetry];
+
+    [SDKLibCommand stopMeshConnectWithComplete:^(BOOL successflu) {
+        [self initMesh:netKey appKey:appKey meshAddressOfApp:meshAddressOfApp devices:devices provisionerSno:provisionerSno provisionerIvIndex:provisionerIvIndex isReplaceMeshSetting:true];
         [SigDataSource.share.scanList removeAllObjects];
     }];
 
