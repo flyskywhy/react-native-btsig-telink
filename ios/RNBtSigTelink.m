@@ -728,8 +728,11 @@ RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve rejecte
 RCT_EXPORT_METHOD(autoConnect) {
     NSLog(@"TelinkBtSig autoConnect");
     if ([SDKLibCommand isBLEInitFinish]) {
+        NSLog(@"TelinkBtSig SDKLibCommand isBLEInitFinish");
         [SigBearer.share startMeshConnectWithComplete:^(BOOL successful) {
+            NSLog(@"TelinkBtSig startMeshConnectWithComplete");
             if (successful) {
+                NSLog(@"TelinkBtSig startMeshConnectWithComplete successful");
                 [self meshDidConnected];
             }
         }];
@@ -747,16 +750,21 @@ RCT_EXPORT_METHOD(autoConnect) {
 
     SigNodeModel *node = [SigMeshLib.share.dataSource getNodeWithUUID:tem.identifier.UUIDString];
 
-    // getCurrentConnectedNode address mostly be 0, so use tem.identifier.UUIDString above
-//    SigNodeModel *node = SigMeshLib.share.dataSource.getCurrentConnectedNode;
-
     int address = [node address];
-    NSLog(@"TelinkBtSig getCurrentConnectedNode %d %@", address, node.macAddress);
+    NSLog(@"TelinkBtSig getNodeWithUUID %d %@", address, node.macAddress);
 
     // if use getCurrentConnectedNode, sometimes address is 0 in 1st call of bearerDidOpen,
     // then after 620ms will 2nd call to be not 0 but e.g. 1
     if (address == 0) {
-        return;
+        // getCurrentConnectedNode address mostly be 0, but to help getNodeWithUUID
+        node = SigMeshLib.share.dataSource.getCurrentConnectedNode;
+
+        address = [node address];
+        NSLog(@"TelinkBtSig getCurrentConnectedNode %d %@", address, node.macAddress);
+
+        if (address == 0) {
+            return;
+        }
     }
 
     NSLog(@"TelinkBtSig deviceStatusLogin address:%d", address);
@@ -771,11 +779,15 @@ RCT_EXPORT_METHOD(autoConnect) {
 }
 
 - (void)bearerDidOpen:(SigBearer *)bearer {
+    NSLog(@"TelinkBtSig bearerDidOpen");
     // only telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount() is called at least once
     // after bearerDidOpen, then discoverOutlineNodeCallback() above can work normally
     [SDKLibCommand telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount:0 successCallback:^(UInt16 source, UInt16 destination, SigGenericOnOffStatus * _Nonnull responseMessage) {
+        NSLog(@"TelinkBtSig telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount successCallback");
         [self meshDidConnected];
-    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {}];
+    } resultCallback:^(BOOL isResponseAll, NSError * _Nullable error) {
+        NSLog(@"TelinkBtSig telinkApiGetOnlineStatueFromUUIDWithResponseMaxCount error %@", error);
+    }];
 }
 
 - (void)bearer:(SigBearer *)bearer didCloseWithError:(NSError *)error {
