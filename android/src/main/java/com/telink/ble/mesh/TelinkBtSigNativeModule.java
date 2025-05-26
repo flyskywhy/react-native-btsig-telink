@@ -1885,6 +1885,19 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         mService.setupMeshNetwork(convertToConfiguration());
     }
 
+    @ReactMethod
+    public void replaceMeshSetting6(String netKey, String appKey, int meshAddressOfApp, ReadableArray devices, int provisionerSno, int provisionerIvIndex) {
+        mService.idle(true);
+        mNetKey = Strings.stringToBytes(netKey);
+        mAppKey = Strings.stringToBytes(appKey);
+        mMeshAddressOfApp = meshAddressOfApp;
+        sno = provisionerSno;
+        ivIndex = provisionerIvIndex;
+        setDevices(devices);
+
+        mService.setupMeshNetwork(convertToConfiguration());
+    }
+
     /**
      * save sequence number and iv index when mesh info updated
      */
