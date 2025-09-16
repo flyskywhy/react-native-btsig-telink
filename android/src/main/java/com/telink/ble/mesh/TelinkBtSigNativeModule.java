@@ -1804,6 +1804,8 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
     private void onLeScan(ScanEvent event) {
         AdvertisingDevice advDevice = event.getAdvertisingDevice();
         BluetoothDevice btDevice = advDevice.device;
+
+// debug with Telink device:
         // MeshLogger.w("name" + btDevice.getName());                       // null
         // MeshLogger.w("addr" + btDevice.getAddress());                    // AB:CD:4F:03:CA:80
         // MeshLogger.w("type" + btDevice.getType());                       // 0
@@ -1822,6 +1824,18 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 // after set cps_head in set_dev_uuid_for_simple_flow() of telink_sig_mesh/vendor/common/mesh_common.c
 // scanRecord: 02:01:06:03:03:27:18:15:16:27:18:11:02:78:FB:31:32:69:00:07:00:6C:C5:D6:38:C1:A4:00:00:1E:FF:6C:C5:D6:38:C1:A4:6C:45:00:00:00:00:00:00:00:00:00:00:78:FB:03:04:05:06:07:08:09:0A:0B:00:00
 
+// debug with ESP32 device:
+        // MeshLogger.w("name" + btDevice.getName());                       // BLE-LIGHT-A5672A
+        // MeshLogger.w("addr" + btDevice.getAddress());                    // CC:8D:A2:A5:67:2A
+        // MeshLogger.w("type" + btDevice.getType());                       // 2
+        // MeshLogger.w("uuid" + btDevice.getUuids());                      // null
+        // MeshLogger.w("desc" + btDevice.describeContents());              // 0
+        // MeshLogger.w("bond" + btDevice.getBondState());                  // 10
+        // MeshLogger.w("clas" + btDevice.getBluetoothClass().toString());  // 1f00
+        // MeshLogger.w("hash" + btDevice.hashCode());                      // -659112201
+// MeshLogger.d("scanRecord: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(advDevice.scanRecord, ":"));
+// scanRecord: 02:01:06:03:03:27:18:15:16:27:18:DD:DD:CC:8D:A2:A5:67:2A:00:00:00:00:00:00:00:00:00:00:11:09:42:4C:45:2D:4C:49:47:48:54:2D:41:35:36:37:32:41:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+
         WritableArray rsvUser = Arguments.createArray();
         for (int i = 49; i < 60; i++) {
             rsvUser.pushInt(advDevice.scanRecord[i] & 0xFF);
@@ -1834,7 +1848,9 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
         WritableMap params = Arguments.createMap();
         params.putString("macAddress", btDevice.getAddress());
-        // params.putString("deviceName", btDevice.getName());
+        if (btDevice.getName() != null) {
+            params.putString("deviceName", btDevice.getName());
+        }
         // params.putString("meshName", btDevice.describeContents());
         // params.putInt("meshAddress", deviceInfo.meshAddress);
         // params.putInt("meshUUID", btDevice.getUuids());

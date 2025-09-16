@@ -830,6 +830,8 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                 NSData *advDataServiceData = [(NSDictionary *)advertisementData[CBAdvertisementDataServiceDataKey] allValues].firstObject;
                 BOOL isEsp32 = false;
                 if (scanRspModel.macAddress == nil && scanRspModel.CID == 0xDDDD) { // advDataServiceData also start with DDDD
+                    // aboud DDDD ref to comments in onLeScan(ScanEvent event) of
+                    // react-native-btsig-telink/android/src/main/java/com/telink/ble/mesh/TelinkBtSigNativeModule.java
                     isEsp32 = true;
                 }
                 if (isEsp32) {
@@ -862,7 +864,9 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                     NSLog(@"TelinkBtSig ScanNewDevice macAddress = %@", macAddress);
 
                     NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
-//                     [event setObject:scanRspModel.advName forKey:@"deviceName"];
+                    if (scanRspModel.advName) {
+                        [event setObject:scanRspModel.advName forKey:@"deviceName"];
+                    }
 //                     [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.advertisementDataServiceData] forKey:@"meshName"];
 //                     [event setObject:[NSNumber numberWithInt:scanRspModel.address] forKey:@"meshAddress"];
                     [event setObject:macAddress forKey:@"macAddress"];
