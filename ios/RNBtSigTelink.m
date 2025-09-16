@@ -837,7 +837,7 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                 if (isEsp32) {
                     if (advDataServiceData.length >= 8) {
                         scanRspModel.macAddress = [LibTools convertDataToHexStr:[advDataServiceData subdataWithRange:NSMakeRange(2, 6)]];
-                        scanRspModel.PID=0;
+                        scanRspModel.PID=0; // TODO: like Android code using rsvUser[0] and [1], even they are 0 in ESP32 by default
                     }
                 }
 
@@ -897,7 +897,12 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                     char *buffer = (char *)versionData.bytes;
                     NSMutableArray *version = [[NSMutableArray alloc] init];
                     for (int i = 0; i < versionData.length; i++) {
-                        [version addObject:[NSNumber numberWithUnsignedChar:buffer[i]]];
+                        if (isEsp32) {
+                            //  TODO: set to 'V0.0' here, so you may use e.g. rsvUser[2] and [3] in JS code
+                            [version addObject:[NSNumber numberWithUnsignedChar:0x30]];
+                        } else {
+                            [version addObject:[NSNumber numberWithUnsignedChar:buffer[i]]];
+                        }
                     }
                     [event setObject:version forKey:@"version"];
 

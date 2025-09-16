@@ -1835,6 +1835,10 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
         // MeshLogger.w("hash" + btDevice.hashCode());                      // -659112201
 // MeshLogger.d("scanRecord: " + com.telink.ble.mesh.util.Arrays.bytesToHexString(advDevice.scanRecord, ":"));
 // scanRecord: 02:01:06:03:03:27:18:15:16:27:18:DD:DD:CC:8D:A2:A5:67:2A:00:00:00:00:00:00:00:00:00:00:11:09:42:4C:45:2D:4C:49:47:48:54:2D:41:35:36:37:32:41:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+        boolean isEsp32 = false;
+        if ((advDevice.scanRecord[11] & 0xFF) == 0xDD && (advDevice.scanRecord[12] & 0xFF) == 0xDD) {
+            isEsp32 = true;
+        }
 
         WritableArray rsvUser = Arguments.createArray();
         for (int i = 49; i < 60; i++) {
@@ -1843,7 +1847,12 @@ public class TelinkBtSigNativeModule extends ReactContextBaseJavaModule implemen
 
         WritableArray version = Arguments.createArray();
         for (int i = 15; i < 17; i++) {
-            version.pushInt(advDevice.scanRecord[i] & 0xFF);
+            if (isEsp32) {
+                //  TODO: set to 'V0.0' here, so you may use e.g. rsvUser[2] and [3] in JS code
+                version.pushInt(0x30);
+            } else {
+                version.pushInt(advDevice.scanRecord[i] & 0xFF);
+            }
         }
 
         WritableMap params = Arguments.createMap();
