@@ -893,6 +893,14 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
 
                     [event setObject:RSSI forKey:@"rssi"];
 
+                    NSData * versionData = [advDataServiceData subdataWithRange:NSMakeRange(4, 2)];
+                    char *buffer = (char *)versionData.bytes;
+                    NSMutableArray *version = [[NSMutableArray alloc] init];
+                    for (int i = 0; i < versionData.length; i++) {
+                        [version addObject:[NSNumber numberWithUnsignedChar:buffer[i]]];
+                    }
+                    [event setObject:version forKey:@"version"];
+
                     [weakSelf sendEventWithName:@"leScan" body:event];
                 }
             }
