@@ -711,8 +711,13 @@ RCT_EXPORT_METHOD(resetExtendBearerMode:(NSInteger)extendBearerMode) {
 }
 
 RCT_EXPORT_METHOD(notModeAutoConnectMesh:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    resolve(@YES);
-    NSLog(@"TelinkBtSig notModeAutoConnectMesh");
+    if ([SigBearer.share isAutoReconnect] == NO) {
+        resolve(@YES);
+        NSLog(@"TelinkBtSig notModeAutoConnectMesh resolve");
+    } else {
+        reject(@"notModeAutoConnectMesh", @"SigBearer.isAutoReconnect is YES", nil);
+        NSLog(@"TelinkBtSig notModeAutoConnectMesh reject");
+    }
 }
 
 RCT_EXPORT_METHOD(autoConnect) {
