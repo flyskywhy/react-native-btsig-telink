@@ -513,6 +513,14 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
     onGetModelSubscription = ^(UInt16 source, UInt16 destination, SigConfigModelSubscriptionStatus * _Nonnull responseMessage) {
         // TODO: weakSelf will cause `Thread 1: EXC_BAD_ACCESS (code=1, addreess=)`
         // crash, maybe should consider move these logic into index.native.js
+
+        // if no NSLock here, iOS 15 work well, but iOS 18 will crash, because
+        // on iOS 18, with 1 device operation success will cause 4 onGetModelSubscription
+        // call thus cause self->mSetNodeGroupAddrResolve(params) crash for
+        // self->mSetNodeGroupAddrResolve is nil
+        NSLock *lock = [[NSLock alloc] init];
+        [lock lock];
+
         if (self->mSetNodeGroupAddrResolve != nil) {
             if (responseMessage.status == SigConfigMessageStatus_success) {
                 NSLog(@"group address: %d", responseMessage.address);
@@ -526,6 +534,8 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
                 NSLog(@"set group sub error");
             }
         }
+
+        [lock unlock];
     };
 
     SigDataSource.share.delegate = self;
