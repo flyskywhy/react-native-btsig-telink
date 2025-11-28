@@ -515,7 +515,7 @@ RCT_EXPORT_METHOD(doInit:(NSString *)netKey appKey:(NSString *)appKey meshAddres
         // crash, maybe should consider move these logic into index.native.js
         if (self->mSetNodeGroupAddrResolve != nil) {
             if (responseMessage.status == SigConfigMessageStatus_success) {
-                NSLog(@"group address: %d", responseMessage.address);
+                NSLog(@"%x sub group address: %x", source, responseMessage.address);
                 self->mSetNodeGroupAddrEleIdsIndex++;
                 [self setNextModelGroupAddr];
             } else {
@@ -614,7 +614,10 @@ RCT_EXPORT_METHOD(setLogLevel:(NSUInteger)level)
                 TeLogDebug("kickout in sendCommand");
                 break;
             case 0x801F:
-                onGetModelSubscription(source, destination, (SigConfigModelSubscriptionStatus *)message);
+// setNextModelGroupAddr() use successCallback:onGetModelSubscription is enough, if use 0x801F here,
+// in some case 0x801F is triggered here, will cause self->mSetNodeGroupAddrResolve(params) crash for
+// self->mSetNodeGroupAddrResolve is nil
+//                onGetModelSubscription(source, destination, (SigConfigModelSubscriptionStatus *)message);
                 break;
             case 0x5D:
 //                onGetTimeNotify(source, destination, (SigTimeStatus *)message);
@@ -1673,6 +1676,7 @@ RCT_EXPORT_METHOD(setNodeGroupAddr:(BOOL)toDel meshAddress:(NSInteger)meshAddres
         NSDictionary *eleId = [self->mSetNodeGroupAddrEleIds objectAtIndex:self->mSetNodeGroupAddrEleIdsIndex];
         UInt16 elementAddr = [[eleId objectForKey:@"elementAddr"] intValue];
         UInt32 option = [[eleId objectForKey:@"modelId"] intValue];
+        NSLog(@"elementAddr:%x option: %x", elementAddr, option);
         BOOL isSig = [[eleId objectForKey:@"isSig"] boolValue];
         UInt16 modelIdentifier = 0;
         UInt16 companyIdentifier = 0;
