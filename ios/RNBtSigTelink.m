@@ -799,14 +799,14 @@ RCT_EXPORT_METHOD(autoConnect) {
 RCT_EXPORT_METHOD(idleMode:(BOOL)disconnect) {
     NSLog(@"TelinkBtSig idleMode");
     // If your JS APP call it frequently, then must comment bellow, otherwise can't claim in configNode()
-    // if (disconnect) {
-        // to avoid this JS error when Debug(Release is OK):
+    if (disconnect) {
+        // can comment cleanAllCommandsAndRetry to avoid this JS error when Debug(Release is OK):
         // Invariant Violation: No callback found with cbID 7319 and callID 3659 for  TelinkBtSig.getTime - most likely the callback was already invoked. Args: '[{"code":"getTime","message":"getTime fail","domain":"Mesh is disconnected!"
         // need clean commands has resultCallback to JS e.g. getTime()
-    //    [SigMeshLib.share cleanAllCommandsAndRetry];
+       [SigMeshLib.share cleanAllCommandsAndRetry];
 
-    //    [SigBearer.share stopMeshConnectWithComplete:nil];
-    // }
+       [SigBearer.share stopMeshConnectWithComplete:nil];
+    }
 }
 
 RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingleNode) {

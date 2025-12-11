@@ -130,6 +130,8 @@ export default class MeshModuleExample extends React.Component {
 
 Please discover more in `index.native.js`.
 
+If ios, maybe you need disable `meshModule.idleMode()` by yourself, ref to comment in `RCT_EXPORT_METHOD(idleMode:(BOOL)disconnect)` of `ios/RNBtSigTelink.m`.
+
 ## fastBind
 If you want fastBind, you can copy `PrivateDevice.js` to create your own and modify, then put `PrivateDevice.filterWithPid(PID).cpsData` into `configNode({cpsData})`, here `PID` comes from `productUUID` with `startScan()`.
 
