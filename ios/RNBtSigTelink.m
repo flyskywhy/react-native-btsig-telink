@@ -874,6 +874,8 @@ RCT_EXPORT_METHOD(startScan:(NSInteger)timeoutSeconds isSingleNode:(BOOL)isSingl
                     NSMutableDictionary *event = [[NSMutableDictionary alloc] init];
                     if (scanRspModel.advName) {
                         [event setObject:scanRspModel.advName forKey:@"deviceName"];
+                    } else if (peripheral.name) {
+                        [event setObject:peripheral.name forKey:@"deviceName"];
                     }
 //                     [event setObject:[NSString stringWithFormat:@"%@", scanRspModel.advertisementDataServiceData] forKey:@"meshName"];
 //                     [event setObject:[NSNumber numberWithInt:scanRspModel.address] forKey:@"meshAddress"];
